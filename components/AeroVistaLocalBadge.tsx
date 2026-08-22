@@ -2,7 +2,7 @@
 
 import { trackEvent } from "@/lib/analytics";
 
-const AEROVISTA_URL = "https://aerovista.us/?utm_source=lot_assessment&utm_medium=referral&utm_campaign=local_tools&utm_content=brand_badge";
+const AEROVISTA_URL = "https://aerovista.us/?utm_source=lotscope&utm_medium=referral&utm_campaign=local_tools&utm_content=brand_badge";
 
 export default function AeroVistaLocalBadge() {
   return (
