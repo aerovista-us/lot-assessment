@@ -1,15 +1,22 @@
-# Lot Assessment — Build Status
+# LotScope — Build Status
 
 Updated: 2026-08-22
 
 ## Status
 
-**ACTIVE BUILD · MVP SLICE 1 IN SOURCE**
+**ACTIVE BUILD · MVP SLICE 1 DEPLOYED · SLICE 2 NEXT**
+
+## Live surfaces
+
+- Primary: `https://lotscope.aerovista.us`
+- Vercel fallback: `https://lotscope.vercel.app`
+- GitHub: `aerovista-us/lot-assessment`
 
 ## Working now
 
 - Next.js 16 / React 19 / TypeScript foundation
 - AeroVista Local branding and separate Umami-ready analytics foundation
+- LotScope branding with the user-facing promise **Can I Build That Here?**
 - Manual lot/project input workflow
 - Deterministic assessment engine
 - Rectangular buildable-envelope calculation
@@ -23,13 +30,14 @@ Updated: 2026-08-22
 - Explicit authority/safety boundary
 - 1200×630 OpenGraph image
 - Production-domain environment contract
+- Custom AeroVista domain live
 - Future Pondy-derived capability layer documented
 
 ## Important current limitation
 
 The app does **not** automatically know zoning or parcel facts yet. The user supplies setbacks, coverage and access assumptions. This is deliberate: v1 would rather ask for a fact than fabricate a code answer.
 
-## Next slice
+## Slice 2
 
 **Parcel + jurisdiction foundation**
 
@@ -39,18 +47,18 @@ The app does **not** automatically know zoning or parcel facts yet. The user sup
 4. Require source URL + verified/effective date on every automatic rule.
 5. Preserve manual override mode for unusual cases and source conflicts.
 6. Add rectangular site-plan visualization with front/street orientation.
+7. Establish the first supported jurisdiction and source adapter.
 
 ## Pondy follow-on
 
 Do not prematurely hard-code the unresolved project. Once Pondy has a defensible final solution, convert its lessons into generic geometry tests and fixtures. See `PONDY_CAPABILITY_ROADMAP.md`.
 
-## Launch blockers
+## Remaining launch/polish items
 
-- Type/build verification in deployment environment
+- Confirm `NEXT_PUBLIC_SITE_URL=https://lotscope.aerovista.us` in Vercel production env
 - Dedicated Umami website ID
-- Vercel project + custom domain
 - Mobile QA
-- Meta Sharing Debugger
+- Meta Sharing Debugger / Facebook preview validation
 - Decide first supported jurisdiction(s) for automatic rule lookup
 
 ## Product rule
