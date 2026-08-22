@@ -77,26 +77,26 @@ export default function Home() {
   };
 
   const share = async () => {
-    const text = `Lot Assessment: ${result.status}. Estimated footprint ${fmt(result.estimatedProjectFootprintSqFt)} sq ft against about ${fmt(result.footprintCapacitySqFt)} sq ft of calculated capacity. Early feasibility only.`;
+    const text = `LotScope: ${result.status}. Estimated footprint ${fmt(result.estimatedProjectFootprintSqFt)} sq ft against about ${fmt(result.footprintCapacitySqFt)} sq ft of calculated capacity. Early feasibility only.`;
     trackEvent("share_assessment", { status: result.status });
     if (navigator.share) {
       try {
-        await navigator.share({ title: "Lot Assessment", text, url: window.location.origin });
+        await navigator.share({ title: "LotScope", text, url: window.location.origin });
         return;
       } catch {
         return;
       }
     }
     await navigator.clipboard.writeText(`${text} ${window.location.origin}`);
-    alert("Assessment summary copied.");
+    alert("LotScope summary copied.");
   };
 
   return (
     <main className="shell">
       <header className="topbar">
         <div className="brand-lockup">
-          <div className="brand-mark">LA</div>
-          <div><strong>Lot Assessment</strong><span>Can I build that here?</span></div>
+          <div className="brand-mark">LS</div>
+          <div><strong>LotScope</strong><span>Can I build that here?</span></div>
         </div>
         <button className="ghost-button" onClick={reset}>Reset example</button>
       </header>
@@ -104,7 +104,7 @@ export default function Home() {
       <section className="hero">
         <p className="eyebrow">AEROVISTA LOCAL · EARLY SITE FEASIBILITY</p>
         <h1>Find the constraints before they become redesigns.</h1>
-        <p className="lede">Enter the lot facts you know. Lot Assessment turns setbacks, coverage, project size, garages and access into a fast feasibility screen with plain-English concerns and next checks.</p>
+        <p className="lede">Enter the lot facts you know. LotScope turns setbacks, coverage, project size, garages and access into a fast feasibility screen with plain-English concerns and next checks.</p>
         <div className="notice"><strong>Planning aid, not permit approval.</strong> v1 uses the facts you enter and does not claim to know the governing zoning code automatically.</div>
       </section>
 
@@ -217,7 +217,7 @@ export default function Home() {
         <p>When automatic jurisdiction data is added, every rule that affects the result should carry its source, effective/verified date and confidence. If the source is unavailable or ambiguous, the app should say <strong>Needs Verification</strong> instead of guessing.</p>
       </section>
 
-      <footer>Lot Assessment · “Can I Build That Here?” · An AeroVista Local utility</footer>
+      <footer>LotScope · “Can I Build That Here?” · An AeroVista Local utility</footer>
     </main>
   );
 }
