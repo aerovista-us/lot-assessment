@@ -1,0 +1,104 @@
+name: Pondy solver benchmark
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/**'
+      - 'projects/pondy-lot2/**'
+      - 'app/api/workbench/pondy/**'
+      - 'app/api/workbench/pondy-ranked/**'
+      - '.github/workflows/pondy-benchmark.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Start local LotScope
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm start > /tmp/lotscope.log 2>&1 &
+          echo $! > /tmp/lotscope.pid
+          for i in {1..40}; do
+            if curl -fsS http://127.0.0.1:3000/ >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/lotscope.log
+          exit 1
+
+      - name: Run physical benchmark
+        run: curl --fail --show-error --silent http://127.0.0.1:3000/api/workbench/pondy > pondy-physical.json
+
+      - name: Run ranked physical + program benchmark
+        run: curl --fail --show-error --silent http://127.0.0.1:3000/api/workbench/pondy-ranked > pondy-ranked.json
+
+      - name: Print compact result
+        shell: bash
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          for (const file of ['pondy-physical.json','pondy-ranked.json']) {
+            const data = JSON.parse(fs.readFileSync(file, 'utf8'));
+            console.log(`\n${file}`);
+            console.log(JSON.stringify({
+              solver: data.solver,
+              elapsedMs: data.elapsedMs,
+              count: data.count,
+              passCount: data.passCount,
+              combinedPassCount: data.combinedPassCount,
+              families: data.families,
+              top: (data.results || data.shortlist || []).slice(0, 5).map(x => ({
+                id: x.id,
+                family: x.family,
+                pass: x.pass,
+                physicalPass: x.physicalPass,
+                programPass: x.programPass,
+                combinedPass: x.combinedPass,
+                objective: x.objective,
+                minimumClearanceFt: x.minimumClearanceFt,
+                issues: x.issues
+              }))
+            }, null, 2));
+          }
+          NODE
+
+      - name: Upload benchmark artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: pondy-benchmark-${{ github.sha }}
+          path: |
+            pondy-physical.json
+            pondy-ranked.json
+          retention-days: 14
+
+      - name: Stop local server
+        if: always()
+        shell: bash
+        run: |
+          if [ -f /tmp/lotscope.pid ]; then kill "$(cat /tmp/lotscope.pid)" || true; fi
