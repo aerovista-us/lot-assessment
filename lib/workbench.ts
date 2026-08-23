@@ -65,8 +65,8 @@ export type Candidate = {
   id: string;
   family: string;
   summary: string;
-  status: "FEASIBLE" | "NEAR_PASS" | "REJECTED";
-  scores: {
+  status: "UNSOLVED" | "FEASIBLE" | "NEAR_PASS" | "REJECTED";
+  scores?: {
     circulation: number;
     architecture: number;
     yard: number;
@@ -115,20 +115,24 @@ export function pipelineFor(spec: ProjectSpec): PipelineStage[] {
   const hasSingleAccess = spec.parcel.accessSides.length === 1;
   return [
     { id: "compile", label: "1 · Compile", purpose: "Normalize parcel, sources, constraints and program into one ProjectSpec.", status: "PASS", output: `${spec.parcel.polygon.length}-vertex parcel · ${spec.constraints.length} constraints` },
-    { id: "generate", label: "2 · Generate", purpose: "Create diverse topology families before assigning exact coordinates.", status: "READY", output: "Target: 100–500 coarse arrangements" },
-    { id: "solve", label: "3 · Solve", purpose: "Place buildings, garages and drive controls inside the legal envelope.", status: "READY", output: "Coarse 1′ search → 0.5′ → 0.25′ refinement" },
-    { id: "circulation", label: "4 · Circulation", purpose: "Run vehicle swept path, turning, staging, clearance and independent-access gates.", status: hasSingleAccess ? "READY" : "REVIEW", output: `Entry locked to ${spec.parcel.accessSides.join(", ")}` },
+    { id: "generate", label: "2 · Generate", purpose: "Create diverse topology families before assigning exact coordinates.", status: "READY", output: "Family definitions are next; cards at right are unsolved topology seeds." },
+    { id: "solve", label: "3 · Solve", purpose: "Place buildings, garages and drive controls inside the legal envelope.", status: "READY", output: "Placement + optimizer packages online · 1′ → 0.5′ → 0.25′ refinement" },
+    { id: "circulation", label: "4 · Circulation", purpose: "Run vehicle swept path, turning, staging, clearance and independent-access gates.", status: hasSingleAccess ? "READY" : "REVIEW", output: `Swept-path engine online · entry locked to ${spec.parcel.accessSides.join(", ")}` },
     { id: "program", label: "5 · Program", purpose: "Reject site fits that cannot become two credible homes inside the required area range.", status: "READY", output: `${spec.program.targetLivingSqFt[0]}–${spec.program.targetLivingSqFt[1]} SF each · Δ≤${spec.program.maxUnitDifferenceSqFt}` },
-    { id: "rank", label: "6 · Rank", purpose: "Keep diverse Pareto survivors instead of forcing one opaque winner.", status: "READY", output: "Return 10–20 viable/near-pass options" },
-    { id: "develop", label: "7 · Develop", purpose: "Agent + human bounded repair of selected candidates.", status: "READY", output: "No topology reopen without named defect" },
+    { id: "rank", label: "6 · Rank", purpose: "Keep diverse Pareto survivors instead of forcing one opaque winner.", status: "READY", output: "Physical objective exists; architectural/program score layer still to wire." },
+    { id: "develop", label: "7 · Develop", purpose: "Agent + human bounded repair of selected candidates.", status: "READY", output: "Bounded drive/placement repair engine online" },
     { id: "freeze", label: "8 · Freeze", purpose: "Hash canonical geometry and make downstream drawings representation-only.", status: "READY", output: "Geometry hash + ProjectSpec hash + solver version" },
     { id: "deliver", label: "9 · Deliver", purpose: "Generate site, plans, elevations, sections, renders and consistency gates from one model.", status: "READY", output: "One model → all sheets" }
   ];
 }
 
+/**
+ * Topology prompts only. These are deliberately UNSOLVED until a family definition
+ * is connected to packages/optimizer and its resulting geometry passes the gates.
+ */
 export const seedCandidates: Candidate[] = [
-  { id: "WB-001", family: "Staggered / shared spine", summary: "Two offset homes with Penn-only shared drive and independently tested garage approaches.", status: "FEASIBLE", scores: { circulation: 91, architecture: 82, yard: 75, simplicity: 88, overall: 85 } },
-  { id: "WB-002", family: "Front / rear split", summary: "One street-proximate home and one rear home with a widened local maneuvering court.", status: "NEAR_PASS", adjustment: "Shift local drive flare 1.0–1.5′ before moving buildings.", scores: { circulation: 76, architecture: 91, yard: 83, simplicity: 73, overall: 82 } },
-  { id: "WB-003", family: "Attached duplex / offset garages", summary: "Shared demising strategy with garage doors separated to reduce path dependence.", status: "FEASIBLE", scores: { circulation: 87, architecture: 79, yard: 88, simplicity: 94, overall: 87 } },
-  { id: "WB-004", family: "Courtyard / mid-lot garages", summary: "Central parking court with Penn spine; kept only if home plates remain credible after circulation.", status: "NEAR_PASS", adjustment: "Rotate garage-door face and retest 0.5′ increments.", scores: { circulation: 71, architecture: 90, yard: 70, simplicity: 68, overall: 77 } }
+  { id: "SEED-001", family: "Staggered / shared spine", summary: "Generate offset homes with Penn-only shared drive and independently solved garage approaches.", status: "UNSOLVED" },
+  { id: "SEED-002", family: "Front / rear split", summary: "Generate one street-proximate and one rear home; allow local maneuvering-court variables before building movement.", status: "UNSOLVED" },
+  { id: "SEED-003", family: "Attached duplex / offset garages", summary: "Generate a shared-demising family with independently variable garage positions and door approaches.", status: "UNSOLVED" },
+  { id: "SEED-004", family: "Courtyard / mid-lot garages", summary: "Generate central parking-court variants and keep only those that preserve credible home plates.", status: "UNSOLVED" }
 ];
