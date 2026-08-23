@@ -92,6 +92,31 @@ jobs:
           }
           NODE
 
+      - name: Publish Actions summary
+        shell: bash
+        run: |
+          node - <<'NODE' >> "$GITHUB_STEP_SUMMARY"
+          const fs = require('fs');
+          const physical = JSON.parse(fs.readFileSync('pondy-physical.json','utf8'));
+          const ranked = JSON.parse(fs.readFileSync('pondy-ranked.json','utf8'));
+          const shortlist = ranked.shortlist || [];
+          console.log('# Pondy solver benchmark');
+          console.log(`- Physical retained: **${physical.count ?? physical.results?.length ?? 0}**`);
+          console.log(`- Physical passes: **${physical.passCount ?? 0}**`);
+          console.log(`- Combined physical + program passes: **${ranked.combinedPassCount ?? 0}**`);
+          console.log(`- Diverse promoted shortlist: **${shortlist.length}**`);
+          console.log('');
+          console.log('| Candidate | Family | Physical | Program | Clearance | Score |');
+          console.log('|---|---|---:|---:|---:|---:|');
+          for (const x of shortlist.slice(0,5)) {
+            console.log(`| ${x.id} | ${x.family} | ${x.physicalPass ? 'PASS' : 'FAIL'} | ${x.programPass ? 'PASS' : 'FAIL'} | ${x.minimumClearanceFt == null ? 'n/a' : x.minimumClearanceFt.toFixed(2) + ' ft'} | ${Number(x.combinedScore ?? 0).toFixed(1)} |`);
+          }
+          if (!shortlist.length) {
+            console.log('');
+            console.log('No promoted shortlist yet. Inspect `pondy-ranked.json` for dominant failures; do not relax hard rules.');
+          }
+          NODE
+
       - name: Upload benchmark artifacts
         uses: actions/upload-artifact@v4
         with:
