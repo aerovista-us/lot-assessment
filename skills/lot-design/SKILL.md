@@ -23,6 +23,8 @@ These are now real code, not aspirational commands:
 - `packages/pondy-engine-reference/` — copied Pondy geometry/circulation/search references with provenance and checksums.
 - `packages/geometry/` — reusable polygon area, containment, boundary distance, segment-specific polygon inset, rectangle, convex SAT intersection, translate/rotate helpers.
 - `packages/circulation/` — reusable vehicle model, rear-axle body polygon, radius filleting, swept-path sampling, parcel containment, collision detection and clearance reporting.
+- `packages/placement/` — reusable structure/garage placement model, hard-gate evaluation, path-to-garage obstacle evaluation, grid placement search, and deterministic bounded local repair.
+- `packages/optimizer/` — parameterized family search, coarse variable enumeration, physical objective ranking, diverse per-family solving, and 1′ → 0.5′ → 0.25′ local refinement.
 
 Do not bypass these functions with prose estimates when their inputs are available.
 
@@ -31,16 +33,17 @@ Do not bypass these functions with prose estimates when their inputs are availab
 1. Load and validate ProjectSpec.
 2. Compile parcel polygon, frontage, setbacks, exclusions and program constraints.
 3. Generate multiple topology families before exact placement.
-4. Solve coordinates within hard constraints.
+4. Solve coordinates within hard constraints using parameterized family search.
 5. Run circulation on every candidate: inbound/outbound, swept body, turn radius, staging, clearance and independence.
 6. Run bounded repair on near-passes before rejecting a topology. Prefer driveway/path changes before architecture when allowed.
-7. Run program feasibility early. Reject candidates that leave implausible home plates or cannot meet required living-area/room constraints.
-8. Rank diverse survivors with transparent scores. Do not return one opaque winner.
-9. Present the strongest materially different options and their tradeoffs.
-10. Refine only selected candidates, with bounded changes.
-11. Freeze canonical geometry once all named gates pass.
-12. Generate site, plans, elevations, sections and render views from the same canonical model.
-13. Run cross-document consistency gates before calling a design complete.
+7. Refine promising coarse states at 0.5′ and 0.25′ before promotion.
+8. Run program feasibility early. Reject candidates that leave implausible home plates or cannot meet required living-area/room constraints.
+9. Rank diverse survivors with transparent scores. Do not return one opaque winner.
+10. Present the strongest materially different options and their tradeoffs.
+11. Refine only selected candidates, with bounded changes.
+12. Freeze canonical geometry once all named gates pass.
+13. Generate site, plans, elevations, sections and render views from the same canonical model.
+14. Run cross-document consistency gates before calling a design complete.
 
 ## Movement priority for access conflicts
 
@@ -55,6 +58,8 @@ When a candidate is close to passing circulation and movement is permitted, test
 7. topology change only after bounded repair fails
 
 Never move a LOCKED element. Never change an acceptance rule to match a candidate.
+
+The bounded repair engine must honor each placement/control-point movement limit. A repair that requires leaving the declared movement range is not a repair; it is a topology/program change.
 
 ## Candidate states
 
@@ -76,6 +81,8 @@ For every rejection, distinguish:
 - missing authoritative fact.
 
 A small collision against a movable driveway/building element is not an automatic topology death. Run the allowed repair search first.
+
+When building a topology family, define its meaningful variables and ranges, then let `packages/optimizer` enumerate/refine them. Do not hand-select one coordinate set and call that a search.
 
 ## Intended command contract
 
