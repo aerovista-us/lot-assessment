@@ -1,6 +1,6 @@
 # Pondy engine reference copy
 
-This directory is a **copy-only extraction** of deterministic geometry/circulation work from  for reuse work inside LotScope.
+This directory is a **copy-only extraction** of deterministic geometry/circulation work from `aerovista-us/PondyFlats` for reuse work inside LotScope.
 
 - Source repository: https://github.com/aerovista-us/PondyFlats
 - Source commit: `2437ba60c920c8c1604aed0328f33efe8b0b5bc4`
