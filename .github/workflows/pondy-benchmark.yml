@@ -9,6 +9,7 @@ on:
       - 'projects/pondy-lot2/**'
       - 'app/api/workbench/pondy/**'
       - 'app/api/workbench/pondy-ranked/**'
+      - 'app/api/workbench/pondy-report/**'
       - '.github/workflows/pondy-benchmark.yml'
 
 permissions:
@@ -58,6 +59,9 @@ jobs:
       - name: Run ranked physical + program benchmark
         run: curl --fail --show-error --silent http://127.0.0.1:3000/api/workbench/pondy-ranked > pondy-ranked.json
 
+      - name: Generate visual comparison report
+        run: curl --fail --show-error --silent http://127.0.0.1:3000/api/workbench/pondy-report > pondy-report.html
+
       - name: Print compact result
         shell: bash
         run: |
@@ -73,16 +77,16 @@ jobs:
               passCount: data.passCount,
               combinedPassCount: data.combinedPassCount,
               families: data.families,
-              top: (data.results || data.shortlist || []).slice(0, 5).map(x => ({
+              top: (data.shortlist || data.results || []).slice(0, 5).map(x => ({
                 id: x.id,
                 family: x.family,
                 pass: x.pass,
                 physicalPass: x.physicalPass,
                 programPass: x.programPass,
                 combinedPass: x.combinedPass,
-                objective: x.objective,
+                combinedScore: x.combinedScore,
                 minimumClearanceFt: x.minimumClearanceFt,
-                issues: x.issues
+                issues: x.issues || x.physicalIssues
               }))
             }, null, 2));
           }
@@ -95,6 +99,7 @@ jobs:
           path: |
             pondy-physical.json
             pondy-ranked.json
+            pondy-report.html
           retention-days: 14
 
       - name: Stop local server
