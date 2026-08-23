@@ -79,15 +79,15 @@ export default function WorkbenchPage() {
         </section>
 
         <aside className="wb-panel">
-          <p className="eyebrow">CANDIDATE QUEUE</p>
-          <h2>Diverse survivors</h2>
+          <p className="eyebrow">TOPOLOGY SEEDS</p>
+          <h2>Not solver results yet</h2>
           <div className="candidate-list">
             {seedCandidates.map((candidate) => (
               <button key={candidate.id} onClick={() => setSelected(candidate.id)} className={`candidate-card ${candidate.id === selected ? "selected" : ""}`}>
                 <div><strong>{candidate.id}</strong><span>{candidate.status}</span></div>
                 <h3>{candidate.family}</h3>
                 <p>{candidate.summary}</p>
-                <small>Overall {candidate.scores.overall}</small>
+                <small>Requires family definition + deterministic solve</small>
               </button>
             ))}
           </div>
@@ -96,14 +96,18 @@ export default function WorkbenchPage() {
 
       <section className="wb-panel wb-detail">
         <div className="section-heading">
-          <div><p className="eyebrow">SELECTED CANDIDATE</p><h2>{active.id} · {active.family}</h2></div>
+          <div><p className="eyebrow">SELECTED TOPOLOGY SEED</p><h2>{active.id} · {active.family}</h2></div>
           <span className="mode-pill">{active.status}</span>
         </div>
         <p className="lede wb-copy">{active.summary}</p>
         {active.adjustment && <div className="notice"><strong>Bounded repair:</strong> {active.adjustment}</div>}
-        <div className="score-grid">
-          {Object.entries(active.scores).map(([name, value]) => <div key={name}><span>{name}</span><strong>{value}</strong></div>)}
-        </div>
+        {active.scores ? (
+          <div className="score-grid">
+            {Object.entries(active.scores).map(([name, value]) => <div key={name}><span>{name}</span><strong>{value}</strong></div>)}
+          </div>
+        ) : (
+          <div className="notice"><strong>No score yet.</strong> The new placement/optimizer engine must generate coordinates, run circulation, and return a physical result before this seed can receive a score.</div>
+        )}
       </section>
 
       <section className="wb-panel">
