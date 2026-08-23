@@ -4,9 +4,25 @@
 
 Lot Assessment turns known site/project facts into a fast, explainable screen for likely dimensional conflicts before deeper design or permitting work begins.
 
+## Two surfaces, one engine
+
+This repository now has two intentional product surfaces on the same `main` codebase:
+
+- `/` — **LotScope public UI**: simple, customer-facing early feasibility.
+- `/workbench` — **LotScope Workbench**: internal/agent design surface for ProjectSpec, constraint ownership, candidate generation, solver gates, ranking, bounded repair, freeze and delivery.
+
+Do not maintain these as long-lived Git branches. They should share the same deterministic engine so customer-facing assessment and expert design tooling cannot drift apart.
+
+The Workbench seed includes:
+- `lib/workbench.ts` — ProjectSpec/pipeline/candidate model
+- `projects/pondy-lot2/project.json` — first regression fixture
+- `skills/lot-design/SKILL.md` — agent orchestration contract
+
+The current Workbench candidate cards are explicitly seed/demo data. They are not solver-proven designs yet. The next engineering milestone is extracting the real Pondy polygon/circulation math into reusable packages and replacing seed candidates with generated results.
+
 ## Current MVP
 
-The first slice is intentionally **manual-facts mode**. It does not guess zoning rules.
+The public first slice is intentionally **manual-facts mode**. It does not guess zoning rules.
 
 Inputs:
 - lot width/depth
@@ -42,12 +58,14 @@ Planned layers:
 5. driveway, garage-door and vehicle-turning analysis
 6. multiple-building placement studies
 7. visual site-fit comparisons and explainable alternatives
+8. topology generation, bounded repair and diverse candidate ranking in Workbench
+9. canonical-model-derived plans/elevations/sections/deliverables
 
 ## Pondy learning loop
 
-The Pondy project is intentionally treated as a future capability-development case rather than hard-coded product logic.
+The Pondy project is intentionally treated as a capability-development case rather than hard-coded product logic.
 
-Once that site is resolved, capture reusable findings such as:
+Capture reusable findings such as:
 - irregular-lot representation
 - frontage and access constraints
 - small driveway adjustments that unlock circulation
@@ -77,6 +95,9 @@ npm install
 npm run dev
 ```
 
+Public UI: `http://localhost:3000/`  
+Workbench: `http://localhost:3000/workbench`
+
 Type check:
 
 ```bash
@@ -93,9 +114,9 @@ npm run build
 
 Copy `.env.example` and configure a dedicated Umami website ID before production launch.
 
-Proposed public hostname:
+Current public hostname:
 
-`canibuild.aerovista.us`
+`lotscope.aerovista.us`
 
 ## Safety / authority boundary
 
