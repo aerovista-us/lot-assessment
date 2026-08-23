@@ -1,0 +1,99 @@
+name: Import Pondy engine reference
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/import-pondy-engine.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout LotScope
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Clone PondyFlats source
+        run: git clone --depth 1 https://github.com/aerovista-us/PondyFlats.git /tmp/PondyFlats
+
+      - name: Copy deterministic engine references
+        shell: bash
+        run: |
+          set -euo pipefail
+          DEST="packages/pondy-engine-reference"
+          mkdir -p "$DEST/js" "$DEST/scripts"
+
+          for f in \
+            lot2-sot.js \
+            lot2-geometry.js \
+            lot2-access.js \
+            lot2-access-skeleton.js \
+            lot2-daily-use.js \
+            lot2-parking-reset.js
+          do
+            cp "/tmp/PondyFlats/js/$f" "$DEST/js/$f"
+          done
+
+          for f in \
+            g1a-search.js \
+            access-abc-search.js
+          do
+            cp "/tmp/PondyFlats/scripts/$f" "$DEST/scripts/$f"
+          done
+
+          SOURCE_SHA="$(git -C /tmp/PondyFlats rev-parse HEAD)"
+          SOURCE_DATE="$(git -C /tmp/PondyFlats show -s --format=%cI HEAD)"
+
+          cat > "$DEST/README.md" <<EOF
+          # Pondy engine reference copy
+
+          This directory is a **copy-only extraction** of deterministic geometry/circulation work from `aerovista-us/PondyFlats` for reuse work inside LotScope.
+
+          - Source repository: https://github.com/aerovista-us/PondyFlats
+          - Source commit: \`$SOURCE_SHA\`
+          - Source commit date: \`$SOURCE_DATE\`
+          - Import rule: **never move, rename, edit, or delete the source files in PondyFlats as part of this import.**
+          - These files are preserved here as reference inputs while generic LotScope packages are built around/alongside them.
+
+          ## Copied source files
+
+          ### js
+          - \`lot2-sot.js\`
+          - \`lot2-geometry.js\`
+          - \`lot2-access.js\`
+          - \`lot2-access-skeleton.js\`
+          - \`lot2-daily-use.js\`
+          - \`lot2-parking-reset.js\`
+
+          ### scripts
+          - \`g1a-search.js\`
+          - \`access-abc-search.js\`
+
+          ## Integrity
+
+          \`SHA256SUMS.txt\` records the imported bytes. Generic LotScope code should live outside this directory so this copy can remain an auditable reference fixture.
+          EOF
+
+          (
+            cd "$DEST"
+            find js scripts -type f -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt
+          )
+
+      - name: Commit imported reference
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "aerovista-engine-import"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add packages/pondy-engine-reference
+          if git diff --cached --quiet; then
+            echo "Reference copy already matches Pondy source."
+            exit 0
+          fi
+          git commit -m "Copy Pondy geometry and circulation engine references"
+          git push
