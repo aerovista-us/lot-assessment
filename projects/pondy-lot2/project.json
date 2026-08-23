@@ -1,0 +1,50 @@
+{
+  "id": "pondy-lot2",
+  "name": "Pondy Flats Lot 2",
+  "revision": "workbench-seed-1",
+  "parcel": {
+    "polygon": [[0,0],[148,0],[148,50],[125.143,43.016],[84.813,43.016],[0,57.01]],
+    "frontage": "Pennsylvania Street",
+    "accessSides": ["Pennsylvania Street"]
+  },
+  "setbacks": {
+    "frontFt": 20,
+    "rearFt": 25,
+    "leftFt": 5,
+    "rightFt": 10
+  },
+  "program": {
+    "units": 2,
+    "targetLivingSqFt": [1600,1900],
+    "maxUnitDifferenceSqFt": 120,
+    "stories": 2,
+    "enclosedSpacesPerUnit": 2
+  },
+  "circulation": {
+    "drivewayWidthFt": 12,
+    "designVehicle": "Full-size SUV / pickup",
+    "vehicleWidthFt": 8,
+    "vehicleLengthFt": 20.5,
+    "minRearAxleRadiusFt": 25
+  },
+  "hardRules": [
+    "Vehicle access is from Pennsylvania Street only",
+    "Parcel boundary is immutable",
+    "Setback gate may not be relaxed to make a candidate pass",
+    "Both homes must satisfy living-area range and maximum area difference",
+    "Circulation must be checked against the full-size design vehicle"
+  ],
+  "movementPolicy": {
+    "driveway": "reshape/shift within parcel while retaining Pennsylvania entry",
+    "garage": "translate/orient/change door face if all hard gates still pass",
+    "building": "translate/resize within program and setback gates",
+    "presentation": "free after geometry freeze; may not alter canonical geometry"
+  },
+  "provenance": {
+    "parcel": { "source": "Pondy project survey geometry", "confidence": "planning" },
+    "setbacks": { "source": "Pondy working assumptions; verify professionally", "confidence": "planning" },
+    "access": { "source": "project owner requirement", "confidence": "confirmed" },
+    "program": { "source": "restored Pondy living-program gate", "confidence": "confirmed" },
+    "vehicle": { "source": "Pondy design-vehicle assumption", "confidence": "assumed" }
+  }
+}
