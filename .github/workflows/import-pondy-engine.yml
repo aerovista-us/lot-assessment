@@ -49,35 +49,35 @@ jobs:
           SOURCE_SHA="$(git -C /tmp/PondyFlats rev-parse HEAD)"
           SOURCE_DATE="$(git -C /tmp/PondyFlats show -s --format=%cI HEAD)"
 
-          cat > "$DEST/README.md" <<EOF
-          # Pondy engine reference copy
-
-          This directory is a **copy-only extraction** of deterministic geometry/circulation work from `aerovista-us/PondyFlats` for reuse work inside LotScope.
-
-          - Source repository: https://github.com/aerovista-us/PondyFlats
-          - Source commit: \`$SOURCE_SHA\`
-          - Source commit date: \`$SOURCE_DATE\`
-          - Import rule: **never move, rename, edit, or delete the source files in PondyFlats as part of this import.**
-          - These files are preserved here as reference inputs while generic LotScope packages are built around/alongside them.
-
-          ## Copied source files
-
-          ### js
-          - \`lot2-sot.js\`
-          - \`lot2-geometry.js\`
-          - \`lot2-access.js\`
-          - \`lot2-access-skeleton.js\`
-          - \`lot2-daily-use.js\`
-          - \`lot2-parking-reset.js\`
-
-          ### scripts
-          - \`g1a-search.js\`
-          - \`access-abc-search.js\`
-
-          ## Integrity
-
-          \`SHA256SUMS.txt\` records the imported bytes. Generic LotScope code should live outside this directory so this copy can remain an auditable reference fixture.
-          EOF
+          {
+            echo '# Pondy engine reference copy'
+            echo
+            echo 'This directory is a **copy-only extraction** of deterministic geometry/circulation work from `aerovista-us/PondyFlats` for reuse work inside LotScope.'
+            echo
+            echo '- Source repository: https://github.com/aerovista-us/PondyFlats'
+            printf '%s\n' "- Source commit: \`$SOURCE_SHA\`"
+            printf '%s\n' "- Source commit date: \`$SOURCE_DATE\`"
+            echo '- Import rule: **never move, rename, edit, or delete the source files in PondyFlats as part of this import.**'
+            echo '- These files are preserved here as reference inputs while generic LotScope packages are built around/alongside them.'
+            echo
+            echo '## Copied source files'
+            echo
+            echo '### js'
+            echo '- `lot2-sot.js`'
+            echo '- `lot2-geometry.js`'
+            echo '- `lot2-access.js`'
+            echo '- `lot2-access-skeleton.js`'
+            echo '- `lot2-daily-use.js`'
+            echo '- `lot2-parking-reset.js`'
+            echo
+            echo '### scripts'
+            echo '- `g1a-search.js`'
+            echo '- `access-abc-search.js`'
+            echo
+            echo '## Integrity'
+            echo
+            echo '`SHA256SUMS.txt` records the imported bytes. Generic LotScope code should live outside this directory so this copy can remain an auditable reference fixture.'
+          } > "$DEST/README.md"
 
           (
             cd "$DEST"
