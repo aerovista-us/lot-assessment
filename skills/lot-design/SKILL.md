@@ -6,6 +6,26 @@ Purpose: orchestrate LotScope's deterministic site-planning pipeline. The skill 
 
 Never invent zoning, survey, setback, access, parking, fire, structural, or dimensional facts. Every hard constraint must originate in ProjectSpec with source/confidence metadata. If a required fact is unknown, return NEEDS VERIFICATION rather than silently assuming it.
 
+## Source-preservation rule
+
+PondyFlats is a regression/source project, not a library to destructively refactor in place. When extracting reusable capability:
+
+- **copy only** from `aerovista-us/PondyFlats`;
+- never move, rename, rewrite, or delete the Pondy originals as part of LotScope extraction;
+- keep exact imported reference bytes under `packages/pondy-engine-reference/` with source commit + SHA256 manifest;
+- generic LotScope implementations live in separate packages and may evolve independently;
+- compare generalized behavior back to Pondy fixtures before replacing any proven rule.
+
+## Implemented deterministic surfaces
+
+These are now real code, not aspirational commands:
+
+- `packages/pondy-engine-reference/` — copied Pondy geometry/circulation/search references with provenance and checksums.
+- `packages/geometry/` — reusable polygon area, containment, boundary distance, segment-specific polygon inset, rectangle, convex SAT intersection, translate/rotate helpers.
+- `packages/circulation/` — reusable vehicle model, rear-axle body polygon, radius filleting, swept-path sampling, parcel containment, collision detection and clearance reporting.
+
+Do not bypass these functions with prose estimates when their inputs are available.
+
 ## Required pipeline
 
 1. Load and validate ProjectSpec.
@@ -47,7 +67,17 @@ Never move a LOCKED element. Never change an acceptance rule to match a candidat
 
 The agent should use engine/CLI functions rather than simulating CAD by prose or manually inventing coordinates. UI interactions are for inspection and human adjustment, not the source of geometric truth.
 
-Intended command contract:
+For every rejection, distinguish:
+
+- immutable hard failure;
+- movable geometric failure;
+- near-pass with a bounded repair opportunity;
+- program-quality failure;
+- missing authoritative fact.
+
+A small collision against a movable driveway/building element is not an automatic topology death. Run the allowed repair search first.
+
+## Intended command contract
 
 ```bash
 lotscope compile <project>
@@ -61,7 +91,7 @@ lotscope render <candidate>
 lotscope deliver <candidate>
 ```
 
-These commands are the target interface; implement deterministic engine capability before treating a command as operational.
+These commands remain the target interface; do not claim an unimplemented command is operational. The deterministic package APIs above are the current executable foundation.
 
 ## Pondy benchmark
 
