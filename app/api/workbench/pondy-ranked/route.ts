@@ -20,6 +20,7 @@ const PROGRAM = {
 };
 
 const PREFERRED_LIVING_SQFT = 1800;
+const PROMOTION_CLEARANCE_FT = 1;
 const BENCHMARK_DRIVE_WIDTH_FT = 12;
 const SAMPLE_STEP_FT = 2;
 
@@ -68,6 +69,12 @@ function preferredLivingPenalty(program: ReturnType<typeof evaluateProgram>) {
   return Math.min(totalDeviation / 25, 20);
 }
 
+function hasTightCapacityMargin(program: ReturnType<typeof evaluateProgram>) {
+  return program.unitResults.some((unit) =>
+    unit.penalties.some((penalty) => penalty.includes("living-capacity margin under 8%"))
+  );
+}
+
 export async function GET() {
   const started = Date.now();
   const solved = solveFamilies(pondyProblem, pondyFamilies, {
@@ -76,7 +83,7 @@ export async function GET() {
     repairNearPasses: true,
     repairMaxStates: 300,
     repairMaxActions: 3,
-    minimumPreferredClearanceFt: 1
+    minimumPreferredClearanceFt: PROMOTION_CLEARANCE_FT
   });
 
   const evaluated = solved.map((item) => {
@@ -84,6 +91,9 @@ export async function GET() {
     const pavement = pavementEfficiency(item.candidate);
     const physicalPass = item.evaluation.pass;
     const combinedPass = physicalPass && program.pass;
+    const clearanceReady = (item.evaluation.minimumClearanceFt ?? 0) >= PROMOTION_CLEARANCE_FT;
+    const capacityReady = !hasTightCapacityMargin(program);
+    const promotionReady = combinedPass && clearanceReady && capacityReady;
     const physicalPenalty = Math.min(item.objective / 1000, 100);
     const buildablePavementPenalty = Math.min(pavement.estimatedBuildablePavementSqFt / 45, 35);
     const totalPavementPenalty = Math.min(pavement.estimatedTotalPavementSqFt / 220, 12);
@@ -96,6 +106,8 @@ export async function GET() {
       id: item.candidate.id,
       family: item.candidate.family,
       combinedPass,
+      promotionReady,
+      promotionChecks: { clearanceReady, capacityReady, minimumClearanceFt: PROMOTION_CLEARANCE_FT },
       physicalPass,
       programPass: program.pass,
       combinedScore,
@@ -112,7 +124,7 @@ export async function GET() {
       variables: item.variables,
       metadata: item.candidate.metadata ?? {}
     };
-  }).sort((a, b) => Number(b.combinedPass) - Number(a.combinedPass) || b.combinedScore - a.combinedScore);
+  }).sort((a, b) => Number(b.promotionReady) - Number(a.promotionReady) || Number(b.combinedPass) - Number(a.combinedPass) || b.combinedScore - a.combinedScore);
 
   const shortlist = [] as typeof evaluated;
   const seenFamilies = new Set<string>();
@@ -126,10 +138,11 @@ export async function GET() {
   return NextResponse.json({
     project: "pondy-lot2",
     scenario: "baseline-no-alley",
-    solver: "lotscope-rapid-v0.5",
+    solver: "lotscope-rapid-v0.6",
     searchMode: "coarse-full-grid-sample",
-    scoringVersion: "pondy-site-efficiency-v2",
+    scoringVersion: "pondy-site-efficiency-v3",
     preferredLivingSqFt: PREFERRED_LIVING_SQFT,
+    promotionClearanceFt: PROMOTION_CLEARANCE_FT,
     elapsedMs: Date.now() - started,
     families: pondyFamilies.map((family) => family.id),
     benchmarkControl: R51E_HISTORICAL_CONTROL,
@@ -137,6 +150,7 @@ export async function GET() {
     physicalPassCount: evaluated.filter((item) => item.physicalPass).length,
     programPassCount: evaluated.filter((item) => item.programPass).length,
     combinedPassCount: evaluated.filter((item) => item.combinedPass).length,
+    promotionReadyCount: evaluated.filter((item) => item.promotionReady).length,
     shortlist,
     results: evaluated
   });

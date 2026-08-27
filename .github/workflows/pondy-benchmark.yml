@@ -14,9 +14,7 @@ on:
     paths:
       - 'packages/**'
       - 'projects/pondy-lot2/**'
-      - 'app/api/workbench/pondy/**'
       - 'app/api/workbench/pondy-ranked/**'
-      - 'app/api/workbench/pondy-report/**'
       - '.github/workflows/pondy-benchmark.yml'
 
 concurrency:
@@ -63,14 +61,47 @@ jobs:
           cat /tmp/lotscope.log
           exit 1
 
-      - name: Run physical benchmark
-        run: curl --fail --show-error --silent http://127.0.0.1:3000/api/workbench/pondy > pondy-physical.json
-
-      - name: Run ranked physical + program benchmark
+      - name: Run authoritative Pondy benchmark
         run: curl --fail --show-error --silent http://127.0.0.1:3000/api/workbench/pondy-ranked > pondy-ranked.json
 
-      - name: Generate visual comparison report
-        run: curl --fail --show-error --silent http://127.0.0.1:3000/api/workbench/pondy-report > pondy-report.html
+      - name: Derive physical view and comparison report
+        shell: bash
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const ranked = JSON.parse(fs.readFileSync('pondy-ranked.json','utf8'));
+          const physical = {
+            project: ranked.project,
+            scenario: ranked.scenario,
+            solver: ranked.solver,
+            searchMode: ranked.searchMode,
+            count: ranked.evaluatedCount,
+            passCount: ranked.physicalPassCount,
+            families: ranked.families,
+            results: (ranked.results || []).map(x => ({
+              id: x.id,
+              family: x.family,
+              pass: x.physicalPass,
+              objective: x.physicalObjective,
+              repaired: x.repaired,
+              minimumClearanceFt: x.minimumClearanceFt,
+              issues: x.physicalIssues,
+              placements: x.placements,
+              drives: x.drives,
+              variables: x.variables,
+              metadata: x.metadata
+            }))
+          };
+          fs.writeFileSync('pondy-physical.json', JSON.stringify(physical, null, 2) + '\n');
+
+          const survey = [[0,0],[148,0],[148,50],[125.143,43.016],[84.813,43.016],[0,57.01]];
+          const points = survey.map(([x,y]) => `${x},${y}`).join(' ');
+          const cards = (ranked.shortlist?.length ? ranked.shortlist : ranked.results || []).slice(0,5);
+          const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+          const svg = x => `<svg viewBox="-8 -8 170 76"><polygon points="${points}" fill="#fafafa" stroke="#222" stroke-width=".7"/>${(x.drives||[]).map(d=>`<polyline points="${d.points.map(p=>p.join(',')).join(' ')}" fill="none" stroke="#777" stroke-width="2.5"/>`).join('')}${(x.placements||[]).map(p=>`<rect x="${p.x}" y="${p.y}" width="${p.widthFt}" height="${p.depthFt}" fill="${p.kind==='garage'?'#d9e9d5':'#ddd'}" stroke="#333" stroke-width=".5"/>`).join('')}</svg>`;
+          const html = `<!doctype html><html><head><meta charset="utf-8"><title>Pondy discovery comparison</title><style>body{font:14px system-ui,sans-serif;margin:24px;background:#f5f5f2;color:#171717}h1{margin-bottom:4px}.meta{color:#666;margin-bottom:22px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:18px}.card{background:white;border:1px solid #ddd;border-radius:14px;padding:16px}.row{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}.pass{color:#18753c}.warn{color:#9a6400}svg{width:100%;height:auto;background:#fff;border-radius:8px}.small{font-size:12px;color:#555}</style></head><body><h1>Pondy Lot 2 · baseline discovery comparison</h1><div class="meta">${esc(ranked.solver)} · ${ranked.combinedPassCount} combined pass · ${ranked.promotionReadyCount ?? 0} promotion ready · ${ranked.families.length} families</div><div class="grid">${cards.map(x=>`<article class="card"><div class="row"><div><strong>${esc(x.id)}</strong><div>${esc(x.family)}</div></div><strong class="${x.promotionReady?'pass':'warn'}">${x.promotionReady?'PROMOTION READY':x.combinedPass?'TECHNICAL PASS':'NOT PROMOTED'}</strong></div>${svg(x)}<div class="row"><span>physical ${x.physicalPass?'PASS':'FAIL'}</span><span>program ${x.programPass?'PASS':'FAIL'}</span><span>clearance ${x.minimumClearanceFt==null?'n/a':Number(x.minimumClearanceFt).toFixed(2)+' ft'}</span><span>score ${Number(x.combinedScore||0).toFixed(1)}</span></div><div class="small">buildable-land pavement ${x.pavement?.estimatedBuildablePavementSqFt==null?'n/a':Number(x.pavement.estimatedBuildablePavementSqFt).toFixed(0)+' SF'} · capacity ready ${x.promotionChecks?.capacityReady?'yes':'no'}</div></article>`).join('')}</div><p class="small">Promotion-ready is stricter than technical PASS: current benchmark requires ≥${ranked.promotionClearanceFt ?? 1} ft internal vehicle clearance and no under-8% living-capacity margin. Pavement figures are ranking estimates, not civil takeoffs.</p></body></html>`;
+          fs.writeFileSync('pondy-report.html', html);
+          NODE
 
       - name: Build auditable manifest
         shell: bash
@@ -82,7 +113,7 @@ jobs:
           const ranked = JSON.parse(fs.readFileSync('pondy-ranked.json','utf8'));
           const project = fs.readFileSync('projects/pondy-lot2/project.json','utf8');
           const manifest = {
-            schemaVersion: 1,
+            schemaVersion: 2,
             repository: process.env.GITHUB_REPOSITORY,
             commitSha: process.env.GITHUB_SHA,
             runId: process.env.GITHUB_RUN_ID,
@@ -90,19 +121,21 @@ jobs:
             eventName: process.env.GITHUB_EVENT_NAME,
             ref: process.env.GITHUB_REF,
             projectSpecSha256: crypto.createHash('sha256').update(project).digest('hex'),
-            solver: ranked.solver || physical.solver || null,
-            scoringVersion: ranked.scoringVersion || null,
-            scenario: ranked.scenario || null,
-            physicalCount: physical.count ?? physical.results?.length ?? 0,
-            physicalPassCount: physical.passCount ?? 0,
+            solver: ranked.solver,
+            scoringVersion: ranked.scoringVersion,
+            scenario: ranked.scenario,
+            physicalCount: physical.count,
+            physicalPassCount: physical.passCount,
             combinedPassCount: ranked.combinedPassCount ?? 0,
-            families: ranked.families || physical.families || [],
+            promotionReadyCount: ranked.promotionReadyCount ?? 0,
+            families: ranked.families || [],
             shortlist: (ranked.shortlist || []).slice(0, 10).map(x => ({
               id: x.id,
               family: x.family,
               physicalPass: x.physicalPass,
               programPass: x.programPass,
               combinedPass: x.combinedPass,
+              promotionReady: x.promotionReady,
               combinedScore: x.combinedScore,
               minimumClearanceFt: x.minimumClearanceFt,
               estimatedBuildablePavementSqFt: x.pavement?.estimatedBuildablePavementSqFt ?? null
@@ -116,30 +149,24 @@ jobs:
         run: |
           node - <<'NODE'
           const fs = require('fs');
-          for (const file of ['pondy-physical.json','pondy-ranked.json']) {
-            const data = JSON.parse(fs.readFileSync(file, 'utf8'));
-            console.log(`\n${file}`);
-            console.log(JSON.stringify({
-              solver: data.solver,
-              elapsedMs: data.elapsedMs,
-              count: data.count,
-              passCount: data.passCount,
-              combinedPassCount: data.combinedPassCount,
-              families: data.families,
-              top: (data.shortlist || data.results || []).slice(0, 5).map(x => ({
-                id: x.id,
-                family: x.family,
-                pass: x.pass,
-                physicalPass: x.physicalPass,
-                programPass: x.programPass,
-                combinedPass: x.combinedPass,
-                combinedScore: x.combinedScore,
-                minimumClearanceFt: x.minimumClearanceFt,
-                estimatedBuildablePavementSqFt: x.pavement?.estimatedBuildablePavementSqFt,
-                issues: x.issues || x.physicalIssues
-              }))
-            }, null, 2));
-          }
+          const data = JSON.parse(fs.readFileSync('pondy-ranked.json', 'utf8'));
+          console.log(JSON.stringify({
+            solver: data.solver,
+            elapsedMs: data.elapsedMs,
+            physicalPassCount: data.physicalPassCount,
+            combinedPassCount: data.combinedPassCount,
+            promotionReadyCount: data.promotionReadyCount,
+            families: data.families,
+            top: (data.shortlist || []).slice(0, 5).map(x => ({
+              id: x.id,
+              family: x.family,
+              promotionReady: x.promotionReady,
+              combinedScore: x.combinedScore,
+              minimumClearanceFt: x.minimumClearanceFt,
+              estimatedBuildablePavementSqFt: x.pavement?.estimatedBuildablePavementSqFt,
+              capacityReady: x.promotionChecks?.capacityReady
+            }))
+          }, null, 2));
           NODE
 
       - name: Publish Actions summary
@@ -147,21 +174,20 @@ jobs:
         run: |
           node - <<'NODE' >> "$GITHUB_STEP_SUMMARY"
           const fs = require('fs');
-          const physical = JSON.parse(fs.readFileSync('pondy-physical.json','utf8'));
           const ranked = JSON.parse(fs.readFileSync('pondy-ranked.json','utf8'));
           const shortlist = ranked.shortlist || [];
           console.log('# Pondy solver benchmark');
           console.log(`- Scenario: **${ranked.scenario || 'unset'}**`);
-          console.log(`- Physical retained: **${physical.count ?? physical.results?.length ?? 0}**`);
-          console.log(`- Physical passes: **${physical.passCount ?? 0}**`);
+          console.log(`- Physical passes: **${ranked.physicalPassCount ?? 0}**`);
           console.log(`- Combined physical + program passes: **${ranked.combinedPassCount ?? 0}**`);
-          console.log(`- Diverse promoted shortlist: **${shortlist.length}**`);
+          console.log(`- Promotion-ready candidates: **${ranked.promotionReadyCount ?? 0}**`);
+          console.log(`- Diverse technical shortlist: **${shortlist.length}**`);
           console.log('');
-          console.log('| Candidate | Family | Physical | Program | Clearance | Buildable pavement* | Score |');
+          console.log('| Candidate | Family | Promotion | Clearance | Capacity | Buildable pavement* | Score |');
           console.log('|---|---|---:|---:|---:|---:|---:|');
           for (const x of shortlist.slice(0,5)) {
             const pavement = x.pavement?.estimatedBuildablePavementSqFt;
-            console.log(`| ${x.id} | ${x.family} | ${x.physicalPass ? 'PASS' : 'FAIL'} | ${x.programPass ? 'PASS' : 'FAIL'} | ${x.minimumClearanceFt == null ? 'n/a' : x.minimumClearanceFt.toFixed(2) + ' ft'} | ${pavement == null ? 'n/a' : pavement.toFixed(0) + ' sf'} | ${Number(x.combinedScore ?? 0).toFixed(1)} |`);
+            console.log(`| ${x.id} | ${x.family} | ${x.promotionReady ? 'READY' : 'TECH PASS'} | ${x.minimumClearanceFt == null ? 'n/a' : x.minimumClearanceFt.toFixed(2) + ' ft'} | ${x.promotionChecks?.capacityReady ? 'READY' : 'TIGHT'} | ${pavement == null ? 'n/a' : pavement.toFixed(0) + ' sf'} | ${Number(x.combinedScore ?? 0).toFixed(1)} |`);
           }
           console.log('');
           console.log('*Estimated ranking metric, not a paving takeoff.');

@@ -65,9 +65,10 @@ function unitMass(args: {
 
 /**
  * Family 1 — Side Spine
- * Keep the rear vehicle in the north setback corridor until the front mass is cleared.
- * Run 05 adds a second control point so the vehicle finishes the turn in the open gap
- * and approaches the rear garage horizontally instead of clipping the residual home wall.
+ * Keep the rear vehicle in the north setback corridor until the front mass is cleared,
+ * then finish the turn in the open gap and approach the rear garage horizontally.
+ * Run 06 lowers the spine search toward the center of the legal setback corridor so
+ * technically valid paths are not rewarded for scraping the north parcel boundary.
  */
 export const sideSpine: FamilySearch = {
   id: "side-spine",
@@ -76,7 +77,7 @@ export const sideSpine: FamilySearch = {
     { id: "rearX", min: 25, max: 26, step: 1 },
     { id: "rearW", min: 31, max: 32, step: 1 },
     { id: "rearGarageY", min: 16, max: 17, step: 1 },
-    { id: "spineY", min: 38, max: 39, step: 0.5 },
+    { id: "spineY", min: 36.5, max: 38, step: 0.5 },
     { id: "turnX", min: 78, max: 80, step: 1 },
     { id: "alignX", min: 68, max: 71, step: 1 }
   ],
@@ -94,7 +95,7 @@ export const sideSpine: FamilySearch = {
         { id: "DRIVE-A", garageId: "GARAGE-A", points: [[151, 17], [128, 17]], movableControlPoints: [] },
         { id: "DRIVE-B", garageId: "GARAGE-B", points: [[151, v.spineY], [v.turnX, v.spineY], [v.alignX, mouthY], [rearEast, mouthY]], movableControlPoints: [1, 2], controlPointLimitFt: 2 }
       ],
-      metadata: { topology: "side-spine-two-tangent", intendedLivingA: 1750, intendedLivingB: 1650, run05TangentAware: true }
+      metadata: { topology: "side-spine-two-tangent", intendedLivingA: 1750, intendedLivingB: 1650, run06ClearanceAware: true }
     };
   }
 };
@@ -107,7 +108,7 @@ export const staggeredSpine: FamilySearch = {
     { id: "rearX", min: 25, max: 26, step: 1 },
     { id: "rearW", min: 31, max: 32, step: 1 },
     { id: "rearGarageY", min: 15, max: 16, step: 1 },
-    { id: "spineY", min: 38, max: 39, step: 0.5 },
+    { id: "spineY", min: 36.5, max: 38, step: 0.5 },
     { id: "turnX", min: 79, max: 81, step: 1 },
     { id: "alignX", min: 68, max: 71, step: 1 }
   ],
@@ -125,7 +126,7 @@ export const staggeredSpine: FamilySearch = {
         { id: "DRIVE-A", garageId: "GARAGE-A", points: [[151, 18], [128, 18]], movableControlPoints: [] },
         { id: "DRIVE-B", garageId: "GARAGE-B", points: [[151, v.spineY], [v.turnX, v.spineY], [v.alignX, mouthY], [rearEast, mouthY]], movableControlPoints: [1, 2], controlPointLimitFt: 2 }
       ],
-      metadata: { topology: "staggered-two-tangent", intendedLivingA: 1725, intendedLivingB: 1650, run05TangentAware: true }
+      metadata: { topology: "staggered-two-tangent", intendedLivingA: 1725, intendedLivingB: 1650, run06ClearanceAware: true }
     };
   }
 };
@@ -164,7 +165,7 @@ export const e2Reset: FamilySearch = {
     { id: "rearX", min: 25, max: 26, step: 1 },
     { id: "rearW", min: 31, max: 32, step: 1 },
     { id: "rearGarageY", min: 15, max: 17, step: 1 },
-    { id: "spineY", min: 38, max: 39, step: 0.5 },
+    { id: "spineY", min: 36.5, max: 38, step: 0.5 },
     { id: "turnX", min: 77, max: 80, step: 1 },
     { id: "alignX", min: 67, max: 71, step: 1 }
   ],
@@ -182,7 +183,7 @@ export const e2Reset: FamilySearch = {
         { id: "DRIVE-A", garageId: "GARAGE-A", points: [[151, 16], [128, 16]], movableControlPoints: [] },
         { id: "DRIVE-B", garageId: "GARAGE-B", points: [[151, v.spineY], [v.turnX, v.spineY], [v.alignX, mouthY], [rearEast, mouthY]], movableControlPoints: [1, 2], controlPointLimitFt: 2 }
       ],
-      metadata: { topology: "e2-reset-two-tangent", historicalSeed: "E2", intendedLivingA: 1650, intendedLivingB: 1650, run05TangentAware: true }
+      metadata: { topology: "e2-reset-two-tangent", historicalSeed: "E2", intendedLivingA: 1650, intendedLivingB: 1650, run06ClearanceAware: true }
     };
   }
 };
@@ -195,7 +196,7 @@ export const g1Reset: FamilySearch = {
     { id: "rearX", min: 25, max: 26, step: 1 },
     { id: "rearW", min: 31, max: 32, step: 1 },
     { id: "rearGarageY", min: 16, max: 17, step: 1 },
-    { id: "spineY", min: 38, max: 39, step: 0.5 },
+    { id: "spineY", min: 36.5, max: 38, step: 0.5 },
     { id: "turnX", min: 77, max: 80, step: 1 },
     { id: "alignX", min: 67, max: 71, step: 1 }
   ],
@@ -213,7 +214,7 @@ export const g1Reset: FamilySearch = {
         { id: "DRIVE-A", garageId: "GARAGE-A", points: [[151, 18], [128, 18]], movableControlPoints: [] },
         { id: "DRIVE-B", garageId: "GARAGE-B", points: [[151, v.spineY], [v.turnX, v.spineY], [v.alignX, mouthY], [rearEast, mouthY]], movableControlPoints: [1, 2], controlPointLimitFt: 2 }
       ],
-      metadata: { topology: "g1-reset-two-tangent", historicalSeed: "G1", intendedLivingA: 1700, intendedLivingB: 1650, run05TangentAware: true }
+      metadata: { topology: "g1-reset-two-tangent", historicalSeed: "G1", intendedLivingA: 1700, intendedLivingB: 1650, run06ClearanceAware: true }
     };
   }
 };
