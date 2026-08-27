@@ -71,13 +71,6 @@ function provenRearDrive(spineY: number, turnX: number, bendX: number, bendY: nu
   };
 }
 
-/**
- * D2 — Compact Front Block.
- * Keeps the proven north access corridor but changes the street-side mass from the
- * long 49x25 plate into a deeper 40x29.3 block. The rear unit retains the proven
- * garage-mouth relationship so this run isolates whether a materially different front
- * house proportion can coexist with the same circulation truth.
- */
 export const compactFrontBlock: FamilySearch = {
   id: "compact-front-block",
   variables: [
@@ -106,13 +99,6 @@ export const compactFrontBlock: FamilySearch = {
   })
 };
 
-/**
- * D3 — Deep Narrow Rear.
- * The front block remains compact, while Unit B becomes a deeper/narrower primary mass
- * with a low east wing. The garage is shifted two feet west and the terminal approach
- * follows it, producing a visibly different rear-house/garage relationship while staying
- * inside the proven access corridor.
- */
 export const deepNarrowRear: FamilySearch = {
   id: "deep-narrow-rear",
   variables: [
@@ -141,13 +127,6 @@ export const deepNarrowRear: FamilySearch = {
   })
 };
 
-/**
- * D4 — Front L / Rear Standard.
- * Unit A becomes a compact east block plus a low west wing, creating an L-shaped street
- * residence and a larger visual break between its upper mass and the rear access lane.
- * The rear geometry stays near the proven control so any failure is attributable to the
- * L-shaped front mass rather than an invented rear turn.
- */
 export const frontLRearStandard: FamilySearch = {
   id: "front-l-rear-standard",
   variables: [
@@ -180,13 +159,6 @@ export const frontLRearStandard: FamilySearch = {
   })
 };
 
-/**
- * D5 — Balanced Twin Blocks.
- * Both residences use relatively compact primary plates rather than one long front and
- * one broad rear rectangle. The rear wing grows to the east while the garage remains in
- * the proven western mouth. This is deliberately a massing alternative, not a fake new
- * driveway topology.
- */
 export const balancedTwinBlocks: FamilySearch = {
   id: "balanced-twin-blocks",
   variables: [
@@ -215,9 +187,100 @@ export const balancedTwinBlocks: FamilySearch = {
   })
 };
 
+/**
+ * D6 — Rear Garage Stack.
+ * This family intentionally freezes the two garages at the west/rear end of the parcel,
+ * stacked north/south like the historical concepts the owner wants to revisit. The
+ * search is allowed to reshape the last portion of the driveway, vary the local flare,
+ * and slightly offset the garages, but it may not "solve" the problem by dragging the
+ * garages back toward the houses.
+ *
+ * The homes are kept as two compact two-story masses east of the garage stack so the
+ * solver can answer the first question honestly: can a full-size SUV reach both rear
+ * garage mouths without a giant central motor court?
+ */
+export const rearGarageStack: FamilySearch = {
+  id: "rear-garage-stack",
+  variables: [
+    { id: "spineY", min: 38, max: 40, step: 0.5 },
+    { id: "turnX", min: 72, max: 82, step: 2 },
+    { id: "flareX", min: 52, max: 60, step: 2 },
+    { id: "garageX", min: 25, max: 27, step: 1 },
+    { id: "garageGap", min: 1, max: 3, step: 1 },
+    { id: "homeSplitX", min: 91, max: 95, step: 1 }
+  ],
+  build: (v, serial): PlacementCandidate => {
+    const garageW = 20;
+    const garageD = 20;
+    const garageSouthY = 5;
+    const garageNorthY = garageSouthY + garageD + v.garageGap;
+    const mouthX = v.garageX + garageW;
+    const southMouthY = garageSouthY + garageD / 2;
+    const northMouthY = garageNorthY + garageD / 2;
+
+    return {
+      id: `PONDY-RGS-${serial}`,
+      family: "rear-garage-stack",
+      placements: [
+        {
+          id: "HOME-A", kind: "home", x: v.homeSplitX, y: 5,
+          widthFt: 128 - v.homeSplitX, depthFt: 25,
+          movable: true, movementLimitFt: 2, integrationGroupId: "unit-A", circulationObstacle: false
+        },
+        {
+          id: "HOME-A-EAST-WING", kind: "home", x: 82, y: 5,
+          widthFt: v.homeSplitX - 82, depthFt: 14,
+          movable: true, movementLimitFt: 2, integrationGroupId: "unit-A", circulationObstacle: false
+        },
+        {
+          id: "HOME-B", kind: "home", x: 55, y: 5,
+          widthFt: 27, depthFt: 33,
+          movable: true, movementLimitFt: 2, integrationGroupId: "unit-B", circulationObstacle: false
+        },
+        {
+          id: "HOME-B-EAST-WING", kind: "home", x: 82, y: 5,
+          widthFt: 9, depthFt: 13,
+          movable: true, movementLimitFt: 2, integrationGroupId: "unit-B", circulationObstacle: false
+        },
+        {
+          id: "GARAGE-A", kind: "garage", x: v.garageX, y: garageSouthY,
+          widthFt: garageW, depthFt: garageD,
+          movable: true, movementLimitFt: 1, integrationGroupId: "unit-A", circulationObstacle: true
+        },
+        {
+          id: "GARAGE-B", kind: "garage", x: v.garageX, y: garageNorthY,
+          widthFt: garageW, depthFt: garageD,
+          movable: true, movementLimitFt: 1, integrationGroupId: "unit-B", circulationObstacle: true
+        }
+      ],
+      drives: [
+        {
+          id: "DRIVE-A", garageId: "GARAGE-A",
+          points: [[151, v.spineY], [v.turnX, v.spineY], [v.flareX, 30], [mouthX + 10, southMouthY], [mouthX, southMouthY]],
+          movableControlPoints: [1, 2, 3], controlPointLimitFt: 2
+        },
+        {
+          id: "DRIVE-B", garageId: "GARAGE-B",
+          points: [[151, v.spineY], [v.turnX, v.spineY], [v.flareX, northMouthY], [mouthX + 8, northMouthY], [mouthX, northMouthY]],
+          movableControlPoints: [1, 2, 3], controlPointLimitFt: 2
+        }
+      ],
+      metadata: {
+        topology: "rear-garage-stack-local-flare",
+        designGroup: "rear-garage-stack",
+        designIntent: "freeze-rear-stacked-garages-and-reshape-drive",
+        intendedLivingA: 1800,
+        intendedLivingB: 1800,
+        garagePlacementLockedToRear: true
+      }
+    };
+  }
+};
+
 export const diversityFamilies: FamilySearch[] = [
   compactFrontBlock,
   deepNarrowRear,
   frontLRearStandard,
-  balancedTwinBlocks
+  balancedTwinBlocks,
+  rearGarageStack
 ];
