@@ -8,7 +8,10 @@ export type ProgramSpec = {
   minimumPlateWidthFt?: number;
   minimumPlateDepthFt?: number;
   maximumPlateAspectRatio?: number;
+  /** Legacy nominal garage area; retained for callers but not treated as a 22x22 law. */
   garageAreaSqFt?: number;
+  minimumGarageAreaSqFt?: number;
+  minimumGarageShortSideFt?: number;
 };
 
 export type UnitProgramResult = {
@@ -19,6 +22,8 @@ export type UnitProgramResult = {
   plateDepthFt: number | null;
   plateAreaSqFt: number | null;
   grossTwoStoryCapacitySqFt: number | null;
+  garageAreaSqFt: number | null;
+  garageShortSideFt: number | null;
   integratedGarageOverlapSqFt: number | null;
   netLivingCapacitySqFt: number | null;
   reasons: string[];
@@ -45,20 +50,17 @@ function overlapArea(a: AxisAlignedPlacement, b: AxisAlignedPlacement): number {
 }
 
 /**
- * Fast program feasibility gate. This is intentionally a pre-plan filter, not a
- * claim that a finished floor plan exists. It rejects physically legal candidates
- * whose home plates or target areas are obviously incompatible with the project
- * program, before detailed room packing is attempted.
- *
- * Important: an integrated garage consumes ground-floor plate area. Earlier versions
- * compared living target against plateArea × stories without subtracting the garage,
- * which could promote an impossible 1,800 SF home sitting on a plate that only had
- * ~1,500 SF of conditioned capacity after the garage was accounted for.
+ * Fast program feasibility gate. This is a pre-plan filter, not proof of a finished
+ * floor plan. It checks credible residential plate capacity and a deliberately modest
+ * garage sanity gate without turning 22x22 into a false universal requirement.
  */
 export function evaluateProgram(candidate: PlacementCandidate, spec: ProgramSpec): ProgramEvaluation {
   const minW = spec.minimumPlateWidthFt ?? 22;
   const minD = spec.minimumPlateDepthFt ?? 22;
   const maxAspect = spec.maximumPlateAspectRatio ?? 2.2;
+  const minGarageArea = spec.minimumGarageAreaSqFt ?? 400;
+  const minGarageShortSide = spec.minimumGarageShortSideFt ?? 19;
+
   const unitResults: UnitProgramResult[] = spec.units.map((unitId) => {
     const home = candidate.placements.find((p) => p.id === `HOME-${unitId}`);
     const intended = numericMetadata(candidate, `intendedLiving${unitId}`);
@@ -74,6 +76,8 @@ export function evaluateProgram(candidate: PlacementCandidate, spec: ProgramSpec
         plateDepthFt: null,
         plateAreaSqFt: null,
         grossTwoStoryCapacitySqFt: null,
+        garageAreaSqFt: null,
+        garageShortSideFt: null,
         integratedGarageOverlapSqFt: null,
         netLivingCapacitySqFt: null,
         reasons: [`HOME-${unitId} is missing`],
@@ -86,6 +90,8 @@ export function evaluateProgram(candidate: PlacementCandidate, spec: ProgramSpec
     );
     const plateArea = home.widthFt * home.depthFt;
     const grossCapacity = plateArea * spec.stories;
+    const garageArea = garage ? garage.widthFt * garage.depthFt : null;
+    const garageShortSide = garage ? Math.min(garage.widthFt, garage.depthFt) : null;
     const garageOverlap = garage ? overlapArea(home, garage) : 0;
     const netLivingCapacity = grossCapacity - garageOverlap;
     const shortSide = Math.min(home.widthFt, home.depthFt);
@@ -111,6 +117,23 @@ export function evaluateProgram(candidate: PlacementCandidate, spec: ProgramSpec
       pass = false;
       reasons.push(`plate aspect ratio ${aspect.toFixed(2)} exceeds ${maxAspect.toFixed(2)}`);
     }
+
+    if (!garage) {
+      pass = false;
+      reasons.push("two-car garage geometry is missing");
+    } else {
+      if ((garageArea ?? 0) < minGarageArea) {
+        pass = false;
+        reasons.push(`garage area ${garageArea?.toFixed(0)} SF below ${minGarageArea} SF two-car sanity gate`);
+      } else {
+        reasons.push(`garage area ${garageArea?.toFixed(0)} SF passes ≥${minGarageArea} SF sanity gate`);
+      }
+      if ((garageShortSide ?? 0) < minGarageShortSide) {
+        pass = false;
+        reasons.push(`garage short side ${garageShortSide?.toFixed(0)} ft below ${minGarageShortSide} ft sanity gate`);
+      }
+    }
+
     if (garageOverlap > 0) reasons.push(`integrated garage consumes ${garageOverlap.toFixed(0)} SF of ground-floor plate capacity`);
     if (intended != null && netLivingCapacity < intended) {
       pass = false;
@@ -132,6 +155,8 @@ export function evaluateProgram(candidate: PlacementCandidate, spec: ProgramSpec
       plateDepthFt: home.depthFt,
       plateAreaSqFt: plateArea,
       grossTwoStoryCapacitySqFt: grossCapacity,
+      garageAreaSqFt: garageArea,
+      garageShortSideFt: garageShortSide,
       integratedGarageOverlapSqFt: garageOverlap,
       netLivingCapacitySqFt: netLivingCapacity,
       reasons,
