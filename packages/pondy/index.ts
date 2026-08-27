@@ -64,22 +64,58 @@ function unitMass(args: {
 }
 
 /**
- * Family 1 — Side Spine
- * Keep the rear vehicle in the north setback corridor until the front mass is cleared,
- * then finish the turn in the open gap and approach the rear garage horizontally.
- * Run 06 lowers the spine search toward the center of the legal setback corridor so
- * technically valid paths are not rewarded for scraping the north parcel boundary.
+ * Add useful residential floor plate on the south/low side of the rear unit without
+ * widening the garage mouth or stealing the north-side vehicle turn. The wing is a
+ * declared component of the same unit, so containment, shifting and swept-path walls
+ * remain explicit rather than pretending the whole bounding rectangle is buildable.
  */
+function rearCompoundMass(args: {
+  rearX: number;
+  rearW: number;
+  rearD: number;
+  garageY: number;
+  wingW: number;
+  wingD: number;
+}) {
+  const rearEast = args.rearX + args.rearW;
+  return [
+    ...unitMass({
+      id: "B",
+      plateX: args.rearX,
+      plateY: 5,
+      plateW: args.rearW,
+      plateD: args.rearD,
+      garageX: rearEast - 20,
+      garageY: args.garageY
+    }),
+    {
+      id: "HOME-B-WING",
+      kind: "home" as const,
+      x: rearEast,
+      y: 5,
+      widthFt: args.wingW,
+      depthFt: args.wingD,
+      movable: true,
+      movementLimitFt: 2,
+      integrationGroupId: "unit-B",
+      circulationObstacle: false
+    }
+  ];
+}
+
+/** Family 1 — Side Spine. Run 08 adds a low south wing to recover residential capacity. */
 export const sideSpine: FamilySearch = {
   id: "side-spine",
   variables: [
-    { id: "frontX", min: 80, max: 81, step: 1 },
+    { id: "frontX", min: 77, max: 80, step: 1 },
     { id: "rearX", min: 25, max: 26, step: 1 },
     { id: "rearW", min: 31, max: 32, step: 1 },
-    { id: "rearGarageY", min: 16, max: 17, step: 1 },
+    { id: "wingW", min: 14, max: 18, step: 2 },
+    { id: "wingD", min: 8, max: 10, step: 1 },
+    { id: "rearGarageY", min: 15, max: 17, step: 1 },
     { id: "spineY", min: 36.5, max: 38, step: 0.5 },
     { id: "turnX", min: 78, max: 80, step: 1 },
-    { id: "alignX", min: 68, max: 71, step: 1 }
+    { id: "alignX", min: 67, max: 71, step: 1 }
   ],
   build: (v, serial): PlacementCandidate => {
     const rearEast = v.rearX + v.rearW;
@@ -89,28 +125,30 @@ export const sideSpine: FamilySearch = {
       family: "side-spine",
       placements: [
         ...unitMass({ id: "A", plateX: v.frontX, plateY: 5, plateW: 128 - v.frontX, plateD: 24, garageX: 108, garageY: 7 }),
-        ...unitMass({ id: "B", plateX: v.rearX, plateY: 5, plateW: v.rearW, plateD: 32.5, garageX: rearEast - 20, garageY: v.rearGarageY })
+        ...rearCompoundMass({ rearX: v.rearX, rearW: v.rearW, rearD: 32.5, garageY: v.rearGarageY, wingW: v.wingW, wingD: v.wingD })
       ],
       drives: [
         { id: "DRIVE-A", garageId: "GARAGE-A", points: [[151, 17], [128, 17]], movableControlPoints: [] },
         { id: "DRIVE-B", garageId: "GARAGE-B", points: [[151, v.spineY], [v.turnX, v.spineY], [v.alignX, mouthY], [rearEast, mouthY]], movableControlPoints: [1, 2], controlPointLimitFt: 2 }
       ],
-      metadata: { topology: "side-spine-two-tangent", intendedLivingA: 1750, intendedLivingB: 1650, run06ClearanceAware: true }
+      metadata: { topology: "side-spine-compound-rear", intendedLivingA: 1800, intendedLivingB: 1800, run08Compound: true }
     };
   }
 };
 
-/** Family 2 — Staggered Spine: same access logic, slightly different mass proportions. */
+/** Family 2 — Staggered Spine: same access logic with a deeper front plate. */
 export const staggeredSpine: FamilySearch = {
   id: "staggered-spine",
   variables: [
-    { id: "frontX", min: 81, max: 82, step: 1 },
+    { id: "frontX", min: 79, max: 82, step: 1 },
     { id: "rearX", min: 25, max: 26, step: 1 },
     { id: "rearW", min: 31, max: 32, step: 1 },
-    { id: "rearGarageY", min: 15, max: 16, step: 1 },
+    { id: "wingW", min: 14, max: 18, step: 2 },
+    { id: "wingD", min: 8, max: 10, step: 1 },
+    { id: "rearGarageY", min: 14, max: 16, step: 1 },
     { id: "spineY", min: 36.5, max: 38, step: 0.5 },
     { id: "turnX", min: 79, max: 81, step: 1 },
-    { id: "alignX", min: 68, max: 71, step: 1 }
+    { id: "alignX", min: 67, max: 71, step: 1 }
   ],
   build: (v, serial): PlacementCandidate => {
     const rearEast = v.rearX + v.rearW;
@@ -120,13 +158,13 @@ export const staggeredSpine: FamilySearch = {
       family: "staggered-spine",
       placements: [
         ...unitMass({ id: "A", plateX: v.frontX, plateY: 5, plateW: 128 - v.frontX, plateD: 25, garageX: 108, garageY: 8 }),
-        ...unitMass({ id: "B", plateX: v.rearX, plateY: 5, plateW: v.rearW, plateD: 32.5, garageX: rearEast - 20, garageY: v.rearGarageY })
+        ...rearCompoundMass({ rearX: v.rearX, rearW: v.rearW, rearD: 32.5, garageY: v.rearGarageY, wingW: v.wingW, wingD: v.wingD })
       ],
       drives: [
         { id: "DRIVE-A", garageId: "GARAGE-A", points: [[151, 18], [128, 18]], movableControlPoints: [] },
         { id: "DRIVE-B", garageId: "GARAGE-B", points: [[151, v.spineY], [v.turnX, v.spineY], [v.alignX, mouthY], [rearEast, mouthY]], movableControlPoints: [1, 2], controlPointLimitFt: 2 }
       ],
-      metadata: { topology: "staggered-two-tangent", intendedLivingA: 1725, intendedLivingB: 1650, run06ClearanceAware: true }
+      metadata: { topology: "staggered-compound-rear", intendedLivingA: 1800, intendedLivingB: 1800, run08Compound: true }
     };
   }
 };
@@ -157,17 +195,19 @@ export const splitFront: FamilySearch = {
   })
 };
 
-/** Family 4 — E2-R: front/rear DNA with the same tangent-preserving rear approach. */
+/** Family 4 — E2-R: old front/rear DNA plus a low wing, not old coordinates. */
 export const e2Reset: FamilySearch = {
   id: "e2-r",
   variables: [
-    { id: "frontX", min: 80, max: 81, step: 1 },
+    { id: "frontX", min: 77, max: 81, step: 1 },
     { id: "rearX", min: 25, max: 26, step: 1 },
     { id: "rearW", min: 31, max: 32, step: 1 },
-    { id: "rearGarageY", min: 15, max: 17, step: 1 },
+    { id: "wingW", min: 14, max: 18, step: 2 },
+    { id: "wingD", min: 8, max: 10, step: 1 },
+    { id: "rearGarageY", min: 14, max: 16, step: 1 },
     { id: "spineY", min: 36.5, max: 38, step: 0.5 },
     { id: "turnX", min: 77, max: 80, step: 1 },
-    { id: "alignX", min: 67, max: 71, step: 1 }
+    { id: "alignX", min: 66, max: 71, step: 1 }
   ],
   build: (v, serial): PlacementCandidate => {
     const rearEast = v.rearX + v.rearW;
@@ -177,28 +217,30 @@ export const e2Reset: FamilySearch = {
       family: "e2-r",
       placements: [
         ...unitMass({ id: "A", plateX: v.frontX, plateY: 5, plateW: 128 - v.frontX, plateD: 23, garageX: 108, garageY: 6 }),
-        ...unitMass({ id: "B", plateX: v.rearX, plateY: 5, plateW: v.rearW, plateD: 32.5, garageX: rearEast - 20, garageY: v.rearGarageY })
+        ...rearCompoundMass({ rearX: v.rearX, rearW: v.rearW, rearD: 32.5, garageY: v.rearGarageY, wingW: v.wingW, wingD: v.wingD })
       ],
       drives: [
         { id: "DRIVE-A", garageId: "GARAGE-A", points: [[151, 16], [128, 16]], movableControlPoints: [] },
         { id: "DRIVE-B", garageId: "GARAGE-B", points: [[151, v.spineY], [v.turnX, v.spineY], [v.alignX, mouthY], [rearEast, mouthY]], movableControlPoints: [1, 2], controlPointLimitFt: 2 }
       ],
-      metadata: { topology: "e2-reset-two-tangent", historicalSeed: "E2", intendedLivingA: 1650, intendedLivingB: 1650, run06ClearanceAware: true }
+      metadata: { topology: "e2-reset-compound-rear", historicalSeed: "E2", intendedLivingA: 1800, intendedLivingB: 1800, run08Compound: true }
     };
   }
 };
 
-/** Family 5 — G1-R: circulation-first variation with a slightly deeper rear plate. */
+/** Family 5 — G1-R: circulation-first variation with the compound rear capacity repair. */
 export const g1Reset: FamilySearch = {
   id: "g1-r",
   variables: [
-    { id: "frontX", min: 80, max: 81, step: 1 },
+    { id: "frontX", min: 77, max: 81, step: 1 },
     { id: "rearX", min: 25, max: 26, step: 1 },
     { id: "rearW", min: 31, max: 32, step: 1 },
-    { id: "rearGarageY", min: 16, max: 17, step: 1 },
+    { id: "wingW", min: 14, max: 18, step: 2 },
+    { id: "wingD", min: 8, max: 10, step: 1 },
+    { id: "rearGarageY", min: 15, max: 17, step: 1 },
     { id: "spineY", min: 36.5, max: 38, step: 0.5 },
     { id: "turnX", min: 77, max: 80, step: 1 },
-    { id: "alignX", min: 67, max: 71, step: 1 }
+    { id: "alignX", min: 66, max: 71, step: 1 }
   ],
   build: (v, serial): PlacementCandidate => {
     const rearEast = v.rearX + v.rearW;
@@ -208,22 +250,20 @@ export const g1Reset: FamilySearch = {
       family: "g1-r",
       placements: [
         ...unitMass({ id: "A", plateX: v.frontX, plateY: 5, plateW: 128 - v.frontX, plateD: 24, garageX: 108, garageY: 8 }),
-        ...unitMass({ id: "B", plateX: v.rearX, plateY: 5, plateW: v.rearW, plateD: 32.7, garageX: rearEast - 20, garageY: v.rearGarageY })
+        ...rearCompoundMass({ rearX: v.rearX, rearW: v.rearW, rearD: 32.7, garageY: v.rearGarageY, wingW: v.wingW, wingD: v.wingD })
       ],
       drives: [
         { id: "DRIVE-A", garageId: "GARAGE-A", points: [[151, 18], [128, 18]], movableControlPoints: [] },
         { id: "DRIVE-B", garageId: "GARAGE-B", points: [[151, v.spineY], [v.turnX, v.spineY], [v.alignX, mouthY], [rearEast, mouthY]], movableControlPoints: [1, 2], controlPointLimitFt: 2 }
       ],
-      metadata: { topology: "g1-reset-two-tangent", historicalSeed: "G1", intendedLivingA: 1700, intendedLivingB: 1650, run06ClearanceAware: true }
+      metadata: { topology: "g1-reset-compound-rear", historicalSeed: "G1", intendedLivingA: 1800, intendedLivingB: 1800, run08Compound: true }
     };
   }
 };
 
 /**
- * Family 6 — V2-R / Butterfly
- * Rotation/compound massing is not yet proven in the shared engine. Preserve this as
- * an explicit exploratory family rather than falsely presenting an axis-aligned proxy
- * as a solved butterfly.
+ * Family 6 — V2-R / Butterfly. Rotation is still not proven in the shared engine,
+ * so this remains an honest axis-aligned exploratory proxy rather than a fake solve.
  */
 export const v2Reset: FamilySearch = {
   id: "v2-r",

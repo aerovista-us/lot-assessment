@@ -26,6 +26,7 @@ export type UnitProgramResult = {
   garageShortSideFt: number | null;
   integratedGarageOverlapSqFt: number | null;
   netLivingCapacitySqFt: number | null;
+  homeComponentCount: number;
   reasons: string[];
   penalties: string[];
 };
@@ -49,10 +50,24 @@ function overlapArea(a: AxisAlignedPlacement, b: AxisAlignedPlacement): number {
   return width * depth;
 }
 
+function homeComponents(candidate: PlacementCandidate, unitId: string) {
+  const primaryId = `HOME-${unitId}`;
+  const primary = candidate.placements.find((p) => p.id === primaryId && p.kind === "home");
+  if (!primary) return { primary: undefined, homes: [] as AxisAlignedPlacement[] };
+  const homes = candidate.placements.filter((p) =>
+    p.kind === "home" &&
+    p.integrationGroupId === primary.integrationGroupId &&
+    (p.id === primaryId || p.id.startsWith(`${primaryId}-`))
+  );
+  return { primary, homes };
+}
+
 /**
  * Fast program feasibility gate. This is a pre-plan filter, not proof of a finished
- * floor plan. It checks credible residential plate capacity and a deliberately modest
- * garage sanity gate without turning 22x22 into a false universal requirement.
+ * floor plan. Run 08 supports declared compound/L-shaped home massing as multiple
+ * home rectangles in the same unit integration group. Capacity is the union-by-design
+ * sum of non-overlapping components; minimum plate sanity is still anchored to the
+ * primary HOME-X rectangle so a small intentional wing is not mistaken for a bad room.
  */
 export function evaluateProgram(candidate: PlacementCandidate, spec: ProgramSpec): ProgramEvaluation {
   const minW = spec.minimumPlateWidthFt ?? 22;
@@ -62,12 +77,12 @@ export function evaluateProgram(candidate: PlacementCandidate, spec: ProgramSpec
   const minGarageShortSide = spec.minimumGarageShortSideFt ?? 19;
 
   const unitResults: UnitProgramResult[] = spec.units.map((unitId) => {
-    const home = candidate.placements.find((p) => p.id === `HOME-${unitId}`);
+    const { primary, homes } = homeComponents(candidate, unitId);
     const intended = numericMetadata(candidate, `intendedLiving${unitId}`);
     const reasons: string[] = [];
     const penalties: string[] = [];
 
-    if (!home) {
+    if (!primary || !homes.length) {
       return {
         unitId,
         pass: false,
@@ -80,23 +95,31 @@ export function evaluateProgram(candidate: PlacementCandidate, spec: ProgramSpec
         garageShortSideFt: null,
         integratedGarageOverlapSqFt: null,
         netLivingCapacitySqFt: null,
+        homeComponentCount: 0,
         reasons: [`HOME-${unitId} is missing`],
         penalties
       };
     }
 
     const garage = candidate.placements.find((p) =>
-      p.kind === "garage" && p.integrationGroupId && p.integrationGroupId === home.integrationGroupId
+      p.kind === "garage" && p.integrationGroupId && p.integrationGroupId === primary.integrationGroupId
     );
-    const plateArea = home.widthFt * home.depthFt;
+
+    const minX = Math.min(...homes.map((home) => home.x));
+    const minY = Math.min(...homes.map((home) => home.y));
+    const maxX = Math.max(...homes.map((home) => home.x + home.widthFt));
+    const maxY = Math.max(...homes.map((home) => home.y + home.depthFt));
+    const boundingWidth = maxX - minX;
+    const boundingDepth = maxY - minY;
+    const plateArea = homes.reduce((sum, home) => sum + home.widthFt * home.depthFt, 0);
     const grossCapacity = plateArea * spec.stories;
     const garageArea = garage ? garage.widthFt * garage.depthFt : null;
     const garageShortSide = garage ? Math.min(garage.widthFt, garage.depthFt) : null;
-    const garageOverlap = garage ? overlapArea(home, garage) : 0;
+    const garageOverlap = garage ? homes.reduce((sum, home) => sum + overlapArea(home, garage), 0) : 0;
     const netLivingCapacity = grossCapacity - garageOverlap;
-    const shortSide = Math.min(home.widthFt, home.depthFt);
-    const longSide = Math.max(home.widthFt, home.depthFt);
-    const aspect = longSide / Math.max(shortSide, 0.01);
+    const primaryShortSide = Math.min(primary.widthFt, primary.depthFt);
+    const primaryLongSide = Math.max(primary.widthFt, primary.depthFt);
+    const primaryAspect = primaryLongSide / Math.max(primaryShortSide, 0.01);
 
     let pass = true;
     if (intended == null) {
@@ -109,14 +132,15 @@ export function evaluateProgram(candidate: PlacementCandidate, spec: ProgramSpec
       reasons.push(`living target ${intended} SF is inside program range`);
     }
 
-    if (home.widthFt < minW || home.depthFt < minD) {
+    if (primary.widthFt < minW || primary.depthFt < minD) {
       pass = false;
-      reasons.push(`plate ${home.widthFt}×${home.depthFt} ft below minimum ${minW}×${minD} ft`);
+      reasons.push(`primary plate ${primary.widthFt}×${primary.depthFt} ft below minimum ${minW}×${minD} ft`);
     }
-    if (aspect > maxAspect) {
+    if (primaryAspect > maxAspect) {
       pass = false;
-      reasons.push(`plate aspect ratio ${aspect.toFixed(2)} exceeds ${maxAspect.toFixed(2)}`);
+      reasons.push(`primary plate aspect ratio ${primaryAspect.toFixed(2)} exceeds ${maxAspect.toFixed(2)}`);
     }
+    if (homes.length > 1) reasons.push(`compound home uses ${homes.length} declared components with ${plateArea.toFixed(0)} SF floor plate`);
 
     if (!garage) {
       pass = false;
@@ -142,8 +166,8 @@ export function evaluateProgram(candidate: PlacementCandidate, spec: ProgramSpec
       reasons.push(`net conditioned capacity ${netLivingCapacity.toFixed(0)} SF covers living target`);
     }
 
-    if (shortSide < 26) penalties.push(`tight ${shortSide.toFixed(0)} ft short dimension constrains room packing`);
-    if (aspect > 1.6) penalties.push(`elongated plate ${aspect.toFixed(2)} may produce corridor-heavy planning`);
+    if (primaryShortSide < 26) penalties.push(`tight ${primaryShortSide.toFixed(0)} ft primary short dimension constrains room packing`);
+    if (primaryAspect > 1.6) penalties.push(`elongated primary plate ${primaryAspect.toFixed(2)} may produce corridor-heavy planning`);
     if (intended != null && netLivingCapacity > intended * 1.35) penalties.push("large net-capacity surplus may indicate inefficient residual area");
     if (intended != null && netLivingCapacity >= intended && netLivingCapacity < intended * 1.08) penalties.push("living-capacity margin under 8% leaves little room for stairs, walls and mechanical inefficiency");
 
@@ -151,14 +175,15 @@ export function evaluateProgram(candidate: PlacementCandidate, spec: ProgramSpec
       unitId,
       pass,
       intendedLivingSqFt: intended,
-      plateWidthFt: home.widthFt,
-      plateDepthFt: home.depthFt,
+      plateWidthFt: boundingWidth,
+      plateDepthFt: boundingDepth,
       plateAreaSqFt: plateArea,
       grossTwoStoryCapacitySqFt: grossCapacity,
       garageAreaSqFt: garageArea,
       garageShortSideFt: garageShortSide,
       integratedGarageOverlapSqFt: garageOverlap,
       netLivingCapacitySqFt: netLivingCapacity,
+      homeComponentCount: homes.length,
       reasons,
       penalties
     };
