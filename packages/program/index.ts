@@ -1,4 +1,4 @@
-import { PlacementCandidate } from "@/packages/placement";
+import { AxisAlignedPlacement, PlacementCandidate } from "@/packages/placement";
 
 export type ProgramSpec = {
   units: string[];
@@ -19,6 +19,8 @@ export type UnitProgramResult = {
   plateDepthFt: number | null;
   plateAreaSqFt: number | null;
   grossTwoStoryCapacitySqFt: number | null;
+  integratedGarageOverlapSqFt: number | null;
+  netLivingCapacitySqFt: number | null;
   reasons: string[];
   penalties: string[];
 };
@@ -36,11 +38,22 @@ function numericMetadata(candidate: PlacementCandidate, key: string): number | n
   return typeof raw === "number" && Number.isFinite(raw) ? raw : null;
 }
 
+function overlapArea(a: AxisAlignedPlacement, b: AxisAlignedPlacement): number {
+  const width = Math.max(0, Math.min(a.x + a.widthFt, b.x + b.widthFt) - Math.max(a.x, b.x));
+  const depth = Math.max(0, Math.min(a.y + a.depthFt, b.y + b.depthFt) - Math.max(a.y, b.y));
+  return width * depth;
+}
+
 /**
  * Fast program feasibility gate. This is intentionally a pre-plan filter, not a
  * claim that a finished floor plan exists. It rejects physically legal candidates
  * whose home plates or target areas are obviously incompatible with the project
  * program, before detailed room packing is attempted.
+ *
+ * Important: an integrated garage consumes ground-floor plate area. Earlier versions
+ * compared living target against plateArea × stories without subtracting the garage,
+ * which could promote an impossible 1,800 SF home sitting on a plate that only had
+ * ~1,500 SF of conditioned capacity after the garage was accounted for.
  */
 export function evaluateProgram(candidate: PlacementCandidate, spec: ProgramSpec): ProgramEvaluation {
   const minW = spec.minimumPlateWidthFt ?? 22;
@@ -61,13 +74,20 @@ export function evaluateProgram(candidate: PlacementCandidate, spec: ProgramSpec
         plateDepthFt: null,
         plateAreaSqFt: null,
         grossTwoStoryCapacitySqFt: null,
+        integratedGarageOverlapSqFt: null,
+        netLivingCapacitySqFt: null,
         reasons: [`HOME-${unitId} is missing`],
         penalties
       };
     }
 
+    const garage = candidate.placements.find((p) =>
+      p.kind === "garage" && p.integrationGroupId && p.integrationGroupId === home.integrationGroupId
+    );
     const plateArea = home.widthFt * home.depthFt;
     const grossCapacity = plateArea * spec.stories;
+    const garageOverlap = garage ? overlapArea(home, garage) : 0;
+    const netLivingCapacity = grossCapacity - garageOverlap;
     const shortSide = Math.min(home.widthFt, home.depthFt);
     const longSide = Math.max(home.widthFt, home.depthFt);
     const aspect = longSide / Math.max(shortSide, 0.01);
@@ -91,14 +111,18 @@ export function evaluateProgram(candidate: PlacementCandidate, spec: ProgramSpec
       pass = false;
       reasons.push(`plate aspect ratio ${aspect.toFixed(2)} exceeds ${maxAspect.toFixed(2)}`);
     }
-    if (intended != null && grossCapacity < intended) {
+    if (garageOverlap > 0) reasons.push(`integrated garage consumes ${garageOverlap.toFixed(0)} SF of ground-floor plate capacity`);
+    if (intended != null && netLivingCapacity < intended) {
       pass = false;
-      reasons.push(`gross two-story plate capacity ${grossCapacity} SF is below living target`);
+      reasons.push(`net conditioned capacity ${netLivingCapacity.toFixed(0)} SF is below ${intended} SF living target`);
+    } else if (intended != null) {
+      reasons.push(`net conditioned capacity ${netLivingCapacity.toFixed(0)} SF covers living target`);
     }
 
     if (shortSide < 26) penalties.push(`tight ${shortSide.toFixed(0)} ft short dimension constrains room packing`);
     if (aspect > 1.6) penalties.push(`elongated plate ${aspect.toFixed(2)} may produce corridor-heavy planning`);
-    if (intended != null && grossCapacity > intended * 1.35) penalties.push("large gross-to-living surplus may indicate inefficient residual area");
+    if (intended != null && netLivingCapacity > intended * 1.35) penalties.push("large net-capacity surplus may indicate inefficient residual area");
+    if (intended != null && netLivingCapacity >= intended && netLivingCapacity < intended * 1.08) penalties.push("living-capacity margin under 8% leaves little room for stairs, walls and mechanical inefficiency");
 
     return {
       unitId,
@@ -108,6 +132,8 @@ export function evaluateProgram(candidate: PlacementCandidate, spec: ProgramSpec
       plateDepthFt: home.depthFt,
       plateAreaSqFt: plateArea,
       grossTwoStoryCapacitySqFt: grossCapacity,
+      integratedGarageOverlapSqFt: garageOverlap,
+      netLivingCapacitySqFt: netLivingCapacity,
       reasons,
       penalties
     };
