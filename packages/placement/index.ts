@@ -24,7 +24,7 @@ export type AxisAlignedPlacement = {
   movementLimitFt?: number;
   /** Components in the same integration group may intentionally overlap in plan. */
   integrationGroupId?: string;
-  /** False for upper-floor-only/overhead mass that should not block a ground vehicle sweep. */
+  /** False for genuinely overhead/non-ground mass. Homes are still resolved around an integrated garage opening. */
   circulationObstacle?: boolean;
 };
 
@@ -98,13 +98,70 @@ function rectSeparation(a: AxisAlignedPlacement, b: AxisAlignedPlacement): numbe
   return Math.hypot(dx, dy);
 }
 
+function homeResidualObstacles(home: AxisAlignedPlacement, garage: AxisAlignedPlacement): Obstacle[] {
+  const hx1 = home.x;
+  const hy1 = home.y;
+  const hx2 = home.x + home.widthFt;
+  const hy2 = home.y + home.depthFt;
+  const gx1 = garage.x;
+  const gy1 = garage.y;
+  const gx2 = garage.x + garage.widthFt;
+  const gy2 = garage.y + garage.depthFt;
+
+  const ix1 = Math.max(hx1, gx1);
+  const iy1 = Math.max(hy1, gy1);
+  const ix2 = Math.min(hx2, gx2);
+  const iy2 = Math.min(hy2, gy2);
+
+  // A detached/non-overlapping garage does not create an opening in the home mass.
+  if (ix2 <= ix1 || iy2 <= iy1) {
+    return [{ id: home.id, label: home.id, polygon: placementPolygon(home) }];
+  }
+
+  const pieces: Array<{ id: string; x: number; y: number; w: number; d: number }> = [
+    { id: "west", x: hx1, y: hy1, w: ix1 - hx1, d: home.depthFt },
+    { id: "east", x: ix2, y: hy1, w: hx2 - ix2, d: home.depthFt },
+    { id: "south", x: ix1, y: hy1, w: ix2 - ix1, d: iy1 - hy1 },
+    { id: "north", x: ix1, y: iy2, w: ix2 - ix1, d: hy2 - iy2 }
+  ];
+
+  return pieces
+    .filter((piece) => piece.w > 0.05 && piece.d > 0.05)
+    .map((piece) => ({
+      id: `${home.id}:${piece.id}`,
+      label: home.id,
+      polygon: rectangle(piece.x, piece.y, piece.w, piece.d)
+    }));
+}
+
+/**
+ * Build ground-level circulation obstacles without making an integrated home vanish.
+ * For the target garage, only the garage overlap is opened; the rest of that home's
+ * footprint remains a wall/obstacle. Other homes remain full obstacles. This closes
+ * the earlier false-pass mode where a swept path could travel through residential mass.
+ */
 function obstaclesForDrive(candidate: PlacementCandidate, garageId?: string): Obstacle[] {
   const garage = garageId ? candidate.placements.find((item) => item.id === garageId) : undefined;
-  return candidate.placements
-    .filter((item) => item.id !== garageId)
-    .filter((item) => item.circulationObstacle !== false)
-    .filter((item) => !(garage?.integrationGroupId && item.integrationGroupId === garage.integrationGroupId))
-    .map((item) => ({ id: item.id, label: item.id, polygon: placementPolygon(item) }));
+  const obstacles: Obstacle[] = [];
+
+  for (const item of candidate.placements) {
+    if (item.id === garageId) continue;
+
+    if (item.kind === "home") {
+      if (garage?.integrationGroupId && item.integrationGroupId === garage.integrationGroupId) {
+        obstacles.push(...homeResidualObstacles(item, garage));
+      } else {
+        obstacles.push({ id: item.id, label: item.id, polygon: placementPolygon(item) });
+      }
+      continue;
+    }
+
+    if (item.circulationObstacle === false) continue;
+    if (garage?.integrationGroupId && item.integrationGroupId === garage.integrationGroupId) continue;
+    obstacles.push({ id: item.id, label: item.id, polygon: placementPolygon(item) });
+  }
+
+  return obstacles;
 }
 
 export function evaluatePlacement(problem: PlacementProblem, candidate: PlacementCandidate): CandidateEvaluation {
@@ -217,7 +274,6 @@ export function boundedRepair(problem: PlacementProblem, source: PlacementCandid
   const seen = new Set<string>([signature(source)]);
   let tested = 1;
   let best = { candidate: source, evaluation: initial, actions: [] as RepairAction[] };
-
   const score = (evaluation: CandidateEvaluation, actions: RepairAction[]) => {
     const failures = Number(!evaluation.containmentPass) + Number(!evaluation.overlapPass) + Number(!evaluation.separationPass) + Number(!evaluation.circulationPass);
     const collisionCount = evaluation.sweeps.reduce((sum, item) => sum + item.result.collisions.length + item.result.offParcelCount, 0);
@@ -245,7 +301,6 @@ export function boundedRepair(problem: PlacementProblem, source: PlacementCandid
       if (!item.movable) continue;
       if (item.integrationGroupId && movedGroups.has(item.integrationGroupId)) continue;
       if (item.integrationGroupId) movedGroups.add(item.integrationGroupId);
-      const limit = item.movementLimitFt ?? 2;
       for (const step of steps) for (const [dx, dy] of [[step, 0], [-step, 0], [0, step], [0, -step]] as Point[]) {
         mutations.push({ candidate: shiftPlacement(state.candidate, item.id, dx, dy), action: { kind: "shift-placement", targetId: item.id, dx, dy } });
       }
