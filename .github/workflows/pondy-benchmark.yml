@@ -61,8 +61,41 @@ jobs:
           cat /tmp/lotscope.log
           exit 1
 
+      - name: Public + Workbench smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsS http://127.0.0.1:3000/ > /tmp/public.html
+          curl -fsS http://127.0.0.1:3000/workbench > /tmp/workbench.html
+          grep -q 'GUIDED ASSESSMENT v2.0' /tmp/public.html
+          grep -q 'QUICK RECTANGLE' /tmp/public.html
+          grep -q 'CUSTOM LOT FACTS' /tmp/public.html
+          grep -q 'Workbench' /tmp/workbench.html
+
       - name: Run authoritative Pondy benchmark
         run: curl --fail --show-error --silent http://127.0.0.1:3000/api/workbench/pondy-ranked > pondy-ranked.json
+
+      - name: Sprint acceptance gate
+        shell: bash
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const ranked = JSON.parse(fs.readFileSync('pondy-ranked.json','utf8'));
+          const failures = [];
+          if ((ranked.families || []).length < 6) failures.push('fewer than 6 discovery families');
+          if ((ranked.evaluatedCount || 0) < 30) failures.push('fewer than 30 retained benchmark candidates');
+          if ((ranked.physicalPassCount || 0) < 10) failures.push('fewer than 10 physical passes');
+          if ((ranked.combinedPassCount || 0) < 3) failures.push('fewer than 3 combined physical+program passes');
+          const diverse = new Set((ranked.shortlist || []).map(x => x.family)).size;
+          if (diverse < 3) failures.push('fewer than 3 distinct families in shortlist');
+          if (failures.length) {
+            console.error('Sprint acceptance failed:', failures.join('; '));
+            process.exit(1);
+          }
+          if ((ranked.promotionReadyCount || 0) < 1) {
+            console.warn('No promotion-ready candidate yet; keep sprint open.');
+          }
+          NODE
 
       - name: Derive physical view and comparison report
         shell: bash
@@ -85,6 +118,7 @@ jobs:
               objective: x.physicalObjective,
               repaired: x.repaired,
               minimumClearanceFt: x.minimumClearanceFt,
+              promotionBoundaryClearanceFt: x.promotionBoundaryClearanceFt,
               issues: x.physicalIssues,
               placements: x.placements,
               drives: x.drives,
@@ -99,7 +133,7 @@ jobs:
           const cards = (ranked.shortlist?.length ? ranked.shortlist : ranked.results || []).slice(0,5);
           const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
           const svg = x => `<svg viewBox="-8 -8 170 76"><polygon points="${points}" fill="#fafafa" stroke="#222" stroke-width=".7"/>${(x.drives||[]).map(d=>`<polyline points="${d.points.map(p=>p.join(',')).join(' ')}" fill="none" stroke="#777" stroke-width="2.5"/>`).join('')}${(x.placements||[]).map(p=>`<rect x="${p.x}" y="${p.y}" width="${p.widthFt}" height="${p.depthFt}" fill="${p.kind==='garage'?'#d9e9d5':'#ddd'}" stroke="#333" stroke-width=".5"/>`).join('')}</svg>`;
-          const html = `<!doctype html><html><head><meta charset="utf-8"><title>Pondy discovery comparison</title><style>body{font:14px system-ui,sans-serif;margin:24px;background:#f5f5f2;color:#171717}h1{margin-bottom:4px}.meta{color:#666;margin-bottom:22px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:18px}.card{background:white;border:1px solid #ddd;border-radius:14px;padding:16px}.row{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}.pass{color:#18753c}.warn{color:#9a6400}svg{width:100%;height:auto;background:#fff;border-radius:8px}.small{font-size:12px;color:#555}</style></head><body><h1>Pondy Lot 2 · baseline discovery comparison</h1><div class="meta">${esc(ranked.solver)} · ${ranked.combinedPassCount} combined pass · ${ranked.promotionReadyCount ?? 0} promotion ready · ${ranked.families.length} families</div><div class="grid">${cards.map(x=>`<article class="card"><div class="row"><div><strong>${esc(x.id)}</strong><div>${esc(x.family)}</div></div><strong class="${x.promotionReady?'pass':'warn'}">${x.promotionReady?'PROMOTION READY':x.combinedPass?'TECHNICAL PASS':'NOT PROMOTED'}</strong></div>${svg(x)}<div class="row"><span>physical ${x.physicalPass?'PASS':'FAIL'}</span><span>program ${x.programPass?'PASS':'FAIL'}</span><span>clearance ${x.minimumClearanceFt==null?'n/a':Number(x.minimumClearanceFt).toFixed(2)+' ft'}</span><span>score ${Number(x.combinedScore||0).toFixed(1)}</span></div><div class="small">buildable-land pavement ${x.pavement?.estimatedBuildablePavementSqFt==null?'n/a':Number(x.pavement.estimatedBuildablePavementSqFt).toFixed(0)+' SF'} · capacity ready ${x.promotionChecks?.capacityReady?'yes':'no'}</div></article>`).join('')}</div><p class="small">Promotion-ready is stricter than technical PASS: current benchmark requires ≥${ranked.promotionClearanceFt ?? 1} ft internal vehicle clearance and no under-8% living-capacity margin. Pavement figures are ranking estimates, not civil takeoffs.</p></body></html>`;
+          const html = `<!doctype html><html><head><meta charset="utf-8"><title>Pondy discovery comparison</title><style>body{font:14px system-ui,sans-serif;margin:24px;background:#f5f5f2;color:#171717}h1{margin-bottom:4px}.meta{color:#666;margin-bottom:22px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:18px}.card{background:white;border:1px solid #ddd;border-radius:14px;padding:16px}.row{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}.pass{color:#18753c}.warn{color:#9a6400}svg{width:100%;height:auto;background:#fff;border-radius:8px}.small{font-size:12px;color:#555}</style></head><body><h1>Pondy Lot 2 · baseline discovery comparison</h1><div class="meta">${esc(ranked.solver)} · ${ranked.combinedPassCount} combined pass · ${ranked.promotionReadyCount ?? 0} promotion ready · ${ranked.families.length} families</div><div class="grid">${cards.map(x=>`<article class="card"><div class="row"><div><strong>${esc(x.id)}</strong><div>${esc(x.family)}</div></div><strong class="${x.promotionReady?'pass':'warn'}">${x.promotionReady?'PROMOTION READY':x.combinedPass?'TECHNICAL PASS':'NOT PROMOTED'}</strong></div>${svg(x)}<div class="row"><span>physical ${x.physicalPass?'PASS':'FAIL'}</span><span>program ${x.programPass?'PASS':'FAIL'}</span><span>non-access clearance ${x.promotionBoundaryClearanceFt==null?'n/a':Number(x.promotionBoundaryClearanceFt).toFixed(2)+' ft'}</span><span>score ${Number(x.combinedScore||0).toFixed(1)}</span></div><div class="small">buildable-land pavement ${x.pavement?.estimatedBuildablePavementSqFt==null?'n/a':Number(x.pavement.estimatedBuildablePavementSqFt).toFixed(0)+' SF'} · 1800-SF capacity ready ${x.promotionChecks?.capacityReady?'yes':'no'}</div></article>`).join('')}</div><p class="small">Promotion-ready is stricter than technical PASS: current benchmark requires ≥${ranked.promotionClearanceFt ?? 1} ft clearance from non-access parcel edges plus net geometric capacity of at least ${Number(ranked.promotionTargetCapacitySqFt || 1944).toFixed(0)} SF per unit, preserving an 8% planning margin around the 1,800-SF target. Pennsylvania frontage is excluded from the promotion-clearance metric because it is the legal vehicle opening. Pavement figures are ranking estimates, not civil takeoffs.</p></body></html>`;
           fs.writeFileSync('pondy-report.html', html);
           NODE
 
@@ -113,7 +147,7 @@ jobs:
           const ranked = JSON.parse(fs.readFileSync('pondy-ranked.json','utf8'));
           const project = fs.readFileSync('projects/pondy-lot2/project.json','utf8');
           const manifest = {
-            schemaVersion: 2,
+            schemaVersion: 3,
             repository: process.env.GITHUB_REPOSITORY,
             commitSha: process.env.GITHUB_SHA,
             runId: process.env.GITHUB_RUN_ID,
@@ -124,6 +158,7 @@ jobs:
             solver: ranked.solver,
             scoringVersion: ranked.scoringVersion,
             scenario: ranked.scenario,
+            searchAdjustments: ranked.searchAdjustments || [],
             physicalCount: physical.count,
             physicalPassCount: physical.passCount,
             combinedPassCount: ranked.combinedPassCount ?? 0,
@@ -138,6 +173,7 @@ jobs:
               promotionReady: x.promotionReady,
               combinedScore: x.combinedScore,
               minimumClearanceFt: x.minimumClearanceFt,
+              promotionBoundaryClearanceFt: x.promotionBoundaryClearanceFt,
               estimatedBuildablePavementSqFt: x.pavement?.estimatedBuildablePavementSqFt ?? null
             }))
           };
@@ -162,7 +198,7 @@ jobs:
               family: x.family,
               promotionReady: x.promotionReady,
               combinedScore: x.combinedScore,
-              minimumClearanceFt: x.minimumClearanceFt,
+              promotionBoundaryClearanceFt: x.promotionBoundaryClearanceFt,
               estimatedBuildablePavementSqFt: x.pavement?.estimatedBuildablePavementSqFt,
               capacityReady: x.promotionChecks?.capacityReady
             }))
@@ -183,11 +219,11 @@ jobs:
           console.log(`- Promotion-ready candidates: **${ranked.promotionReadyCount ?? 0}**`);
           console.log(`- Diverse technical shortlist: **${shortlist.length}**`);
           console.log('');
-          console.log('| Candidate | Family | Promotion | Clearance | Capacity | Buildable pavement* | Score |');
+          console.log('| Candidate | Family | Promotion | Non-access clearance | 1800-SF capacity | Buildable pavement* | Score |');
           console.log('|---|---|---:|---:|---:|---:|---:|');
           for (const x of shortlist.slice(0,5)) {
             const pavement = x.pavement?.estimatedBuildablePavementSqFt;
-            console.log(`| ${x.id} | ${x.family} | ${x.promotionReady ? 'READY' : 'TECH PASS'} | ${x.minimumClearanceFt == null ? 'n/a' : x.minimumClearanceFt.toFixed(2) + ' ft'} | ${x.promotionChecks?.capacityReady ? 'READY' : 'TIGHT'} | ${pavement == null ? 'n/a' : pavement.toFixed(0) + ' sf'} | ${Number(x.combinedScore ?? 0).toFixed(1)} |`);
+            console.log(`| ${x.id} | ${x.family} | ${x.promotionReady ? 'READY' : 'TECH PASS'} | ${x.promotionBoundaryClearanceFt == null ? 'n/a' : x.promotionBoundaryClearanceFt.toFixed(2) + ' ft'} | ${x.promotionChecks?.capacityReady ? 'READY' : 'TIGHT'} | ${pavement == null ? 'n/a' : pavement.toFixed(0) + ' sf'} | ${Number(x.combinedScore ?? 0).toFixed(1)} |`);
           }
           console.log('');
           console.log('*Estimated ranking metric, not a paving takeoff.');
