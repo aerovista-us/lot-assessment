@@ -1,6 +1,8 @@
 import { FamilySearch } from "@/packages/optimizer";
 import { PlacementCandidate } from "@/packages/placement";
 
+type Wing = { id: string; x: number; y: number; widthFt: number; depthFt: number };
+
 function unitMass(args: {
   id: "A" | "B";
   plateX: number;
@@ -11,10 +13,9 @@ function unitMass(args: {
   garageY: number;
   garageW?: number;
   garageD?: number;
-  integrated?: boolean;
+  wings?: Wing[];
 }) {
   const group = `unit-${args.id}`;
-  const integrated = args.integrated !== false;
   return [
     {
       id: `HOME-${args.id}`,
@@ -25,9 +26,21 @@ function unitMass(args: {
       depthFt: args.plateD,
       movable: true,
       movementLimitFt: 2,
-      integrationGroupId: integrated ? group : undefined,
+      integrationGroupId: group,
       circulationObstacle: false
     },
+    ...(args.wings ?? []).map((wing) => ({
+      id: `HOME-${args.id}-${wing.id}`,
+      kind: "home" as const,
+      x: wing.x,
+      y: wing.y,
+      widthFt: wing.widthFt,
+      depthFt: wing.depthFt,
+      movable: true,
+      movementLimitFt: 2,
+      integrationGroupId: group,
+      circulationObstacle: false
+    })),
     {
       id: `GARAGE-${args.id}`,
       kind: "garage" as const,
@@ -37,143 +50,198 @@ function unitMass(args: {
       depthFt: args.garageD ?? 20,
       movable: true,
       movementLimitFt: 2,
-      integrationGroupId: integrated ? group : undefined,
+      // A detached garage still belongs to the unit. Sharing the unit group lets the
+      // program gate count it without implying that it overlaps the home in plan.
+      integrationGroupId: group,
       circulationObstacle: true
     }
   ];
 }
 
 /**
- * D1 — Interior Garage Pair
- * Homes remain front/rear, but both garage mouths are pulled toward the open middle gap.
- * This deliberately tests a shared center court rather than sending the rear vehicle deep
- * into the rear home mass.
+ * D2 — Mid Detached Garage
+ * The rear home is a clean detached-garage plate. The garage occupies the otherwise
+ * awkward center gap and is reached from a shallow diagonal north-side approach rather
+ * than the long side-spine/horizontal garage approach of Design 1.
  */
-export const interiorGaragePair: FamilySearch = {
-  id: "interior-garage-pair",
+export const midDetachedGarage: FamilySearch = {
+  id: "mid-detached-garage",
   variables: [
-    { id: "frontX", min: 82, max: 86, step: 1 },
-    { id: "rearX", min: 25, max: 27, step: 1 },
-    { id: "rearW", min: 34, max: 37, step: 1 },
-    { id: "spineY", min: 36.5, max: 38, step: 0.5 },
-    { id: "courtX", min: 70, max: 76, step: 1 }
+    { id: "frontX", min: 82.5, max: 83.5, step: 0.5 },
+    { id: "rearX", min: 25, max: 25.5, step: 0.5 },
+    { id: "garageBX", min: 61.5, max: 62.5, step: 0.5 },
+    { id: "garageBY", min: 12.5, max: 13, step: 0.5 },
+    { id: "startY", min: 39.5, max: 41, step: 0.5 }
+  ],
+  build: (v, serial): PlacementCandidate => ({
+    id: `PONDY-MDG2-${serial}`,
+    family: "mid-detached-garage",
+    placements: [
+      ...unitMass({ id: "A", plateX: v.frontX, plateY: 5, plateW: 128 - v.frontX, plateD: 26.2, garageX: 108, garageY: 7 }),
+      ...unitMass({ id: "B", plateX: v.rearX, plateY: 5, plateW: 36.5, plateD: 27, garageX: v.garageBX, garageY: v.garageBY })
+    ],
+    drives: [
+      { id: "DRIVE-A", garageId: "GARAGE-A", points: [[151, 17], [128, 17]], movableControlPoints: [] },
+      { id: "DRIVE-B", garageId: "GARAGE-B", points: [[151, v.startY], [v.garageBX + 10, v.garageBY + 20]], movableControlPoints: [] }
+    ],
+    metadata: {
+      topology: "mid-detached-north-approach",
+      designGroup: "mid-detached",
+      designIntent: "detached-center-garage-shallow-diagonal",
+      intendedLivingA: 1800,
+      intendedLivingB: 1800
+    }
+  })
+};
+
+/**
+ * D3 — Rear North-Door
+ * The rear garage remains integrated with the rear home, but the garage opening is on
+ * the north side. A direct shallow diagonal bypasses the front house instead of using
+ * the proven side-spine then turning horizontally into the garage.
+ */
+export const rearNorthDoor: FamilySearch = {
+  id: "rear-north-door",
+  variables: [
+    { id: "frontX", min: 82.5, max: 83.5, step: 0.5 },
+    { id: "rearX", min: 25, max: 25.5, step: 0.5 },
+    { id: "startY", min: 40, max: 41.5, step: 0.5 },
+    { id: "garageBY", min: 12.5, max: 13, step: 0.5 }
   ],
   build: (v, serial): PlacementCandidate => {
-    const rearEast = v.rearX + v.rearW;
+    const rearEast = v.rearX + 37;
     return {
-      id: `PONDY-IGP-${serial}`,
-      family: "interior-garage-pair",
+      id: `PONDY-RND-${serial}`,
+      family: "rear-north-door",
       placements: [
-        ...unitMass({ id: "A", plateX: v.frontX, plateY: 5, plateW: 128 - v.frontX, plateD: 24, garageX: v.frontX, garageY: 7 }),
-        ...unitMass({ id: "B", plateX: v.rearX, plateY: 5, plateW: v.rearW, plateD: 32.5, garageX: rearEast - 20, garageY: 15.5 })
+        ...unitMass({ id: "A", plateX: v.frontX, plateY: 5, plateW: 128 - v.frontX, plateD: 26.2, garageX: 108, garageY: 7 }),
+        ...unitMass({
+          id: "B",
+          plateX: v.rearX,
+          plateY: 5,
+          plateW: 37,
+          plateD: 27,
+          garageX: rearEast - 20,
+          garageY: v.garageBY,
+          wings: [{ id: "EAST-WING", x: rearEast, y: 5, widthFt: 10, depthFt: 17.5 }]
+        })
       ],
       drives: [
-        { id: "DRIVE-A", garageId: "GARAGE-A", points: [[151, v.spineY], [v.courtX + 22, v.spineY], [v.frontX, 17]], movableControlPoints: [1], controlPointLimitFt: 2 },
-        { id: "DRIVE-B", garageId: "GARAGE-B", points: [[151, v.spineY], [v.courtX, v.spineY], [rearEast, 25.5]], movableControlPoints: [1], controlPointLimitFt: 2 }
+        { id: "DRIVE-A", garageId: "GARAGE-A", points: [[151, 17], [128, 17]], movableControlPoints: [] },
+        { id: "DRIVE-B", garageId: "GARAGE-B", points: [[151, v.startY], [rearEast - 10, v.garageBY + 20]], movableControlPoints: [] }
       ],
-      metadata: { topology: "interior-garage-pair", designIntent: "shared-center-court", intendedLivingA: 1800, intendedLivingB: 1800 }
+      metadata: {
+        topology: "rear-integrated-north-door",
+        designGroup: "rear-north-door",
+        designIntent: "integrated-rear-garage-direct-north-approach",
+        intendedLivingA: 1800,
+        intendedLivingB: 1800
+      }
     };
   }
 };
 
 /**
- * D2 — Mid Detached Rear Garage
- * The rear unit keeps its house far west, but its garage is detached in the center gap.
- * Vehicle travel stops earlier and the rear house is no longer shaped around a garage bay.
+ * D4 — Dual North Approach
+ * Both garage doors are treated as north-facing. The street-side garage is raised to
+ * the north edge of the front home so its approach never passes through residual house
+ * mass; the rear garage remains detached in the middle gap. Two shallow diagonals replace
+ * the long edge spine entirely.
  */
-export const midDetachedGarage: FamilySearch = {
-  id: "mid-detached-garage",
+export const dualNorthApproach: FamilySearch = {
+  id: "dual-north-approach",
   variables: [
-    { id: "frontX", min: 88, max: 92, step: 1 },
-    { id: "rearX", min: 25, max: 27, step: 1 },
-    { id: "rearW", min: 35, max: 37, step: 1 },
-    { id: "garageBX", min: 64, max: 68, step: 1 },
-    { id: "garageBY", min: 15, max: 17, step: 1 },
-    { id: "spineY", min: 36.5, max: 38, step: 0.5 },
-    { id: "turnX", min: 80, max: 84, step: 1 }
+    { id: "frontX", min: 82.5, max: 83.5, step: 0.5 },
+    { id: "garageBX", min: 61.5, max: 62.5, step: 0.5 },
+    { id: "garageBY", min: 12.5, max: 13, step: 0.5 },
+    { id: "driveAY", min: 37, max: 39, step: 0.5 },
+    { id: "driveBY", min: 40, max: 41.5, step: 0.5 }
   ],
-  build: (v, serial): PlacementCandidate => ({
-    id: `PONDY-MDG-${serial}`,
-    family: "mid-detached-garage",
-    placements: [
-      ...unitMass({ id: "A", plateX: v.frontX, plateY: 5, plateW: 128 - v.frontX, plateD: 25, garageX: 108, garageY: 7 }),
-      ...unitMass({ id: "B", plateX: v.rearX, plateY: 5, plateW: v.rearW, plateD: 28, garageX: v.garageBX, garageY: v.garageBY, integrated: false })
-    ],
-    drives: [
-      { id: "DRIVE-A", garageId: "GARAGE-A", points: [[151, 17], [128, 17]], movableControlPoints: [] },
-      { id: "DRIVE-B", garageId: "GARAGE-B", points: [[151, v.spineY], [v.turnX, v.spineY], [v.garageBX + 20, v.garageBY + 10]], movableControlPoints: [1], controlPointLimitFt: 3 }
-    ],
-    metadata: { topology: "mid-detached-garage", designIntent: "rear-house-clean-plate", intendedLivingA: 1800, intendedLivingB: 1800 }
-  })
+  build: (v, serial): PlacementCandidate => {
+    const frontDepth = 26.2;
+    const garageAY = 5 + frontDepth - 20;
+    return {
+      id: `PONDY-DNA-${serial}`,
+      family: "dual-north-approach",
+      placements: [
+        ...unitMass({ id: "A", plateX: v.frontX, plateY: 5, plateW: 128 - v.frontX, plateD: frontDepth, garageX: 108, garageY: garageAY }),
+        ...unitMass({ id: "B", plateX: 25, plateY: 5, plateW: 36.5, plateD: 27, garageX: v.garageBX, garageY: v.garageBY })
+      ],
+      drives: [
+        { id: "DRIVE-A", garageId: "GARAGE-A", points: [[151, v.driveAY], [118, garageAY + 20]], movableControlPoints: [] },
+        { id: "DRIVE-B", garageId: "GARAGE-B", points: [[151, v.driveBY], [v.garageBX + 10, v.garageBY + 20]], movableControlPoints: [] }
+      ],
+      metadata: {
+        topology: "dual-north-diagonal",
+        designGroup: "dual-north",
+        designIntent: "two-north-facing-garages-no-side-spine",
+        intendedLivingA: 1800,
+        intendedLivingB: 1800
+      }
+    };
+  }
 };
 
 /**
- * D3 — Front Loaded Pair
- * Both garages are pulled toward Pennsylvania. Unit B's garage is detached and staggered
- * behind the street-side garage, reducing the amount of driveway penetrating the lot.
- */
-export const frontLoadedPair: FamilySearch = {
-  id: "front-loaded-pair",
-  variables: [
-    { id: "homeAX", min: 78, max: 82, step: 1 },
-    { id: "homeBX", min: 25, max: 27, step: 1 },
-    { id: "homeBW", min: 36, max: 38, step: 1 },
-    { id: "garageBX", min: 86, max: 90, step: 1 },
-    { id: "garageBY", min: 17, max: 19, step: 1 },
-    { id: "driveBY", min: 31, max: 34, step: 1 }
-  ],
-  build: (v, serial): PlacementCandidate => ({
-    id: `PONDY-FLP-${serial}`,
-    family: "front-loaded-pair",
-    placements: [
-      ...unitMass({ id: "A", plateX: v.homeAX, plateY: 5, plateW: 128 - v.homeAX, plateD: 22, garageX: 108, garageY: 5 }),
-      ...unitMass({ id: "B", plateX: v.homeBX, plateY: 5, plateW: v.homeBW, plateD: 28, garageX: v.garageBX, garageY: v.garageBY, integrated: false })
-    ],
-    drives: [
-      { id: "DRIVE-A", garageId: "GARAGE-A", points: [[151, 15], [128, 15]], movableControlPoints: [] },
-      { id: "DRIVE-B", garageId: "GARAGE-B", points: [[151, v.driveBY], [111, v.driveBY], [v.garageBX + 20, v.garageBY + 10]], movableControlPoints: [1], controlPointLimitFt: 3 }
-    ],
-    metadata: { topology: "front-loaded-pair", designIntent: "minimize-deep-pavement", intendedLivingA: 1800, intendedLivingB: 1800 }
-  })
-};
-
-/**
- * D4 — Offset Court
- * A broad gap is intentionally reserved between the two houses. The rear garage sits at
- * the east end of the rear home while the front home is pushed farther toward the street,
- * creating a central maneuvering/courtyard zone rather than a long edge-only solution.
+ * D5 — Offset Court
+ * A low west wing lets the front unit meet program capacity without filling the upper
+ * maneuvering zone. The rear garage faces east into the central gap and receives a
+ * genuine curved approach after the vehicle clears the taller front mass.
  */
 export const offsetCourt: FamilySearch = {
   id: "offset-court",
   variables: [
-    { id: "frontX", min: 94, max: 98, step: 1 },
-    { id: "rearX", min: 25, max: 27, step: 1 },
-    { id: "rearW", min: 36, max: 38, step: 1 },
-    { id: "rearGarageY", min: 14, max: 17, step: 1 },
-    { id: "spineY", min: 36.5, max: 38, step: 0.5 },
-    { id: "courtX", min: 75, max: 82, step: 1 }
+    { id: "frontX", min: 87.5, max: 88.5, step: 0.5 },
+    { id: "courtX", min: 86, max: 89, step: 1 },
+    { id: "spineY", min: 39, max: 40.5, step: 0.5 },
+    { id: "rearGarageY", min: 5, max: 6, step: 0.5 }
   ],
   build: (v, serial): PlacementCandidate => {
-    const rearEast = v.rearX + v.rearW;
+    const rearX = 25;
+    const rearEast = 62;
     return {
-      id: `PONDY-OC-${serial}`,
+      id: `PONDY-OC2-${serial}`,
       family: "offset-court",
       placements: [
-        ...unitMass({ id: "A", plateX: v.frontX, plateY: 5, plateW: 128 - v.frontX, plateD: 30, garageX: 108, garageY: 7 }),
-        ...unitMass({ id: "B", plateX: v.rearX, plateY: 5, plateW: v.rearW, plateD: 31, garageX: rearEast - 20, garageY: v.rearGarageY })
+        ...unitMass({
+          id: "A",
+          plateX: v.frontX,
+          plateY: 5,
+          plateW: 128 - v.frontX,
+          plateD: 26.2,
+          garageX: 108,
+          garageY: 7,
+          wings: [{ id: "LOW-WEST", x: v.frontX - 10, y: 5, widthFt: 10, depthFt: 13 }]
+        }),
+        ...unitMass({
+          id: "B",
+          plateX: rearX,
+          plateY: 5,
+          plateW: 37,
+          plateD: 27,
+          garageX: rearEast - 10,
+          garageY: v.rearGarageY,
+          wings: [{ id: "EAST-WING", x: rearEast, y: 5, widthFt: 10, depthFt: 17.5 }]
+        })
       ],
       drives: [
         { id: "DRIVE-A", garageId: "GARAGE-A", points: [[151, 17], [128, 17]], movableControlPoints: [] },
-        { id: "DRIVE-B", garageId: "GARAGE-B", points: [[151, v.spineY], [v.courtX + 12, v.spineY], [v.courtX, v.rearGarageY + 10], [rearEast, v.rearGarageY + 10]], movableControlPoints: [1, 2], controlPointLimitFt: 3 }
+        { id: "DRIVE-B", garageId: "GARAGE-B", points: [[151, v.spineY], [v.courtX, v.spineY], [rearEast + 10, v.rearGarageY + 10]], movableControlPoints: [1], controlPointLimitFt: 2 }
       ],
-      metadata: { topology: "offset-court", designIntent: "central-open-gap", intendedLivingA: 1800, intendedLivingB: 1800 }
+      metadata: {
+        topology: "offset-court-east-door",
+        designGroup: "offset-court",
+        designIntent: "central-court-curved-rear-garage-approach",
+        intendedLivingA: 1800,
+        intendedLivingB: 1800
+      }
     };
   }
 };
 
 export const diversityFamilies: FamilySearch[] = [
-  interiorGaragePair,
   midDetachedGarage,
-  frontLoadedPair,
+  rearNorthDoor,
+  dualNorthApproach,
   offsetCourt
 ];
