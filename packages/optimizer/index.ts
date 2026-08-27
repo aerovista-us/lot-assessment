@@ -52,9 +52,7 @@ function failedGateCount(evaluation: CandidateEvaluation) {
 /**
  * Bounded repair is for a near-pass, not a brute-force second solver attached to
  * every bad state. Restrict repair to candidates failing one physical gate and with
- * a small collision/boundary defect. This follows the Workbench rule: repair the
- * cheapest movable geometry first, but close obviously bad states without spending
- * hundreds of repair evaluations on them.
+ * a small collision/boundary defect.
  */
 function shouldAttemptRepair(evaluation: CandidateEvaluation): boolean {
   if (evaluation.pass || failedGateCount(evaluation) !== 1) return false;
@@ -66,12 +64,7 @@ function shouldAttemptRepair(evaluation: CandidateEvaluation): boolean {
   return sweepDefects <= 4 && evaluation.issues.length <= 6;
 }
 
-/**
- * Lower is better. Hard-pass candidates sort ahead of non-pass candidates. Within
- * each class, prefer fewer geometric failures, more vehicle boundary clearance,
- * and smaller repair motion. Architectural/program scoring belongs in a separate
- * layer and can be composed after this physical solve.
- */
+/** Lower is better; hard PASS dominates all ranking preferences. */
 export function physicalObjective(
   evaluation: CandidateEvaluation,
   repairActions: RepairAction[],
@@ -93,28 +86,62 @@ export function physicalObjective(
     clearancePenalty + actionMagnitude(repairActions);
 }
 
+function variableCount(variable: NumericVariable): number {
+  if (variable.step <= 0) throw new Error(`Variable ${variable.id} requires a positive step.`);
+  return Math.max(1, Math.floor((variable.max - variable.min) / variable.step + 1e-9) + 1);
+}
+
+function valueAt(variable: NumericVariable, index: number): number {
+  return Math.round((variable.min + variable.step * index) * 1000) / 1000;
+}
+
+/** Decode a mixed-radix grid index; the last variable changes fastest. */
+function stateAtIndex(variables: NumericVariable[], counts: number[], index: number): VariableState {
+  const state: VariableState = {};
+  let remainder = index;
+  for (let i = variables.length - 1; i >= 0; i -= 1) {
+    const digit = remainder % counts[i];
+    remainder = Math.floor(remainder / counts[i]);
+    state[variables[i].id] = valueAt(variables[i], digit);
+  }
+  return state;
+}
+
+/**
+ * Deterministic bounded grid sampling.
+ *
+ * The old implementation stopped after the first N lexicographic combinations,
+ * which could leave early variables pinned at their minimum and make a "500 state"
+ * search cover only one corner of a topology family. When the complete grid is larger
+ * than the evaluation budget, sample evenly across the entire mixed-radix grid instead.
+ */
 function enumerateVariables(
   variables: NumericVariable[],
   max: number,
   visit: (state: VariableState, serial: number) => void
 ): number {
+  if (max <= 0) return 0;
+  const counts = variables.map(variableCount);
+  const total = counts.reduce((product, count) => product * count, 1);
+  const target = Math.min(max, total);
+
+  if (target === total) {
+    for (let index = 0; index < total; index += 1) {
+      visit(stateAtIndex(variables, counts, index), index + 1);
+    }
+    return total;
+  }
+
+  let previousIndex = -1;
   let serial = 0;
-  const recurse = (index: number, state: VariableState) => {
-    if (serial >= max) return;
-    if (index >= variables.length) {
-      serial += 1;
-      visit({ ...state }, serial);
-      return;
-    }
-    const variable = variables[index];
-    if (variable.step <= 0) throw new Error(`Variable ${variable.id} requires a positive step.`);
-    for (let value = variable.min; value <= variable.max + 1e-9; value += variable.step) {
-      state[variable.id] = Math.round(value * 1000) / 1000;
-      recurse(index + 1, state);
-      if (serial >= max) break;
-    }
-  };
-  recurse(0, {});
+  for (let sample = 0; sample < target; sample += 1) {
+    // Center each sample in an equal-width stratum over the complete grid.
+    let index = Math.min(total - 1, Math.floor(((sample + 0.5) * total) / target));
+    if (index <= previousIndex) index = Math.min(total - 1, previousIndex + 1);
+    previousIndex = index;
+    serial += 1;
+    visit(stateAtIndex(variables, counts, index), serial);
+  }
   return serial;
 }
 
