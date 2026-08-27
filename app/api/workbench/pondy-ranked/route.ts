@@ -26,12 +26,6 @@ function interpolate(a: Point, b: Point, t: number): Point {
   return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
 }
 
-/**
- * Early ranking metric, not a civil paving takeoff. It samples each drive centerline
- * in world-space feet and estimates how much of its 12 ft benchmark corridor runs
- * through otherwise-buildable residential envelope. The value is intentionally
- * reported as an estimate so a ranking preference never masquerades as survey truth.
- */
 function pavementEfficiency(candidate: PlacementCandidate) {
   let totalCenterlineFt = 0;
   let buildableCenterlineFt = 0;
@@ -42,7 +36,6 @@ function pavementEfficiency(candidate: PlacementCandidate) {
       const b = drive.points[i + 1];
       const segmentFt = distance(a, b);
       totalCenterlineFt += segmentFt;
-
       const steps = Math.max(1, Math.ceil(segmentFt / SAMPLE_STEP_FT));
       const sliceFt = segmentFt / steps;
       for (let step = 0; step < steps; step += 1) {
@@ -55,7 +48,6 @@ function pavementEfficiency(candidate: PlacementCandidate) {
   const estimatedTotalPavementSqFt = totalCenterlineFt * BENCHMARK_DRIVE_WIDTH_FT;
   const estimatedBuildablePavementSqFt = buildableCenterlineFt * BENCHMARK_DRIVE_WIDTH_FT;
   const buildableSharePct = totalCenterlineFt > 0 ? (buildableCenterlineFt / totalCenterlineFt) * 100 : 0;
-
   return {
     benchmarkDriveWidthFt: BENCHMARK_DRIVE_WIDTH_FT,
     totalCenterlineFt,
@@ -69,10 +61,12 @@ function pavementEfficiency(candidate: PlacementCandidate) {
 export async function GET() {
   const started = Date.now();
   const solved = solveFamilies(pondyProblem, pondyFamilies, {
-    maxEvaluations: 1200,
+    // Coarse Discovery Run: spread a bounded number of states across each entire
+    // family grid, then refine only human/solver survivors in the next pass.
+    maxEvaluations: 360,
     diversePerFamily: 6,
     repairNearPasses: true,
-    repairMaxStates: 900,
+    repairMaxStates: 300,
     repairMaxActions: 3,
     minimumPreferredClearanceFt: 1
   });
@@ -82,18 +76,12 @@ export async function GET() {
     const pavement = pavementEfficiency(item.candidate);
     const physicalPass = item.evaluation.pass;
     const combinedPass = physicalPass && program.pass;
-
-    // Hard gates dominate. Site-efficiency penalties only rank survivors and never
-    // manufacture a PASS. Buildable-envelope pavement carries the strongest weight.
     const physicalPenalty = Math.min(item.objective / 1000, 100);
     const buildablePavementPenalty = Math.min(pavement.estimatedBuildablePavementSqFt / 45, 35);
     const totalPavementPenalty = Math.min(pavement.estimatedTotalPavementSqFt / 220, 12);
     const combinedScore =
-      (physicalPass ? 100 : 0) +
-      program.qualityScore -
-      physicalPenalty -
-      buildablePavementPenalty -
-      totalPavementPenalty;
+      (physicalPass ? 100 : 0) + program.qualityScore - physicalPenalty -
+      buildablePavementPenalty - totalPavementPenalty;
 
     return {
       id: item.candidate.id,
@@ -103,11 +91,7 @@ export async function GET() {
       programPass: program.pass,
       combinedScore,
       physicalObjective: item.objective,
-      scoring: {
-        physicalPenalty,
-        buildablePavementPenalty,
-        totalPavementPenalty
-      },
+      scoring: { physicalPenalty, buildablePavementPenalty, totalPavementPenalty },
       pavement,
       repaired: item.repaired,
       repairActions: item.repairActions,
@@ -134,6 +118,7 @@ export async function GET() {
     project: "pondy-lot2",
     scenario: "baseline-no-alley",
     solver: "lotscope-rapid-v0.4",
+    searchMode: "coarse-full-grid-sample",
     scoringVersion: "pondy-site-efficiency-v1",
     elapsedMs: Date.now() - started,
     families: pondyFamilies.map((family) => family.id),
