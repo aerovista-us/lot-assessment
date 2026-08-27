@@ -7,13 +7,11 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const started = Date.now();
   const solved = solveFamilies(pondyProblem, pondyFamilies, {
-    // Deterministic sampler now spreads these states across each family's full grid.
-    // Keep the first discovery pass deliberately coarse; refine only survivors.
+    // Diagnostic-only physical screen. The ranked endpoint is authoritative and owns
+    // bounded repair; do not spend a second repair budget here on the same CI run.
     maxEvaluations: 180,
     diversePerFamily: 4,
-    repairNearPasses: true,
-    repairMaxStates: 180,
-    repairMaxActions: 2,
+    repairNearPasses: false,
     minimumPreferredClearanceFt: 1
   });
 
@@ -35,8 +33,8 @@ export async function GET() {
   return NextResponse.json({
     project: "pondy-lot2",
     scenario: "baseline-no-alley",
-    solver: "lotscope-placement-v0.3",
-    searchMode: "coarse-full-grid-sample",
+    solver: "lotscope-placement-v0.4-diagnostic",
+    searchMode: "coarse-full-grid-sample-no-repair",
     elapsedMs: Date.now() - started,
     families: pondyFamilies.map((family) => family.id),
     count: results.length,
