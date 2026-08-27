@@ -19,6 +19,7 @@ const PROGRAM = {
   garageAreaSqFt: 484
 };
 
+const PREFERRED_LIVING_SQFT = 1800;
 const BENCHMARK_DRIVE_WIDTH_FT = 12;
 const SAMPLE_STEP_FT = 2;
 
@@ -58,11 +59,18 @@ function pavementEfficiency(candidate: PlacementCandidate) {
   };
 }
 
+function preferredLivingPenalty(program: ReturnType<typeof evaluateProgram>) {
+  const intended = program.unitResults
+    .map((unit) => unit.intendedLivingSqFt)
+    .filter((value): value is number => value != null);
+  if (!intended.length) return 20;
+  const totalDeviation = intended.reduce((sum, value) => sum + Math.abs(value - PREFERRED_LIVING_SQFT), 0);
+  return Math.min(totalDeviation / 25, 20);
+}
+
 export async function GET() {
   const started = Date.now();
   const solved = solveFamilies(pondyProblem, pondyFamilies, {
-    // Coarse Discovery Run: spread a bounded number of states across each entire
-    // family grid, then refine only human/solver survivors in the next pass.
     maxEvaluations: 360,
     diversePerFamily: 6,
     repairNearPasses: true,
@@ -79,9 +87,10 @@ export async function GET() {
     const physicalPenalty = Math.min(item.objective / 1000, 100);
     const buildablePavementPenalty = Math.min(pavement.estimatedBuildablePavementSqFt / 45, 35);
     const totalPavementPenalty = Math.min(pavement.estimatedTotalPavementSqFt / 220, 12);
+    const livingTargetPenalty = preferredLivingPenalty(program);
     const combinedScore =
       (physicalPass ? 100 : 0) + program.qualityScore - physicalPenalty -
-      buildablePavementPenalty - totalPavementPenalty;
+      buildablePavementPenalty - totalPavementPenalty - livingTargetPenalty;
 
     return {
       id: item.candidate.id,
@@ -91,7 +100,7 @@ export async function GET() {
       programPass: program.pass,
       combinedScore,
       physicalObjective: item.objective,
-      scoring: { physicalPenalty, buildablePavementPenalty, totalPavementPenalty },
+      scoring: { physicalPenalty, buildablePavementPenalty, totalPavementPenalty, livingTargetPenalty },
       pavement,
       repaired: item.repaired,
       repairActions: item.repairActions,
@@ -117,9 +126,10 @@ export async function GET() {
   return NextResponse.json({
     project: "pondy-lot2",
     scenario: "baseline-no-alley",
-    solver: "lotscope-rapid-v0.4",
+    solver: "lotscope-rapid-v0.5",
     searchMode: "coarse-full-grid-sample",
-    scoringVersion: "pondy-site-efficiency-v1",
+    scoringVersion: "pondy-site-efficiency-v2",
+    preferredLivingSqFt: PREFERRED_LIVING_SQFT,
     elapsedMs: Date.now() - started,
     families: pondyFamilies.map((family) => family.id),
     benchmarkControl: R51E_HISTORICAL_CONTROL,
