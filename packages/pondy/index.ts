@@ -7,6 +7,7 @@ export const PONDY_SURVEY: Point[] = [
   [0, 0], [148, 0], [148, 50], [125.143, 43.016], [84.813, 43.016], [0, 57.01]
 ];
 
+// Segment order follows PONDY_SURVEY. Pennsylvania frontage is segment 1 (x=148).
 const SEGMENT_SETBACK = [5, 20, 10, 10, 10, 25];
 
 export const PONDY_BUILDABLE = insetPolygonBySegment(
@@ -31,6 +32,8 @@ function unitMass(args: {
   plateD: number;
   garageX: number;
   garageY: number;
+  garageW?: number;
+  garageD?: number;
 }) {
   const group = `unit-${args.id}`;
   return [
@@ -53,8 +56,8 @@ function unitMass(args: {
       kind: "garage" as const,
       x: args.garageX,
       y: args.garageY,
-      widthFt: 22,
-      depthFt: 22,
+      widthFt: args.garageW ?? 22,
+      depthFt: args.garageD ?? 22,
       movable: true,
       movementLimitFt: 2,
       integrationGroupId: group,
@@ -64,9 +67,38 @@ function unitMass(args: {
 }
 
 /**
- * Family 1: Pondy-derived Z/staggered geometry. This is not the historical design;
- * it uses the same circulation lesson as a parameterized search family.
+ * Family 1 — Side Spine
+ * Strongly favors use of the 10 ft side-setback corridor for the main access spine,
+ * then branches only where a garage needs an approach. This is a preference, not a
+ * hard rule; the optimizer may still move the legal pavement geometry.
  */
+export const sideSpine: FamilySearch = {
+  id: "side-spine",
+  variables: [
+    { id: "ax", min: 98, max: 108, step: 2 },
+    { id: "ay", min: 5, max: 9, step: 2 },
+    { id: "bx", min: 40, max: 58, step: 2 },
+    { id: "by", min: 5, max: 11, step: 2 },
+    { id: "spineY", min: 35, max: 39, step: 1 },
+    { id: "turnAX", min: 112, max: 124, step: 2 },
+    { id: "turnBX", min: 70, max: 88, step: 2 }
+  ],
+  build: (v, serial): PlacementCandidate => ({
+    id: `PONDY-SS-${serial}`,
+    family: "side-spine",
+    placements: [
+      ...unitMass({ id: "A", plateX: v.ax - 12, plateY: v.ay, plateW: 38, plateD: 28, garageX: v.ax, garageY: v.ay + 2 }),
+      ...unitMass({ id: "B", plateX: v.bx - 8, plateY: v.by, plateW: 36, plateD: 28, garageX: v.bx + 4, garageY: v.by + 2 })
+    ],
+    drives: [
+      { id: "DRIVE-A", garageId: "GARAGE-A", points: [[151, v.spineY], [v.turnAX, v.spineY], [v.ax + 22, v.ay + 13]], movableControlPoints: [1], controlPointLimitFt: 3 },
+      { id: "DRIVE-B", garageId: "GARAGE-B", points: [[151, v.spineY], [v.turnBX, v.spineY], [v.bx + 26, v.by + 13]], movableControlPoints: [1], controlPointLimitFt: 3 }
+    ],
+    metadata: { topology: "side-spine", intendedLivingA: 1824, intendedLivingB: 1792 }
+  })
+};
+
+/** Family 2 — Staggered Spine: one Penn-origin spine, garage intercepts at different depths. */
 export const staggeredSpine: FamilySearch = {
   id: "staggered-spine",
   variables: [
@@ -89,64 +121,72 @@ export const staggeredSpine: FamilySearch = {
       { id: "DRIVE-A", garageId: "GARAGE-A", points: [[151, v.ay + 11], [v.ax + 30, v.ay + 11]], movableControlPoints: [], controlPointLimitFt: 0 },
       { id: "DRIVE-B", garageId: "GARAGE-B", points: [[151, v.spineY], [v.turnX, v.spineY], [v.bx + 22, v.gby + 11]], movableControlPoints: [1], controlPointLimitFt: 3 }
     ],
-    metadata: { topology: "staggered", intendedLivingA: 1680, intendedLivingB: 1792 }
+    metadata: { topology: "staggered-spine", intendedLivingA: 1680, intendedLivingB: 1792 }
   })
 };
 
-/** Family 2: both garages east-facing, with the rear unit shifted north/south independently. */
-export const dualEastGarages: FamilySearch = {
-  id: "dual-east-garages",
+/** Family 3 — Split Front: front-bias both garage intercepts, preserve deeper home plates behind them. */
+export const splitFront: FamilySearch = {
+  id: "split-front",
+  variables: [
+    { id: "agx", min: 102, max: 112, step: 2 },
+    { id: "agy", min: 5, max: 10, step: 1 },
+    { id: "bgx", min: 78, max: 94, step: 2 },
+    { id: "bgy", min: 16, max: 21, step: 1 },
+    { id: "spineY", min: 35, max: 39, step: 1 },
+    { id: "turnX", min: 94, max: 108, step: 2 }
+  ],
+  build: (v, serial): PlacementCandidate => ({
+    id: `PONDY-SF-${serial}`,
+    family: "split-front",
+    placements: [
+      ...unitMass({ id: "A", plateX: v.agx - 30, plateY: 5, plateW: 42, plateD: 27, garageX: v.agx, garageY: v.agy }),
+      ...unitMass({ id: "B", plateX: v.bgx - 28, plateY: 10, plateW: 40, plateD: 28, garageX: v.bgx, garageY: v.bgy })
+    ],
+    drives: [
+      { id: "DRIVE-A", garageId: "GARAGE-A", points: [[151, v.agy + 11], [v.agx + 22, v.agy + 11]], movableControlPoints: [] },
+      { id: "DRIVE-B", garageId: "GARAGE-B", points: [[151, v.spineY], [v.turnX, v.spineY], [v.bgx + 22, v.bgy + 11]], movableControlPoints: [1], controlPointLimitFt: 3 }
+    ],
+    metadata: { topology: "split-front", intendedLivingA: 1800, intendedLivingB: 1760 }
+  })
+};
+
+/**
+ * Family 4 — E2-R
+ * Preserve E2's front/rear relationship and independent garage idea, discard every
+ * historical coordinate, and regenerate against the current parcel and access rules.
+ */
+export const e2Reset: FamilySearch = {
+  id: "e2-r",
   variables: [
     { id: "ax", min: 96, max: 106, step: 2 },
     { id: "ay", min: 5, max: 9, step: 2 },
-    { id: "bx", min: 28, max: 42, step: 2 },
-    { id: "by", min: 5, max: 13, step: 2 },
+    { id: "bx", min: 32, max: 48, step: 2 },
+    { id: "by", min: 7, max: 13, step: 2 },
     { id: "spineY", min: 34, max: 39, step: 1 },
-    { id: "turnX", min: 70, max: 88, step: 2 }
+    { id: "turnX", min: 68, max: 88, step: 2 }
   ],
   build: (v, serial): PlacementCandidate => ({
-    id: `PONDY-EE-${serial}`,
-    family: "dual-east-garages",
+    id: `PONDY-E2R-${serial}`,
+    family: "e2-r",
     placements: [
-      ...unitMass({ id: "A", plateX: v.ax - 6, plateY: v.ay, plateW: 34, plateD: 28, garageX: v.ax, garageY: v.ay + 3 }),
-      ...unitMass({ id: "B", plateX: v.bx - 8, plateY: v.by, plateW: 34, plateD: 28, garageX: v.bx + 4, garageY: v.by + 3 })
+      ...unitMass({ id: "A", plateX: v.ax - 8, plateY: v.ay, plateW: 36, plateD: 28, garageX: v.ax + 2, garageY: v.ay + 3 }),
+      ...unitMass({ id: "B", plateX: v.bx - 4, plateY: v.by, plateW: 36, plateD: 28, garageX: v.bx + 8, garageY: v.by + 3 })
     ],
     drives: [
-      { id: "DRIVE-A", garageId: "GARAGE-A", points: [[151, v.ay + 14], [v.ax + 22, v.ay + 14]], movableControlPoints: [] },
-      { id: "DRIVE-B", garageId: "GARAGE-B", points: [[151, v.spineY], [v.turnX, v.spineY], [v.bx + 26, v.by + 14]], movableControlPoints: [1], controlPointLimitFt: 3 }
+      { id: "DRIVE-A", garageId: "GARAGE-A", points: [[151, v.ay + 14], [v.ax + 24, v.ay + 14]], movableControlPoints: [] },
+      { id: "DRIVE-B", garageId: "GARAGE-B", points: [[151, v.spineY], [v.turnX, v.spineY], [v.bx + 30, v.by + 14]], movableControlPoints: [1], controlPointLimitFt: 3 }
     ],
-    metadata: { topology: "dual-east", intendedLivingA: 1768, intendedLivingB: 1768 }
+    metadata: { topology: "e2-reset", historicalSeed: "E2", intendedLivingA: 1768, intendedLivingB: 1768 }
   })
 };
 
-/** Family 3: compact front unit plus broader rear plate, favoring yard and unit separation. */
-export const frontRearSplit: FamilySearch = {
-  id: "front-rear-split",
-  variables: [
-    { id: "ax", min: 98, max: 106, step: 2 },
-    { id: "bx", min: 25, max: 37, step: 2 },
-    { id: "bgy", min: 14, max: 20, step: 2 },
-    { id: "spineY", min: 34, max: 39, step: 1 },
-    { id: "turnX", min: 72, max: 90, step: 2 }
-  ],
-  build: (v, serial): PlacementCandidate => ({
-    id: `PONDY-FR-${serial}`,
-    family: "front-rear-split",
-    placements: [
-      ...unitMass({ id: "A", plateX: v.ax - 4, plateY: 5, plateW: 32, plateD: 27, garageX: v.ax + 6, garageY: 5 }),
-      ...unitMass({ id: "B", plateX: v.bx, plateY: 5, plateW: 36, plateD: 28, garageX: v.bx + 6, garageY: v.bgy })
-    ],
-    drives: [
-      { id: "DRIVE-A", garageId: "GARAGE-A", points: [[151, 16], [v.ax + 28, 16]], movableControlPoints: [] },
-      { id: "DRIVE-B", garageId: "GARAGE-B", points: [[151, v.spineY], [v.turnX, v.spineY], [v.bx + 28, v.bgy + 11]], movableControlPoints: [1], controlPointLimitFt: 3 }
-    ],
-    metadata: { topology: "front-rear", intendedLivingA: 1728, intendedLivingB: 1800 }
-  })
-};
-
-/** Family 4: garage-forward front home, offset rear garage to reduce shared maneuver dependence. */
-export const offsetGaragePair: FamilySearch = {
-  id: "offset-garage-pair",
+/**
+ * Family 5 — G1-R
+ * Preserve G1's circulation-first lesson but regenerate building/garage placement.
+ */
+export const g1Reset: FamilySearch = {
+  id: "g1-r",
   variables: [
     { id: "ax", min: 99, max: 106, step: 1 },
     { id: "agy", min: 5, max: 11, step: 2 },
@@ -156,8 +196,8 @@ export const offsetGaragePair: FamilySearch = {
     { id: "turnX", min: 70, max: 88, step: 2 }
   ],
   build: (v, serial): PlacementCandidate => ({
-    id: `PONDY-OG-${serial}`,
-    family: "offset-garage-pair",
+    id: `PONDY-G1R-${serial}`,
+    family: "g1-r",
     placements: [
       ...unitMass({ id: "A", plateX: v.ax - 10, plateY: 5, plateW: 38, plateD: 28, garageX: v.ax, garageY: v.agy }),
       ...unitMass({ id: "B", plateX: v.bx, plateY: 5, plateW: 32, plateD: 28, garageX: v.bx + 2, garageY: v.bgy })
@@ -166,8 +206,46 @@ export const offsetGaragePair: FamilySearch = {
       { id: "DRIVE-A", garageId: "GARAGE-A", points: [[151, v.agy + 11], [v.ax + 22, v.agy + 11]], movableControlPoints: [] },
       { id: "DRIVE-B", garageId: "GARAGE-B", points: [[151, v.spineY], [v.turnX, v.spineY], [v.bx + 24, v.bgy + 11]], movableControlPoints: [1], controlPointLimitFt: 3 }
     ],
-    metadata: { topology: "offset-garages", intendedLivingA: 1824, intendedLivingB: 1728 }
+    metadata: { topology: "g1-reset", historicalSeed: "G1", intendedLivingA: 1824, intendedLivingB: 1728 }
   })
 };
 
-export const pondyFamilies: FamilySearch[] = [staggeredSpine, dualEastGarages, frontRearSplit, offsetGaragePair];
+/**
+ * Family 6 — V2-R / Butterfly
+ * Axis-aligned solver cannot literally rotate the buildings yet, so preserve the
+ * butterfly idea as two diverging access branches and separated residential wings.
+ * This is intentionally labeled as a topology reset, not a literal historical V2.
+ */
+export const v2Reset: FamilySearch = {
+  id: "v2-r",
+  variables: [
+    { id: "ax", min: 90, max: 102, step: 2 },
+    { id: "bx", min: 56, max: 72, step: 2 },
+    { id: "ay", min: 5, max: 8, step: 1 },
+    { id: "by", min: 11, max: 15, step: 1 },
+    { id: "branchX", min: 92, max: 108, step: 2 },
+    { id: "spineY", min: 35, max: 39, step: 1 }
+  ],
+  build: (v, serial): PlacementCandidate => ({
+    id: `PONDY-V2R-${serial}`,
+    family: "v2-r",
+    placements: [
+      ...unitMass({ id: "A", plateX: v.ax - 16, plateY: v.ay, plateW: 38, plateD: 27, garageX: v.ax, garageY: v.ay + 2 }),
+      ...unitMass({ id: "B", plateX: v.bx - 14, plateY: v.by, plateW: 38, plateD: 27, garageX: v.bx + 2, garageY: v.by + 1 })
+    ],
+    drives: [
+      { id: "DRIVE-A", garageId: "GARAGE-A", points: [[151, v.spineY], [v.branchX, v.spineY], [v.ax + 22, v.ay + 13]], movableControlPoints: [1], controlPointLimitFt: 3 },
+      { id: "DRIVE-B", garageId: "GARAGE-B", points: [[151, v.spineY], [v.branchX - 12, v.spineY], [v.bx + 24, v.by + 12]], movableControlPoints: [1], controlPointLimitFt: 3 }
+    ],
+    metadata: { topology: "v2-reset", historicalSeed: "V2", intendedLivingA: 1760, intendedLivingB: 1760 }
+  })
+};
+
+export const pondyFamilies: FamilySearch[] = [
+  sideSpine,
+  staggeredSpine,
+  splitFront,
+  e2Reset,
+  g1Reset,
+  v2Reset
+];
