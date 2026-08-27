@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { distance, pointInPolygon, Point } from "@/packages/geometry";
 import { solveFamilies } from "@/packages/optimizer";
 import { PONDY_BUILDABLE, pondyFamilies, pondyProblem } from "@/packages/pondy";
+import { R51E_HISTORICAL_CONTROL } from "@/packages/pondy/control";
 import { evaluateProgram } from "@/packages/program";
 import type { PlacementCandidate } from "@/packages/placement";
 
@@ -136,6 +137,7 @@ export async function GET() {
     scoringVersion: "pondy-site-efficiency-v1",
     elapsedMs: Date.now() - started,
     families: pondyFamilies.map((family) => family.id),
+    benchmarkControl: R51E_HISTORICAL_CONTROL,
     evaluatedCount: evaluated.length,
     physicalPassCount: evaluated.filter((item) => item.physicalPass).length,
     programPassCount: evaluated.filter((item) => item.programPass).length,
