@@ -7,10 +7,12 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const started = Date.now();
   const solved = solveFamilies(pondyProblem, pondyFamilies, {
-    maxEvaluations: 500,
-    diversePerFamily: 3,
+    // Deterministic sampler now spreads these states across each family's full grid.
+    // Keep the first discovery pass deliberately coarse; refine only survivors.
+    maxEvaluations: 180,
+    diversePerFamily: 4,
     repairNearPasses: true,
-    repairMaxStates: 500,
+    repairMaxStates: 180,
     repairMaxActions: 2,
     minimumPreferredClearanceFt: 1
   });
@@ -32,7 +34,9 @@ export async function GET() {
 
   return NextResponse.json({
     project: "pondy-lot2",
-    solver: "lotscope-placement-v0.2",
+    scenario: "baseline-no-alley",
+    solver: "lotscope-placement-v0.3",
+    searchMode: "coarse-full-grid-sample",
     elapsedMs: Date.now() - started,
     families: pondyFamilies.map((family) => family.id),
     count: results.length,
