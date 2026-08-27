@@ -44,6 +44,28 @@ function actionMagnitude(actions: RepairAction[]): number {
   return actions.reduce((sum, action) => sum + Math.hypot(action.dx, action.dy), 0);
 }
 
+function failedGateCount(evaluation: CandidateEvaluation) {
+  return Number(!evaluation.containmentPass) + Number(!evaluation.overlapPass) +
+    Number(!evaluation.separationPass) + Number(!evaluation.circulationPass);
+}
+
+/**
+ * Bounded repair is for a near-pass, not a brute-force second solver attached to
+ * every bad state. Restrict repair to candidates failing one physical gate and with
+ * a small collision/boundary defect. This follows the Workbench rule: repair the
+ * cheapest movable geometry first, but close obviously bad states without spending
+ * hundreds of repair evaluations on them.
+ */
+function shouldAttemptRepair(evaluation: CandidateEvaluation): boolean {
+  if (evaluation.pass || failedGateCount(evaluation) !== 1) return false;
+  const sweepDefects = evaluation.sweeps.reduce(
+    (sum, sweep) => sum + sweep.result.collisions.length + sweep.result.offParcelCount +
+      sweep.result.pathIssues.filter((issue) => issue.kind === "short-tangent").length,
+    0
+  );
+  return sweepDefects <= 4 && evaluation.issues.length <= 6;
+}
+
 /**
  * Lower is better. Hard-pass candidates sort ahead of non-pass candidates. Within
  * each class, prefer fewer geometric failures, more vehicle boundary clearance,
@@ -55,8 +77,7 @@ export function physicalObjective(
   repairActions: RepairAction[],
   minimumPreferredClearanceFt = 1
 ): number {
-  const failedGates = Number(!evaluation.containmentPass) + Number(!evaluation.overlapPass) +
-    Number(!evaluation.separationPass) + Number(!evaluation.circulationPass);
+  const failedGates = failedGateCount(evaluation);
   const collisions = evaluation.sweeps.reduce(
     (sum, sweep) => sum + sweep.result.collisions.length + sweep.result.offParcelCount,
     0
@@ -113,7 +134,7 @@ export function solveFamily(
     let repairActions: RepairAction[] = [];
     let repaired = false;
 
-    if (!evaluation.pass && options?.repairNearPasses) {
+    if (!evaluation.pass && options?.repairNearPasses && shouldAttemptRepair(evaluation)) {
       const repair = boundedRepair(problem, source, {
         maxActions: options.repairMaxActions ?? 2,
         maxStates: options.repairMaxStates ?? 800
