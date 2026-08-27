@@ -47,9 +47,6 @@ function unitMass(args: {
       movable: true,
       movementLimitFt: 2,
       integrationGroupId: group,
-      // The home plate represents the complete two-story residential envelope.
-      // Ground-level garage overlap is subtracted by the program gate; the placement
-      // engine now keeps all remaining home mass as a real circulation obstacle.
       circulationObstacle: false
     },
     {
@@ -57,8 +54,8 @@ function unitMass(args: {
       kind: "garage" as const,
       x: args.garageX,
       y: args.garageY,
-      widthFt: args.garageW ?? 22,
-      depthFt: args.garageD ?? 22,
+      widthFt: args.garageW ?? 20,
+      depthFt: args.garageD ?? 20,
       movable: true,
       movementLimitFt: 2,
       integrationGroupId: group,
@@ -69,69 +66,77 @@ function unitMass(args: {
 
 /**
  * Family 1 — Side Spine
- * Strongly favors use of the 10 ft side-setback corridor for the main access spine,
- * then branches only where a garage needs an approach. This is a preference, not a
- * hard rule; the optimizer may still move the legal pavement geometry.
+ * Run 04 implements the thread's strongest current idea correctly: the rear vehicle
+ * stays in the north/10-ft setback corridor until it has cleared the Pennsylvania-side
+ * home, then makes one gentle diagonal entry into a garage opening on the rear home's
+ * east wall. Pavement may use setback land; structures still stay in the baseline
+ * buildable envelope.
  */
 export const sideSpine: FamilySearch = {
   id: "side-spine",
   variables: [
-    { id: "ax", min: 98, max: 108, step: 2 },
-    { id: "ay", min: 5, max: 9, step: 2 },
-    { id: "bx", min: 40, max: 58, step: 2 },
-    { id: "by", min: 5, max: 11, step: 2 },
-    { id: "spineY", min: 35, max: 39, step: 1 },
-    { id: "turnAX", min: 112, max: 124, step: 2 },
-    { id: "turnBX", min: 70, max: 88, step: 2 }
+    { id: "frontX", min: 79, max: 81, step: 1 },
+    { id: "rearX", min: 25, max: 26, step: 1 },
+    { id: "rearGarageY", min: 15, max: 16, step: 1 },
+    { id: "spineY", min: 38, max: 39, step: 0.5 },
+    { id: "turnX", min: 74, max: 77, step: 1 }
   ],
-  build: (v, serial): PlacementCandidate => ({
-    id: `PONDY-SS-${serial}`,
-    family: "side-spine",
-    placements: [
-      ...unitMass({ id: "A", plateX: v.ax - 12, plateY: v.ay, plateW: 38, plateD: 28, garageX: v.ax, garageY: v.ay + 2 }),
-      ...unitMass({ id: "B", plateX: v.bx - 8, plateY: v.by, plateW: 36, plateD: 28, garageX: v.bx + 4, garageY: v.by + 2 })
-    ],
-    drives: [
-      { id: "DRIVE-A", garageId: "GARAGE-A", points: [[151, v.spineY], [v.turnAX, v.spineY], [v.ax + 22, v.ay + 13]], movableControlPoints: [1], controlPointLimitFt: 3 },
-      { id: "DRIVE-B", garageId: "GARAGE-B", points: [[151, v.spineY], [v.turnBX, v.spineY], [v.bx + 26, v.by + 13]], movableControlPoints: [1], controlPointLimitFt: 3 }
-    ],
-    metadata: { topology: "side-spine", intendedLivingA: 1824, intendedLivingB: 1792 }
-  })
+  build: (v, serial): PlacementCandidate => {
+    const rearEast = v.rearX + 35;
+    const rearGarageY = v.rearGarageY;
+    return {
+      id: `PONDY-SS-${serial}`,
+      family: "side-spine",
+      placements: [
+        ...unitMass({ id: "A", plateX: v.frontX, plateY: 5, plateW: 128 - v.frontX, plateD: 24, garageX: 108, garageY: 7 }),
+        ...unitMass({ id: "B", plateX: v.rearX, plateY: 5, plateW: 35, plateD: 31.8, garageX: rearEast - 20, garageY: rearGarageY })
+      ],
+      drives: [
+        { id: "DRIVE-A", garageId: "GARAGE-A", points: [[151, 17], [128, 17]], movableControlPoints: [] },
+        { id: "DRIVE-B", garageId: "GARAGE-B", points: [[151, v.spineY], [v.turnX, v.spineY], [rearEast, rearGarageY + 10]], movableControlPoints: [1], controlPointLimitFt: 2 }
+      ],
+      metadata: { topology: "side-spine-bypass", intendedLivingA: 1750, intendedLivingB: 1725, run04MassAware: true }
+    };
+  }
 };
 
 /**
  * Family 2 — Staggered Spine
- * The first discovery run proved the access topology only while home mass was too
- * permissive. Run 03 puts each east-facing garage on the actual exterior edge of its
- * home plate, so the final approach cannot pass through residential wall mass.
+ * A slightly narrower/deeper front plate and broader rear plate test whether the same
+ * setback-lane bypass survives with different architecture proportions.
  */
 export const staggeredSpine: FamilySearch = {
   id: "staggered-spine",
   variables: [
-    { id: "ax", min: 96, max: 100, step: 1 },
-    { id: "ay", min: 5, max: 7, step: 1 },
-    { id: "bx", min: 33, max: 36, step: 1 },
-    { id: "by", min: 5, max: 8, step: 1 },
-    { id: "gby", min: 11, max: 16, step: 1 },
-    { id: "spineY", min: 36, max: 39, step: 1 },
-    { id: "turnX", min: 70, max: 86, step: 2 }
+    { id: "frontX", min: 81, max: 82, step: 1 },
+    { id: "rearX", min: 25, max: 26, step: 1 },
+    { id: "rearGarageY", min: 14, max: 15, step: 1 },
+    { id: "spineY", min: 38, max: 39, step: 0.5 },
+    { id: "turnX", min: 75, max: 78, step: 1 }
   ],
-  build: (v, serial): PlacementCandidate => ({
-    id: `PONDY-Z-${serial}`,
-    family: "staggered-spine",
-    placements: [
-      ...unitMass({ id: "A", plateX: v.ax - 12, plateY: v.ay, plateW: 44, plateD: 28, garageX: v.ax + 10, garageY: v.ay }),
-      ...unitMass({ id: "B", plateX: v.bx - 6, plateY: v.by, plateW: 44, plateD: 28, garageX: v.bx + 16, garageY: v.gby })
-    ],
-    drives: [
-      { id: "DRIVE-A", garageId: "GARAGE-A", points: [[151, v.ay + 11], [v.ax + 32, v.ay + 11]], movableControlPoints: [], controlPointLimitFt: 0 },
-      { id: "DRIVE-B", garageId: "GARAGE-B", points: [[151, v.spineY], [v.turnX, v.spineY], [v.bx + 38, v.gby + 11]], movableControlPoints: [1], controlPointLimitFt: 3 }
-    ],
-    metadata: { topology: "staggered-spine", run03DoorFaceRepair: true, intendedLivingA: 1800, intendedLivingB: 1800 }
-  })
+  build: (v, serial): PlacementCandidate => {
+    const rearEast = v.rearX + 36;
+    return {
+      id: `PONDY-Z-${serial}`,
+      family: "staggered-spine",
+      placements: [
+        ...unitMass({ id: "A", plateX: v.frontX, plateY: 5, plateW: 128 - v.frontX, plateD: 25, garageX: 108, garageY: 8 }),
+        ...unitMass({ id: "B", plateX: v.rearX, plateY: 5, plateW: 36, plateD: 31, garageX: rearEast - 20, garageY: v.rearGarageY })
+      ],
+      drives: [
+        { id: "DRIVE-A", garageId: "GARAGE-A", points: [[151, 18], [128, 18]], movableControlPoints: [] },
+        { id: "DRIVE-B", garageId: "GARAGE-B", points: [[151, v.spineY], [v.turnX, v.spineY], [rearEast, v.rearGarageY + 10]], movableControlPoints: [1], controlPointLimitFt: 2 }
+      ],
+      metadata: { topology: "staggered-side-bypass", intendedLivingA: 1750, intendedLivingB: 1725, run04MassAware: true }
+    };
+  }
 };
 
-/** Family 3 — Split Front: front-bias both garage intercepts, preserve deeper home plates behind them. */
+/**
+ * Family 3 — Split Front
+ * Preserve the older front-biased experiment as failure evidence this cycle; it is
+ * deliberately not massaged into the same side-spine geometry merely to obtain a pass.
+ */
 export const splitFront: FamilySearch = {
   id: "split-front",
   variables: [
@@ -146,8 +151,8 @@ export const splitFront: FamilySearch = {
     id: `PONDY-SF-${serial}`,
     family: "split-front",
     placements: [
-      ...unitMass({ id: "A", plateX: v.agx - 30, plateY: 5, plateW: 42, plateD: 27, garageX: v.agx, garageY: v.agy }),
-      ...unitMass({ id: "B", plateX: v.bgx - 28, plateY: 10, plateW: 40, plateD: 28, garageX: v.bgx, garageY: v.bgy })
+      ...unitMass({ id: "A", plateX: v.agx - 30, plateY: 5, plateW: 42, plateD: 27, garageX: v.agx, garageY: v.agy, garageW: 22, garageD: 22 }),
+      ...unitMass({ id: "B", plateX: v.bgx - 28, plateY: 10, plateW: 40, plateD: 28, garageX: v.bgx, garageY: v.bgy, garageW: 22, garageD: 22 })
     ],
     drives: [
       { id: "DRIVE-A", garageId: "GARAGE-A", points: [[151, v.agy + 11], [v.agx + 22, v.agy + 11]], movableControlPoints: [] },
@@ -159,71 +164,76 @@ export const splitFront: FamilySearch = {
 
 /**
  * Family 4 — E2-R
- * Preserve E2's front/rear relationship and independent garage idea. Both garages
- * now terminate at an exterior east wall. The rear turn is searched farther west and
- * in the side-setback lane to avoid cutting through the Pennsylvania-side home.
+ * E2's front/rear DNA is retained, but its old coordinates are discarded. This variant
+ * deliberately leaves a larger longitudinal gap between home masses and gives the rear
+ * garage an exterior east opening reached only after the vehicle clears the front home.
  */
 export const e2Reset: FamilySearch = {
   id: "e2-r",
   variables: [
-    { id: "ax", min: 98, max: 100, step: 1 },
-    { id: "ay", min: 5, max: 7, step: 1 },
-    { id: "bx", min: 42, max: 44, step: 1 },
-    { id: "by", min: 5, max: 7, step: 1 },
-    { id: "spineY", min: 37, max: 39, step: 1 },
-    { id: "turnX", min: 72, max: 82, step: 2 }
+    { id: "frontX", min: 80, max: 81, step: 1 },
+    { id: "rearX", min: 25, max: 26, step: 1 },
+    { id: "rearGarageY", min: 14, max: 16, step: 1 },
+    { id: "spineY", min: 38, max: 39, step: 0.5 },
+    { id: "turnX", min: 73, max: 77, step: 1 }
   ],
-  build: (v, serial): PlacementCandidate => ({
-    id: `PONDY-E2R-${serial}`,
-    family: "e2-r",
-    placements: [
-      ...unitMass({ id: "A", plateX: v.ax - 16, plateY: v.ay, plateW: 44, plateD: 28, garageX: v.ax + 6, garageY: v.ay + 3 }),
-      ...unitMass({ id: "B", plateX: v.bx - 15, plateY: v.by, plateW: 44, plateD: 28, garageX: v.bx + 7, garageY: v.by + 3 })
-    ],
-    drives: [
-      { id: "DRIVE-A", garageId: "GARAGE-A", points: [[151, v.ay + 14], [v.ax + 28, v.ay + 14]], movableControlPoints: [] },
-      { id: "DRIVE-B", garageId: "GARAGE-B", points: [[151, v.spineY], [v.turnX, v.spineY], [v.bx + 29, v.by + 14]], movableControlPoints: [1], controlPointLimitFt: 3 }
-    ],
-    metadata: { topology: "e2-reset", historicalSeed: "E2", run03DoorFaceRepair: true, intendedLivingA: 1800, intendedLivingB: 1800 }
-  })
+  build: (v, serial): PlacementCandidate => {
+    const rearEast = v.rearX + 35;
+    return {
+      id: `PONDY-E2R-${serial}`,
+      family: "e2-r",
+      placements: [
+        ...unitMass({ id: "A", plateX: v.frontX, plateY: 5, plateW: 128 - v.frontX, plateD: 23, garageX: 108, garageY: 6 }),
+        ...unitMass({ id: "B", plateX: v.rearX, plateY: 5, plateW: 35, plateD: 31.5, garageX: rearEast - 20, garageY: v.rearGarageY })
+      ],
+      drives: [
+        { id: "DRIVE-A", garageId: "GARAGE-A", points: [[151, 16], [128, 16]], movableControlPoints: [] },
+        { id: "DRIVE-B", garageId: "GARAGE-B", points: [[151, v.spineY], [v.turnX, v.spineY], [rearEast, v.rearGarageY + 10]], movableControlPoints: [1], controlPointLimitFt: 2 }
+      ],
+      metadata: { topology: "e2-reset-side-bypass", historicalSeed: "E2", intendedLivingA: 1675, intendedLivingB: 1675, run04MassAware: true }
+    };
+  }
 };
 
 /**
  * Family 5 — G1-R
- * Preserve G1's circulation-first lesson. Both garages now reach their home's east
- * exterior wall; the rear garage remains vertically offset so the solver can exploit
- * the shared side-setback lane without pretending the home is transparent.
+ * G1 keeps the circulation-first idea but tests a shorter Pennsylvania-side home and a
+ * taller rear plate. The rear turn point remains outside both homes before the diagonal
+ * entry begins.
  */
 export const g1Reset: FamilySearch = {
   id: "g1-r",
   variables: [
-    { id: "ax", min: 99, max: 101, step: 1 },
-    { id: "agy", min: 5, max: 9, step: 1 },
-    { id: "bx", min: 33, max: 36, step: 1 },
-    { id: "bgy", min: 10, max: 17, step: 1 },
-    { id: "spineY", min: 36, max: 39, step: 1 },
-    { id: "turnX", min: 70, max: 86, step: 2 }
+    { id: "frontX", min: 80, max: 81, step: 1 },
+    { id: "rearX", min: 25, max: 26, step: 1 },
+    { id: "rearGarageY", min: 15, max: 16, step: 1 },
+    { id: "spineY", min: 38, max: 39, step: 0.5 },
+    { id: "turnX", min: 73, max: 77, step: 1 }
   ],
-  build: (v, serial): PlacementCandidate => ({
-    id: `PONDY-G1R-${serial}`,
-    family: "g1-r",
-    placements: [
-      ...unitMass({ id: "A", plateX: v.ax - 15, plateY: 5, plateW: 44, plateD: 28, garageX: v.ax + 7, garageY: v.agy }),
-      ...unitMass({ id: "B", plateX: v.bx - 6, plateY: 5, plateW: 44, plateD: 28, garageX: v.bx + 16, garageY: v.bgy })
-    ],
-    drives: [
-      { id: "DRIVE-A", garageId: "GARAGE-A", points: [[151, v.agy + 11], [v.ax + 29, v.agy + 11]], movableControlPoints: [] },
-      { id: "DRIVE-B", garageId: "GARAGE-B", points: [[151, v.spineY], [v.turnX, v.spineY], [v.bx + 38, v.bgy + 11]], movableControlPoints: [1], controlPointLimitFt: 3 }
-    ],
-    metadata: { topology: "g1-reset", historicalSeed: "G1", run03DoorFaceRepair: true, intendedLivingA: 1800, intendedLivingB: 1800 }
-  })
+  build: (v, serial): PlacementCandidate => {
+    const frontWidth = 128 - v.frontX;
+    const rearEast = v.rearX + 34;
+    return {
+      id: `PONDY-G1R-${serial}`,
+      family: "g1-r",
+      placements: [
+        ...unitMass({ id: "A", plateX: v.frontX, plateY: 5, plateW: frontWidth, plateD: 24, garageX: 108, garageY: 8 }),
+        ...unitMass({ id: "B", plateX: v.rearX, plateY: 5, plateW: 34, plateD: 32, garageX: rearEast - 20, garageY: v.rearGarageY })
+      ],
+      drives: [
+        { id: "DRIVE-A", garageId: "GARAGE-A", points: [[151, 18], [128, 18]], movableControlPoints: [] },
+        { id: "DRIVE-B", garageId: "GARAGE-B", points: [[151, v.spineY], [v.turnX, v.spineY], [rearEast, v.rearGarageY + 10]], movableControlPoints: [1], controlPointLimitFt: 2 }
+      ],
+      metadata: { topology: "g1-reset-side-bypass", historicalSeed: "G1", intendedLivingA: 1700, intendedLivingB: 1650, run04MassAware: true }
+    };
+  }
 };
 
 /**
  * Family 6 — V2-R / Butterfly
- * Axis-aligned solver cannot literally rotate the buildings yet, so preserve the
- * butterfly idea as two diverging access branches and separated residential wings.
- * This remains exploratory until rotation/compound massing is proven in Workbench.
+ * Rotation/compound massing is not yet proven in the shared engine. Preserve this as
+ * an explicit exploratory family rather than falsely presenting an axis-aligned proxy
+ * as a solved butterfly.
  */
 export const v2Reset: FamilySearch = {
   id: "v2-r",
@@ -239,8 +249,8 @@ export const v2Reset: FamilySearch = {
     id: `PONDY-V2R-${serial}`,
     family: "v2-r",
     placements: [
-      ...unitMass({ id: "A", plateX: v.ax - 16, plateY: v.ay, plateW: 38, plateD: 27, garageX: v.ax, garageY: v.ay + 2 }),
-      ...unitMass({ id: "B", plateX: v.bx - 14, plateY: v.by, plateW: 38, plateD: 27, garageX: v.bx + 2, garageY: v.by + 1 })
+      ...unitMass({ id: "A", plateX: v.ax - 16, plateY: v.ay, plateW: 38, plateD: 27, garageX: v.ax, garageY: v.ay + 2, garageW: 22, garageD: 22 }),
+      ...unitMass({ id: "B", plateX: v.bx - 14, plateY: v.by, plateW: 38, plateD: 27, garageX: v.bx + 2, garageY: v.by + 1, garageW: 22, garageD: 22 })
     ],
     drives: [
       { id: "DRIVE-A", garageId: "GARAGE-A", points: [[151, v.spineY], [v.branchX, v.spineY], [v.ax + 22, v.ay + 13]], movableControlPoints: [1], controlPointLimitFt: 3 },
