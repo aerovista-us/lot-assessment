@@ -19,6 +19,10 @@ on:
       - 'app/api/workbench/pondy-report/**'
       - '.github/workflows/pondy-benchmark.yml'
 
+concurrency:
+  group: pondy-benchmark-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: write
 
@@ -87,6 +91,8 @@ jobs:
             ref: process.env.GITHUB_REF,
             projectSpecSha256: crypto.createHash('sha256').update(project).digest('hex'),
             solver: ranked.solver || physical.solver || null,
+            scoringVersion: ranked.scoringVersion || null,
+            scenario: ranked.scenario || null,
             physicalCount: physical.count ?? physical.results?.length ?? 0,
             physicalPassCount: physical.passCount ?? 0,
             combinedPassCount: ranked.combinedPassCount ?? 0,
@@ -98,7 +104,8 @@ jobs:
               programPass: x.programPass,
               combinedPass: x.combinedPass,
               combinedScore: x.combinedScore,
-              minimumClearanceFt: x.minimumClearanceFt
+              minimumClearanceFt: x.minimumClearanceFt,
+              estimatedBuildablePavementSqFt: x.pavement?.estimatedBuildablePavementSqFt ?? null
             }))
           };
           fs.writeFileSync('pondy-manifest.json', JSON.stringify(manifest, null, 2) + '\n');
@@ -128,6 +135,7 @@ jobs:
                 combinedPass: x.combinedPass,
                 combinedScore: x.combinedScore,
                 minimumClearanceFt: x.minimumClearanceFt,
+                estimatedBuildablePavementSqFt: x.pavement?.estimatedBuildablePavementSqFt,
                 issues: x.issues || x.physicalIssues
               }))
             }, null, 2));
@@ -143,16 +151,20 @@ jobs:
           const ranked = JSON.parse(fs.readFileSync('pondy-ranked.json','utf8'));
           const shortlist = ranked.shortlist || [];
           console.log('# Pondy solver benchmark');
+          console.log(`- Scenario: **${ranked.scenario || 'unset'}**`);
           console.log(`- Physical retained: **${physical.count ?? physical.results?.length ?? 0}**`);
           console.log(`- Physical passes: **${physical.passCount ?? 0}**`);
           console.log(`- Combined physical + program passes: **${ranked.combinedPassCount ?? 0}**`);
           console.log(`- Diverse promoted shortlist: **${shortlist.length}**`);
           console.log('');
-          console.log('| Candidate | Family | Physical | Program | Clearance | Score |');
-          console.log('|---|---|---:|---:|---:|---:|');
+          console.log('| Candidate | Family | Physical | Program | Clearance | Buildable pavement* | Score |');
+          console.log('|---|---|---:|---:|---:|---:|---:|');
           for (const x of shortlist.slice(0,5)) {
-            console.log(`| ${x.id} | ${x.family} | ${x.physicalPass ? 'PASS' : 'FAIL'} | ${x.programPass ? 'PASS' : 'FAIL'} | ${x.minimumClearanceFt == null ? 'n/a' : x.minimumClearanceFt.toFixed(2) + ' ft'} | ${Number(x.combinedScore ?? 0).toFixed(1)} |`);
+            const pavement = x.pavement?.estimatedBuildablePavementSqFt;
+            console.log(`| ${x.id} | ${x.family} | ${x.physicalPass ? 'PASS' : 'FAIL'} | ${x.programPass ? 'PASS' : 'FAIL'} | ${x.minimumClearanceFt == null ? 'n/a' : x.minimumClearanceFt.toFixed(2) + ' ft'} | ${pavement == null ? 'n/a' : pavement.toFixed(0) + ' sf'} | ${Number(x.combinedScore ?? 0).toFixed(1)} |`);
           }
+          console.log('');
+          console.log('*Estimated ranking metric, not a paving takeoff.');
           NODE
 
       - name: Upload benchmark artifacts
