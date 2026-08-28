@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import AeroVistaLocalBadge from "@/components/AeroVistaLocalBadge";
 import UmamiAnalytics from "@/components/UmamiAnalytics";
 import "./globals.css";
+import "./guided.css";
 
 const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://lotscope.aerovista.us").replace(/\/$/, "");
 const previewImage = `${siteUrl}/lotscope_preview.png`;
