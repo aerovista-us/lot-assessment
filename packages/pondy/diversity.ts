@@ -26,10 +26,13 @@ export const balancedTwinBlocks:FamilySearch={id:"balanced-twin-blocks",variable
  *
  * Evidence sequence:
  * - Base pass: physical topology proven with 20 ft Unit B depth, but program/reserve tight.
- * - Run 44: 22 ft Unit B depth solved the program and reserve gate, but 30 ft Unit A
- *   crossed the principal envelope and squeezed the north-side vehicle corridor.
- * - Current pass: restore Unit A to the previously legal 28 ft depth, hold the north
- *   L-leg to 6 ft, and search the 37.5–38.5 ft spine band for the missing clearance.
+ * - Run 44: 22 ft Unit B solved program/reserve; 30 ft Unit A exceeded principal envelope.
+ * - Run 45: 28 ft Unit A + 22 ft Unit B produced 10/10 physical + program passes.
+ *   The only promotion miss was 0.50 ft boundary clearance. Diagnostic tracing located
+ *   that minimum at the final diagonal approach into south GARAGE-A, where the SUV's
+ *   front corner swept to y≈0.50 ft. The site spine was not the limiting point.
+ * - Current pass: preserve all proven massing and square the last garage approach so the
+ *   vehicle enters GARAGE-A horizontally instead of finishing on a 45° diagonal.
  */
 export const rearGarageStack:FamilySearch={
  id:"rear-garage-stack",
@@ -46,18 +49,16 @@ export const rearGarageStack:FamilySearch={
   const garageW=20,garageD=20,garageSouthY=5,garageNorthY=garageSouthY+garageD+v.garageGap;
   const mouthX=v.garageX+garageW,southMouthY=garageSouthY+10,northMouthY=garageNorthY+10;
   const partyGap=.04;
-  const homeBDepth=22;
-  const northLegY=27;
   return{id:`PONDY-RGS-${serial}`,family:"rear-garage-stack",placements:[
-   {id:"HOME-B",kind:"home",x:v.duplexX,y:5,widthFt:v.partyX-v.duplexX-partyGap,depthFt:homeBDepth,movable:false,integrationGroupId:"unit-B",circulationObstacle:false},
-   {id:"HOME-B-NORTH-LEG",kind:"home",x:v.partyX-20-partyGap,y:northLegY,widthFt:20,depthFt:6,movable:false,integrationGroupId:"unit-B",circulationObstacle:false},
+   {id:"HOME-B",kind:"home",x:v.duplexX,y:5,widthFt:v.partyX-v.duplexX-partyGap,depthFt:22,movable:false,integrationGroupId:"unit-B",circulationObstacle:false},
+   {id:"HOME-B-NORTH-LEG",kind:"home",x:v.partyX-20-partyGap,y:27,widthFt:20,depthFt:6,movable:false,integrationGroupId:"unit-B",circulationObstacle:false},
    {id:"HOME-A",kind:"home",x:v.partyX,y:5,widthFt:128-v.partyX,depthFt:28,movable:false,integrationGroupId:"unit-A",circulationObstacle:false},
    {id:"GARAGE-A",kind:"garage",x:v.garageX,y:garageSouthY,widthFt:garageW,depthFt:garageD,movable:false,integrationGroupId:"unit-A",circulationObstacle:true},
    {id:"GARAGE-B",kind:"garage",x:v.garageX,y:garageNorthY,widthFt:garageW,depthFt:garageD,movable:false,integrationGroupId:"unit-B",circulationObstacle:true}
   ],drives:[
-   {id:"DRIVE-A",garageId:"GARAGE-A",points:[[151,v.spineY],[v.turnX,v.spineY],[v.flareX,35],[mouthX+11,27],[mouthX+6,21],[mouthX,southMouthY]],movableControlPoints:[1,2,3,4],controlPointLimitFt:2.5},
+   {id:"DRIVE-A",garageId:"GARAGE-A",points:[[151,v.spineY],[v.turnX,v.spineY],[v.flareX,35],[mouthX+24,27],[mouthX+12,southMouthY],[mouthX,southMouthY]],movableControlPoints:[1,2,3,4],controlPointLimitFt:2.5},
    {id:"DRIVE-B",garageId:"GARAGE-B",points:[[151,v.spineY],[v.turnX,v.spineY],[v.flareX,37],[mouthX+8,northMouthY],[mouthX,northMouthY]],movableControlPoints:[1,2,3],controlPointLimitFt:2.5}
-  ],metadata:{topology:"accessory-rear-stack-connected-L-duplex",designGroup:"rear-garage-stack",designIntent:"owner-base-shape-accessory-rear-garages-L-duplex",intendedLivingA:1800,intendedLivingB:1800,garagePlacementLockedToRear:true,garageAccessoryHypothesis:true,accessoryRearSetbackFt:5,accessorySideSetbackFt:5,minimumGarageDuplexSeparationFt:6,duplexConnected:true,duplexPartyWallIntent:true,baseShapeLocked:true,designDevelopmentPass:"run45-corridor-clearance"}};
+  ],metadata:{topology:"accessory-rear-stack-connected-L-duplex",designGroup:"rear-garage-stack",designIntent:"owner-base-shape-accessory-rear-garages-L-duplex",intendedLivingA:1800,intendedLivingB:1800,garagePlacementLockedToRear:true,garageAccessoryHypothesis:true,accessoryRearSetbackFt:5,accessorySideSetbackFt:5,minimumGarageDuplexSeparationFt:6,duplexConnected:true,duplexPartyWallIntent:true,baseShapeLocked:true,designDevelopmentPass:"run46-square-south-garage-approach"}};
  }
 };
 
