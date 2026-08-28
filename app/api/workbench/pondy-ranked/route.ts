@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { filletPath, FULL_SIZE_SUV, vehiclePolygon } from "@/packages/circulation";
-import { distance, pointInPolygon, Point } from "@/packages/geometry";
+import { distance, insetPolygonBySegment, pointInPolygon, Point } from "@/packages/geometry";
 import { solveFamilies } from "@/packages/optimizer";
 import { PONDY_BUILDABLE, PONDY_SURVEY, pondyFamilies, pondyProblem } from "@/packages/pondy";
 import { diversityFamilies } from "@/packages/pondy/diversity";
@@ -29,6 +29,18 @@ const PENNSYLVANIA_SEGMENT_INDEX = 1;
 const BENCHMARK_DRIVE_WIDTH_FT = 12;
 const SAMPLE_STEP_FT = 2;
 
+// Accessory-building hypothesis for detached rear-yard garages only.
+// Segment order follows PONDY_SURVEY: south side, Pennsylvania/front, irregular north side, rear.
+const ACCESSORY_SEGMENT_SETBACK = [5, 20, 5, 5, 5, 5];
+const PONDY_ACCESSORY_BUILDABLE = insetPolygonBySegment(
+  PONDY_SURVEY,
+  (segmentIndex) => ACCESSORY_SEGMENT_SETBACK[segmentIndex] ?? 0
+);
+const pondyAccessoryGarageProblem = {
+  ...pondyProblem,
+  buildableEnvelope: PONDY_ACCESSORY_BUILDABLE
+};
+
 function interpolate(a: Point, b: Point, t: number): Point {
   return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
 }
@@ -41,6 +53,18 @@ function pointSegmentDistance(point: Point, a: Point, b: Point) {
   const qx = a[0] + abx * t;
   const qy = a[1] + aby * t;
   return Math.hypot(point[0] - qx, point[1] - qy);
+}
+
+function homeInsidePrincipalEnvelope(candidate: PlacementCandidate) {
+  return candidate.placements.filter((item) => item.kind === "home").every((item) => {
+    const corners: Point[] = [
+      [item.x, item.y],
+      [item.x + item.widthFt, item.y],
+      [item.x + item.widthFt, item.y + item.depthFt],
+      [item.x, item.y + item.depthFt]
+    ];
+    return corners.every((corner) => pointInPolygon(corner, PONDY_BUILDABLE, 0.08));
+  });
 }
 
 function nonAccessBoundaryClearance(candidate: PlacementCandidate) {
@@ -119,21 +143,30 @@ const searchFamilies = allFamilies.map((family) => ({
   })
 }));
 
+const baselineFamilies = searchFamilies.filter((family) => family.id !== "rear-garage-stack");
+const accessoryGarageFamilies = searchFamilies.filter((family) => family.id === "rear-garage-stack");
+const SOLVE_OPTIONS = {
+  maxEvaluations: 900,
+  diversePerFamily: 10,
+  repairNearPasses: true,
+  repairMaxStates: 360,
+  repairMaxActions: 3,
+  minimumPreferredClearanceFt: PROMOTION_CLEARANCE_FT
+};
+
 export async function GET() {
   const started = Date.now();
-  const solved = solveFamilies(pondyProblem, searchFamilies, {
-    maxEvaluations: 900,
-    diversePerFamily: 10,
-    repairNearPasses: true,
-    repairMaxStates: 360,
-    repairMaxActions: 3,
-    minimumPreferredClearanceFt: PROMOTION_CLEARANCE_FT
-  });
+  const solved = [
+    ...solveFamilies(pondyProblem, baselineFamilies, SOLVE_OPTIONS),
+    ...solveFamilies(pondyAccessoryGarageProblem, accessoryGarageFamilies, SOLVE_OPTIONS)
+  ];
 
   const evaluated = solved.map((item) => {
     const program = evaluateProgram(item.candidate, PROGRAM);
     const pavement = pavementEfficiency(item.candidate);
-    const physicalPass = item.evaluation.pass;
+    const accessoryGarageCandidate = item.candidate.family === "rear-garage-stack";
+    const principalHomeContainmentPass = !accessoryGarageCandidate || homeInsidePrincipalEnvelope(item.candidate);
+    const physicalPass = item.evaluation.pass && principalHomeContainmentPass;
     const combinedPass = physicalPass && program.pass;
     const promotionBoundaryClearanceFt = nonAccessBoundaryClearance(item.candidate);
     const clearanceReady = (promotionBoundaryClearanceFt ?? 0) >= PROMOTION_CLEARANCE_FT;
@@ -146,6 +179,8 @@ export async function GET() {
     const capacityPenalty = targetCapacityPenalty(program);
     const combinedScore = (physicalPass ? 100 : 0) + program.qualityScore - physicalPenalty - buildablePavementPenalty - totalPavementPenalty - livingTargetPenalty - capacityPenalty;
     const metadata = item.candidate.metadata ?? {};
+    const physicalIssues = item.evaluation.issues.slice();
+    if (!principalHomeContainmentPass) physicalIssues.push("residential mass outside principal-building envelope");
 
     return {
       id: item.candidate.id,
@@ -171,7 +206,7 @@ export async function GET() {
       repairActions: item.repairActions,
       minimumClearanceFt: item.evaluation.minimumClearanceFt,
       promotionBoundaryClearanceFt,
-      physicalIssues: item.evaluation.issues.slice(0, 8),
+      physicalIssues: physicalIssues.slice(0, 8),
       program,
       placements: item.candidate.placements,
       drives: item.candidate.drives,
@@ -191,18 +226,24 @@ export async function GET() {
 
   return NextResponse.json({
     project: "pondy-lot2",
-    scenario: "baseline-no-alley",
-    solver: "lotscope-diversity-v0.8",
+    scenario: "baseline-no-alley-plus-detached-accessory-rear-garage",
+    solver: "lotscope-diversity-v0.9",
     searchMode: "material-topology-diversity-search",
     scoringVersion: "pondy-site-efficiency-v5",
     preferredLivingSqFt: PREFERRED_LIVING_SQFT,
     promotionClearanceFt: PROMOTION_CLEARANCE_FT,
     promotionTargetCapacitySqFt: PROMOTION_TARGET_CAPACITY_SQFT,
+    accessoryGarageEnvelope: {
+      segmentSetbacksFt: ACCESSORY_SEGMENT_SETBACK,
+      appliesToFamilies: ["rear-garage-stack"],
+      principalResidentialEnvelopeStillRequired: true
+    },
     elapsedMs: Date.now() - started,
     families: searchFamilies.map((family) => family.id),
     searchAdjustments: [
       "collapse Side Spine/Staggered/E2/G1 near-duplicates into one concept",
-      "add four materially different garage/drive topology families",
+      "evaluate owner-selected rear-garage-stack with detached accessory 5 ft rear/side envelope",
+      "keep all residential mass inside the principal-building envelope",
       "require promotion-ready status before a concept can occupy a shortlist slot"
     ],
     benchmarkControl: R51E_HISTORICAL_CONTROL,
