@@ -22,37 +22,46 @@ export const balancedTwinBlocks:FamilySearch={id:"balanced-twin-blocks",variable
 
 /**
  * D6 — Accessory Rear Garage Stack + Connected L Duplex.
- * This is the owner-selected base shape. The residential mass stays inside the normal
- * principal-building envelope. The two detached garages are intentionally pushed into
- * the rear 25 ft and must be evaluated under the separate accessory-garage envelope.
- * Unit B folds north at its east end, meeting Unit A at the intended duplex party wall,
- * while the north-side drive remains clear of both residential masses.
+ * Owner-selected Design #2, now in focused development rather than broad discovery.
+ *
+ * Run 43 proved that the base topology is physically viable: all retained variants
+ * cleared the parcel/structure/swept-path tests. The remaining failures were narrow:
+ * Unit B used a 20 ft primary depth (below the 22 ft planning gate), was short of the
+ * 1,944 SF promotion reserve, and the north-side FS-SUV margin was about 0.5 ft.
+ *
+ * This refinement therefore keeps the concept intact and changes only what the evidence
+ * says to change: deepen Unit B to 22 ft, shorten its north leg to open the vehicle lane,
+ * widen the west end slightly to recover capacity, and let the north spine/apron tune
+ * around the resulting clear corridor. Garages remain locked to the accessory rear zone.
  */
 export const rearGarageStack:FamilySearch={
  id:"rear-garage-stack",
  variables:[
-  {id:"spineY",min:38.5,max:41,step:.5},
-  {id:"turnX",min:68,max:82,step:2},
-  {id:"flareX",min:36,max:52,step:2},
+  {id:"spineY",min:37,max:39,step:.5},
+  {id:"turnX",min:70,max:80,step:2},
+  {id:"flareX",min:38,max:50,step:2},
   {id:"garageX",min:5,max:8,step:1},
-  {id:"garageGap",min:1,max:3,step:1},
-  {id:"duplexX",min:54,max:58,step:1},
-  {id:"partyX",min:92,max:94,step:1}
+  {id:"garageGap",min:1,max:2,step:1},
+  {id:"duplexX",min:52,max:55,step:1},
+  {id:"partyX",min:92,max:93,step:1},
+  {id:"northLegDepth",min:6,max:8,step:1}
  ],
  build:(v,serial):PlacementCandidate=>{
   const garageW=20,garageD=20,garageSouthY=5,garageNorthY=garageSouthY+garageD+v.garageGap;
   const mouthX=v.garageX+garageW,southMouthY=garageSouthY+10,northMouthY=garageNorthY+10;
   const partyGap=.04;
+  const homeBDepth=22;
+  const northLegY=5+homeBDepth;
   return{id:`PONDY-RGS-${serial}`,family:"rear-garage-stack",placements:[
-   {id:"HOME-B",kind:"home",x:v.duplexX,y:5,widthFt:v.partyX-v.duplexX-partyGap,depthFt:20,movable:false,integrationGroupId:"unit-B",circulationObstacle:false},
-   {id:"HOME-B-NORTH-LEG",kind:"home",x:v.partyX-20-partyGap,y:25,widthFt:20,depthFt:8,movable:false,integrationGroupId:"unit-B",circulationObstacle:false},
-   {id:"HOME-A",kind:"home",x:v.partyX,y:5,widthFt:128-v.partyX,depthFt:28,movable:false,integrationGroupId:"unit-A",circulationObstacle:false},
+   {id:"HOME-B",kind:"home",x:v.duplexX,y:5,widthFt:v.partyX-v.duplexX-partyGap,depthFt:homeBDepth,movable:false,integrationGroupId:"unit-B",circulationObstacle:false},
+   {id:"HOME-B-NORTH-LEG",kind:"home",x:v.partyX-20-partyGap,y:northLegY,widthFt:20,depthFt:v.northLegDepth,movable:false,integrationGroupId:"unit-B",circulationObstacle:false},
+   {id:"HOME-A",kind:"home",x:v.partyX,y:5,widthFt:128-v.partyX,depthFt:30,movable:false,integrationGroupId:"unit-A",circulationObstacle:false},
    {id:"GARAGE-A",kind:"garage",x:v.garageX,y:garageSouthY,widthFt:garageW,depthFt:garageD,movable:false,integrationGroupId:"unit-A",circulationObstacle:true},
    {id:"GARAGE-B",kind:"garage",x:v.garageX,y:garageNorthY,widthFt:garageW,depthFt:garageD,movable:false,integrationGroupId:"unit-B",circulationObstacle:true}
   ],drives:[
-   {id:"DRIVE-A",garageId:"GARAGE-A",points:[[151,v.spineY],[v.turnX,v.spineY],[v.flareX,36],[mouthX+10,27],[mouthX+6,21],[mouthX,southMouthY]],movableControlPoints:[1,2,3,4],controlPointLimitFt:2.5},
-   {id:"DRIVE-B",garageId:"GARAGE-B",points:[[151,v.spineY],[v.turnX,v.spineY],[v.flareX,38],[mouthX+8,northMouthY],[mouthX,northMouthY]],movableControlPoints:[1,2,3],controlPointLimitFt:2.5}
-  ],metadata:{topology:"accessory-rear-stack-connected-L-duplex",designGroup:"rear-garage-stack",designIntent:"owner-base-shape-accessory-rear-garages-L-duplex",intendedLivingA:1800,intendedLivingB:1800,garagePlacementLockedToRear:true,garageAccessoryHypothesis:true,accessoryRearSetbackFt:5,accessorySideSetbackFt:5,minimumGarageDuplexSeparationFt:6,duplexConnected:true,duplexPartyWallIntent:true,baseShapeLocked:true}};
+   {id:"DRIVE-A",garageId:"GARAGE-A",points:[[151,v.spineY],[v.turnX,v.spineY],[v.flareX,35],[mouthX+11,27],[mouthX+6,21],[mouthX,southMouthY]],movableControlPoints:[1,2,3,4],controlPointLimitFt:2.5},
+   {id:"DRIVE-B",garageId:"GARAGE-B",points:[[151,v.spineY],[v.turnX,v.spineY],[v.flareX,37],[mouthX+8,northMouthY],[mouthX,northMouthY]],movableControlPoints:[1,2,3],controlPointLimitFt:2.5}
+  ],metadata:{topology:"accessory-rear-stack-connected-L-duplex",designGroup:"rear-garage-stack",designIntent:"owner-base-shape-accessory-rear-garages-L-duplex",intendedLivingA:1800,intendedLivingB:1800,garagePlacementLockedToRear:true,garageAccessoryHypothesis:true,accessoryRearSetbackFt:5,accessorySideSetbackFt:5,minimumGarageDuplexSeparationFt:6,duplexConnected:true,duplexPartyWallIntent:true,baseShapeLocked:true,designDevelopmentPass:"unitB-22ft-capacity-and-clearance"}};
  }
 };
 
