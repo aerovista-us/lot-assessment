@@ -89,11 +89,7 @@ export function vehiclePolygon(vehicle: VehicleSpec, axleX: number, axleY: numbe
   ];
 }
 
-/**
- * Converts a rear-axle centerline polyline into sampled straight/arc poses using
- * a fixed minimum rear-axle radius. This is the generic form of Pondy's proven
- * fillet-path routine.
- */
+/** Converts a rear-axle centerline polyline into sampled straight/arc poses. */
 export function filletPath(rawPath: readonly Point[], radiusFt: number): { poses: PathPose[]; issues: PathIssue[] } {
   const path = rawPath.map(([x, y]) => [x, y] as Point);
   const poses: PathPose[] = [];
@@ -219,12 +215,26 @@ export function evaluateSweptPath(args: {
 
   for (const pose of poses) {
     const body = vehiclePolygon(vehicle, pose.x, pose.y, pose.headingRad);
+    let streetTransitionPose = false;
+    let allNonStreetCornersInside = true;
     for (const corner of body) {
-      if (args.allowOutside?.(corner)) continue;
-      if (!pointInPolygon(corner, args.parcel, args.parcelEpsilonFt ?? 0.2)) offParcelCount += 1;
+      if (args.allowOutside?.(corner)) {
+        streetTransitionPose = true;
+        continue;
+      }
+      if (!pointInPolygon(corner, args.parcel, args.parcelEpsilonFt ?? 0.2)) {
+        offParcelCount += 1;
+        allNonStreetCornersInside = false;
+      }
     }
-    const clearance = boundaryClearance(body, args.parcel);
-    if (clearance != null) minBoundary = Math.min(minBoundary, clearance);
+
+    // Do not let the intentional street/parcel crossing dominate the site's clearance metric.
+    // Clearance becomes meaningful only once the complete vehicle body is inside the parcel.
+    if (!streetTransitionPose && allNonStreetCornersInside) {
+      const clearance = boundaryClearance(body, args.parcel);
+      if (clearance != null) minBoundary = Math.min(minBoundary, clearance);
+    }
+
     for (const obstacle of args.obstacles ?? []) {
       if (polygonsIntersect(body, obstacle.polygon)) collisionLabels.add(obstacle.label);
     }

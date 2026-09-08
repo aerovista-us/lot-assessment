@@ -7,11 +7,11 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const started = Date.now();
   const solved = solveFamilies(pondyProblem, pondyFamilies, {
-    maxEvaluations: 500,
-    diversePerFamily: 3,
-    repairNearPasses: true,
-    repairMaxStates: 500,
-    repairMaxActions: 2,
+    // Diagnostic-only physical screen. The ranked endpoint is authoritative and owns
+    // bounded repair; do not spend a second repair budget here on the same CI run.
+    maxEvaluations: 180,
+    diversePerFamily: 4,
+    repairNearPasses: false,
     minimumPreferredClearanceFt: 1
   });
 
@@ -32,7 +32,9 @@ export async function GET() {
 
   return NextResponse.json({
     project: "pondy-lot2",
-    solver: "lotscope-placement-v0.2",
+    scenario: "baseline-no-alley",
+    solver: "lotscope-placement-v0.4-diagnostic",
+    searchMode: "coarse-full-grid-sample-no-repair",
     elapsedMs: Date.now() - started,
     families: pondyFamilies.map((family) => family.id),
     count: results.length,

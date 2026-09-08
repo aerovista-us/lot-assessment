@@ -2,41 +2,43 @@ name: Pondy solver benchmark
 
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - 'app/**'
+      - 'lib/**'
+      - 'packages/**'
+      - 'projects/pondy-lot2/**'
+      - '.github/workflows/pondy-benchmark.yml'
   push:
     branches: [main]
     paths:
       - 'packages/**'
       - 'projects/pondy-lot2/**'
-      - 'app/api/workbench/pondy/**'
       - 'app/api/workbench/pondy-ranked/**'
-      - 'app/api/workbench/pondy-report/**'
       - '.github/workflows/pondy-benchmark.yml'
 
+concurrency:
+  group: pondy-benchmark-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   benchmark:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
 
-      - name: Install
-        run: npm ci
-
-      - name: Typecheck
-        run: npm run lint
-
-      - name: Build
-        run: npm run build
+      - name: Install + verify build
+        run: |
+          npm install --no-audit --no-fund
+          npm run lint
+          npm run build
 
       - name: Start local LotScope
         shell: bash
@@ -45,90 +47,148 @@ jobs:
           npm start > /tmp/lotscope.log 2>&1 &
           echo $! > /tmp/lotscope.pid
           for i in {1..40}; do
-            if curl -fsS http://127.0.0.1:3000/ >/dev/null; then
-              exit 0
-            fi
+            curl -fsS http://127.0.0.1:3000/ >/dev/null && exit 0
             sleep 1
           done
           cat /tmp/lotscope.log
           exit 1
 
-      - name: Run physical benchmark
-        run: curl --fail --show-error --silent http://127.0.0.1:3000/api/workbench/pondy > pondy-physical.json
+      - name: Public + Workbench smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsS http://127.0.0.1:3000/ > /tmp/public.html
+          curl -fsS http://127.0.0.1:3000/workbench > /tmp/workbench.html
+          grep -q 'GUIDED ASSESSMENT v2.0' /tmp/public.html
+          grep -q 'QUICK RECTANGLE' /tmp/public.html
+          grep -q 'CUSTOM LOT FACTS' /tmp/public.html
+          grep -q 'Workbench' /tmp/workbench.html
 
-      - name: Run ranked physical + program benchmark
-        run: curl --fail --show-error --silent http://127.0.0.1:3000/api/workbench/pondy-ranked > pondy-ranked.json
+      - name: Run authoritative Pondy benchmark
+        run: curl -fsS http://127.0.0.1:3000/api/workbench/pondy-ranked > pondy-ranked.json
 
-      - name: Generate visual comparison report
-        run: curl --fail --show-error --silent http://127.0.0.1:3000/api/workbench/pondy-report > pondy-report.html
-
-      - name: Print compact result
+      - name: Build audit package
         shell: bash
         run: |
           node - <<'NODE'
           const fs = require('fs');
-          for (const file of ['pondy-physical.json','pondy-ranked.json']) {
-            const data = JSON.parse(fs.readFileSync(file, 'utf8'));
-            console.log(`\n${file}`);
-            console.log(JSON.stringify({
-              solver: data.solver,
-              elapsedMs: data.elapsedMs,
-              count: data.count,
-              passCount: data.passCount,
-              combinedPassCount: data.combinedPassCount,
-              families: data.families,
-              top: (data.shortlist || data.results || []).slice(0, 5).map(x => ({
-                id: x.id,
-                family: x.family,
-                pass: x.pass,
-                physicalPass: x.physicalPass,
-                programPass: x.programPass,
-                combinedPass: x.combinedPass,
-                combinedScore: x.combinedScore,
-                minimumClearanceFt: x.minimumClearanceFt,
-                issues: x.issues || x.physicalIssues
-              }))
-            }, null, 2));
-          }
-          NODE
-
-      - name: Publish Actions summary
-        shell: bash
-        run: |
-          node - <<'NODE' >> "$GITHUB_STEP_SUMMARY"
-          const fs = require('fs');
-          const physical = JSON.parse(fs.readFileSync('pondy-physical.json','utf8'));
+          const crypto = require('crypto');
           const ranked = JSON.parse(fs.readFileSync('pondy-ranked.json','utf8'));
-          const shortlist = ranked.shortlist || [];
-          console.log('# Pondy solver benchmark');
-          console.log(`- Physical retained: **${physical.count ?? physical.results?.length ?? 0}**`);
-          console.log(`- Physical passes: **${physical.passCount ?? 0}**`);
-          console.log(`- Combined physical + program passes: **${ranked.combinedPassCount ?? 0}**`);
-          console.log(`- Diverse promoted shortlist: **${shortlist.length}**`);
-          console.log('');
-          console.log('| Candidate | Family | Physical | Program | Clearance | Score |');
-          console.log('|---|---|---:|---:|---:|---:|');
-          for (const x of shortlist.slice(0,5)) {
-            console.log(`| ${x.id} | ${x.family} | ${x.physicalPass ? 'PASS' : 'FAIL'} | ${x.programPass ? 'PASS' : 'FAIL'} | ${x.minimumClearanceFt == null ? 'n/a' : x.minimumClearanceFt.toFixed(2) + ' ft'} | ${Number(x.combinedScore ?? 0).toFixed(1)} |`);
+          const project = fs.readFileSync('projects/pondy-lot2/project.json','utf8');
+
+          const physical = {
+            project: ranked.project,
+            scenario: ranked.scenario,
+            solver: ranked.solver,
+            count: ranked.evaluatedCount,
+            passCount: ranked.physicalPassCount,
+            families: ranked.families,
+            results: (ranked.results || []).map(x => ({
+              id: x.id, family: x.family, pass: x.physicalPass,
+              objective: x.physicalObjective, repaired: x.repaired,
+              minimumClearanceFt: x.minimumClearanceFt,
+              promotionBoundaryClearanceFt: x.promotionBoundaryClearanceFt,
+              issues: x.physicalIssues, placements: x.placements,
+              drives: x.drives, variables: x.variables, metadata: x.metadata
+            }))
+          };
+          fs.writeFileSync('pondy-physical.json', JSON.stringify(physical, null, 2) + '\n');
+
+          const promoted = (ranked.shortlist || []).slice();
+          const ids = new Set(promoted.map(x => x.id));
+          for (const x of ranked.results || []) {
+            if (promoted.length >= 5) break;
+            if (!x.combinedPass || ids.has(x.id)) continue;
+            promoted.push(x); ids.add(x.id);
           }
-          if (!shortlist.length) {
-            console.log('');
-            console.log('No promoted shortlist yet. Inspect `pondy-ranked.json` for dominant failures; do not relax hard rules.');
-          }
+          const cards = promoted.slice(0,5);
+          const survey = [[0,0],[148,0],[148,50],[125.143,43.016],[84.813,43.016],[0,57.01]];
+          const points = survey.map(([x,y]) => `${x},${y}`).join(' ');
+          const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+          const svg = x => `<svg viewBox="-8 -8 170 76"><polygon points="${points}" fill="#fafafa" stroke="#222" stroke-width=".7"/>${(x.drives||[]).map(d=>`<polyline points="${d.points.map(p=>p.join(',')).join(' ')}" fill="none" stroke="#777" stroke-width="2.5"/>`).join('')}${(x.placements||[]).map(p=>`<rect x="${p.x}" y="${p.y}" width="${p.widthFt}" height="${p.depthFt}" fill="${p.kind==='garage'?'#d9e9d5':'#ddd'}" stroke="#333" stroke-width=".5"/>`).join('')}</svg>`;
+          const html = `<!doctype html><html><head><meta charset="utf-8"><title>Pondy comparison</title><style>body{font:14px system-ui;margin:24px;background:#f5f5f2;color:#171717}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:18px}.card{background:#fff;border:1px solid #ddd;border-radius:14px;padding:16px}.row{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}.pass{color:#18753c}.warn{color:#9a6400}svg{width:100%}.small{font-size:12px;color:#555}</style></head><body><h1>Pondy Lot 2 · baseline discovery</h1><p>${esc(ranked.solver)} · ${ranked.combinedPassCount} combined · ${ranked.promotionReadyCount ?? 0} promotion ready</p><div class="grid">${cards.map(x=>`<article class="card"><div class="row"><strong>${esc(x.id)} · ${esc(x.family)}</strong><strong class="${x.promotionReady?'pass':'warn'}">${x.promotionReady?'PROMOTION READY':'TECHNICAL PASS'}</strong></div>${svg(x)}<div class="row"><span>non-access clearance ${x.promotionBoundaryClearanceFt==null?'n/a':Number(x.promotionBoundaryClearanceFt).toFixed(2)+' ft'}</span><span>1800-SF capacity ${x.promotionChecks?.capacityReady?'READY':'TIGHT'}</span><span>score ${Number(x.combinedScore||0).toFixed(1)}</span></div><div class="small">buildable-land pavement ${x.pavement?.estimatedBuildablePavementSqFt==null?'n/a':Number(x.pavement.estimatedBuildablePavementSqFt).toFixed(0)+' SF'}</div></article>`).join('')}</div></body></html>`;
+          fs.writeFileSync('pondy-report.html', html);
+
+          const manifest = {
+            schemaVersion: 3,
+            repository: process.env.GITHUB_REPOSITORY,
+            commitSha: process.env.GITHUB_SHA,
+            runId: process.env.GITHUB_RUN_ID,
+            projectSpecSha256: crypto.createHash('sha256').update(project).digest('hex'),
+            solver: ranked.solver,
+            scoringVersion: ranked.scoringVersion,
+            scenario: ranked.scenario,
+            searchAdjustments: ranked.searchAdjustments || [],
+            evaluatedCount: ranked.evaluatedCount,
+            physicalPassCount: ranked.physicalPassCount,
+            combinedPassCount: ranked.combinedPassCount,
+            promotionReadyCount: ranked.promotionReadyCount,
+            families: ranked.families,
+            reviewSet: cards.map(x => ({ id:x.id, family:x.family, promotionReady:x.promotionReady, score:x.combinedScore, clearance:x.promotionBoundaryClearanceFt }))
+          };
+          fs.writeFileSync('pondy-manifest.json', JSON.stringify(manifest, null, 2) + '\n');
+          console.log(JSON.stringify(manifest, null, 2));
           NODE
 
       - name: Upload benchmark artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: pondy-benchmark-${{ github.sha }}
           path: |
+            pondy-manifest.json
             pondy-physical.json
             pondy-ranked.json
             pondy-report.html
-          retention-days: 14
+          retention-days: 90
+
+      - name: Sprint acceptance gate
+        shell: bash
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const ranked = JSON.parse(fs.readFileSync('pondy-ranked.json','utf8'));
+          const failures = [];
+          const familyCount = (ranked.families || []).length;
+          const shortlistFamilies = new Set((ranked.shortlist || []).map(x => x.family)).size;
+          if (familyCount < 6) failures.push(`families ${familyCount} < 6`);
+          if ((ranked.evaluatedCount || 0) < 30) failures.push(`evaluated ${ranked.evaluatedCount || 0} < 30`);
+          if ((ranked.physicalPassCount || 0) < 10) failures.push(`physical ${ranked.physicalPassCount || 0} < 10`);
+          if ((ranked.combinedPassCount || 0) < 3) failures.push(`combined ${ranked.combinedPassCount || 0} < 3`);
+          if (shortlistFamilies < 2) failures.push(`shortlist families ${shortlistFamilies} < 2`);
+          console.log({ familyCount, evaluated: ranked.evaluatedCount, physical: ranked.physicalPassCount, combined: ranked.combinedPassCount, promotionReady: ranked.promotionReadyCount, shortlistFamilies });
+          if (failures.length) { console.error(failures.join('; ')); process.exit(1); }
+          if ((ranked.promotionReadyCount || 0) < 1) console.warn('No promotion-ready candidate yet; solver sprint remains open.');
+          NODE
+
+      - name: Persist benchmark to results branch
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git worktree add --detach /tmp/pondy-results HEAD
+          cd /tmp/pondy-results
+          if git ls-remote --exit-code --heads origin benchmark-results >/dev/null 2>&1; then
+            git fetch origin benchmark-results
+            git switch -C benchmark-results origin/benchmark-results
+          else
+            git switch --orphan benchmark-results
+            git rm -rf . >/dev/null 2>&1 || true
+          fi
+          mkdir -p "runs/${GITHUB_SHA}"
+          cp "$GITHUB_WORKSPACE/pondy-manifest.json" "runs/${GITHUB_SHA}/manifest.json"
+          cp "$GITHUB_WORKSPACE/pondy-physical.json" "runs/${GITHUB_SHA}/physical.json"
+          cp "$GITHUB_WORKSPACE/pondy-ranked.json" "runs/${GITHUB_SHA}/ranked.json"
+          cp "$GITHUB_WORKSPACE/pondy-report.html" "runs/${GITHUB_SHA}/report.html"
+          cp "$GITHUB_WORKSPACE/pondy-manifest.json" latest.json
+          printf '# Pondy benchmark results\n\nGenerated by the Pondy benchmark workflow.\n' > README.md
+          git add README.md latest.json runs/
+          git commit -m "Persist Pondy benchmark ${GITHUB_SHA}" || exit 0
+          git push origin HEAD:benchmark-results
 
       - name: Stop local server
         if: always()
-        shell: bash
         run: |
           if [ -f /tmp/lotscope.pid ]; then kill "$(cat /tmp/lotscope.pid)" || true; fi

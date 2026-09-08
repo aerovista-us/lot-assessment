@@ -3,6 +3,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { assessLot, LotAssessmentInput } from "@/lib/assessment";
 import { trackEvent } from "@/lib/analytics";
+import {
+  assessInformationConfidence,
+  ConfidenceMap,
+  FactState,
+  initialConfidence,
+  stateLabel
+} from "@/lib/confidence";
 
 const initialInput: LotAssessmentInput = {
   lotWidthFt: 50,
@@ -22,22 +29,56 @@ const initialInput: LotAssessmentInput = {
 };
 
 type NumberField = Exclude<keyof LotAssessmentInput, "garageIntegrated">;
+type FieldDef = { key: NumberField; label: string; suffix?: string; min?: number };
+type GroupDef = { id: string; title: string; note: string; fields: FieldDef[] };
 
-const fields: Array<{ key: NumberField; label: string; suffix?: string; min?: number; step?: number }> = [
-  { key: "lotWidthFt", label: "Lot width", suffix: "ft", min: 1 },
-  { key: "lotDepthFt", label: "Lot depth", suffix: "ft", min: 1 },
-  { key: "frontSetbackFt", label: "Front setback", suffix: "ft", min: 0 },
-  { key: "rearSetbackFt", label: "Rear setback", suffix: "ft", min: 0 },
-  { key: "leftSetbackFt", label: "Left side setback", suffix: "ft", min: 0 },
-  { key: "rightSetbackFt", label: "Right side setback", suffix: "ft", min: 0 },
-  { key: "maxLotCoveragePct", label: "Max lot coverage", suffix: "%", min: 1 },
-  { key: "units", label: "Units", min: 1 },
-  { key: "livingAreaPerUnitSqFt", label: "Living area / unit", suffix: "sq ft", min: 1 },
-  { key: "stories", label: "Stories", min: 1 },
-  { key: "garageSpacesPerUnit", label: "Garage spaces / unit", min: 0 },
-  { key: "drivewayWidthFt", label: "Available driveway width", suffix: "ft", min: 0 },
-  { key: "minimumAccessWidthFt", label: "Assumed minimum access", suffix: "ft", min: 0 }
+const groups: GroupDef[] = [
+  {
+    id: "lot",
+    title: "LOT",
+    note: "Start with the dimensions you actually know.",
+    fields: [
+      { key: "lotWidthFt", label: "Lot width", suffix: "ft", min: 1 },
+      { key: "lotDepthFt", label: "Lot depth", suffix: "ft", min: 1 }
+    ]
+  },
+  {
+    id: "rules",
+    title: "RULES",
+    note: "Treat unverified zoning numbers as assumptions, not facts.",
+    fields: [
+      { key: "frontSetbackFt", label: "Front setback", suffix: "ft", min: 0 },
+      { key: "rearSetbackFt", label: "Rear setback", suffix: "ft", min: 0 },
+      { key: "leftSetbackFt", label: "Left side setback", suffix: "ft", min: 0 },
+      { key: "rightSetbackFt", label: "Right side setback", suffix: "ft", min: 0 },
+      { key: "maxLotCoveragePct", label: "Max lot coverage", suffix: "%", min: 1 }
+    ]
+  },
+  {
+    id: "project",
+    title: "PROJECT",
+    note: "Describe the thing you are trying to fit.",
+    fields: [
+      { key: "units", label: "Units", min: 1 },
+      { key: "livingAreaPerUnitSqFt", label: "Living area / unit", suffix: "sq ft", min: 1 },
+      { key: "stories", label: "Stories", min: 1 },
+      { key: "garageSpacesPerUnit", label: "Garage spaces / unit", min: 0 }
+    ]
+  },
+  {
+    id: "access",
+    title: "ACCESS",
+    note: "This is a width screen only; turning geometry still needs a site-plan check.",
+    fields: [
+      { key: "drivewayWidthFt", label: "Available driveway width", suffix: "ft", min: 0 },
+      { key: "minimumAccessWidthFt", label: "Assumed minimum access", suffix: "ft", min: 0 }
+    ]
+  }
 ];
+
+const fieldLabels: Partial<Record<keyof LotAssessmentInput, string>> = Object.fromEntries(
+  groups.flatMap((group) => group.fields.map((field) => [field.key, field.label]))
+) as Partial<Record<keyof LotAssessmentInput, string>>;
 
 function fmt(value: number) {
   return new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(value);
@@ -45,23 +86,32 @@ function fmt(value: number) {
 
 export default function Home() {
   const [input, setInput] = useState<LotAssessmentInput>(initialInput);
+  const [confidence, setConfidence] = useState<ConfidenceMap>(initialConfidence);
+  const [lotMode, setLotMode] = useState<"RECTANGLE" | "CUSTOM">("RECTANGLE");
   const [hasRun, setHasRun] = useState(false);
 
   useEffect(() => {
-    trackEvent("journey_start", { surface: "quick_assessment" });
+    trackEvent("journey_start", { surface: "guided_assessment_v2" });
   }, []);
 
   const result = useMemo(() => assessLot(input), [input]);
+  const infoConfidence = useMemo(() => assessInformationConfidence(confidence), [confidence]);
 
   const update = (key: NumberField, raw: string) => {
     const parsed = Number(raw);
     setInput((current) => ({ ...current, [key]: Number.isFinite(parsed) ? parsed : 0 }));
   };
 
+  const updateConfidence = (key: keyof LotAssessmentInput, state: FactState) => {
+    setConfidence((current) => ({ ...current, [key]: state }));
+  };
+
   const runAssessment = () => {
     setHasRun(true);
     trackEvent("assessment_run", {
       status: result.status,
+      confidence: infoConfidence.level,
+      lot_mode: lotMode,
       units: input.units,
       stories: input.stories,
       garage_spaces_per_unit: input.garageSpacesPerUnit,
@@ -72,13 +122,15 @@ export default function Home() {
 
   const reset = () => {
     setInput(initialInput);
+    setConfidence(initialConfidence);
+    setLotMode("RECTANGLE");
     setHasRun(false);
     trackEvent("assessment_reset");
   };
 
   const share = async () => {
-    const text = `LotScope: ${result.status}. Estimated footprint ${fmt(result.estimatedProjectFootprintSqFt)} sq ft against about ${fmt(result.footprintCapacitySqFt)} sq ft of calculated capacity. Early feasibility only.`;
-    trackEvent("share_assessment", { status: result.status });
+    const text = `LotScope: ${result.status} (${result.score}/100 feasibility), information confidence ${infoConfidence.level} (${infoConfidence.score}/100). Early planning aid only.`;
+    trackEvent("share_assessment", { status: result.status, confidence: infoConfidence.level });
     if (navigator.share) {
       try {
         await navigator.share({ title: "LotScope", text, url: window.location.origin });
@@ -102,46 +154,67 @@ export default function Home() {
       </header>
 
       <section className="hero">
-        <p className="eyebrow">AEROVISTA LOCAL · EARLY SITE FEASIBILITY</p>
+        <p className="eyebrow">AEROVISTA LOCAL · GUIDED ASSESSMENT v2.0</p>
         <h1>Find the constraints before they become redesigns.</h1>
-        <p className="lede">Enter the lot facts you know. LotScope turns setbacks, coverage, project size, garages and access into a fast feasibility screen with plain-English concerns and next checks.</p>
-        <div className="notice"><strong>Planning aid, not permit approval.</strong> v1 uses the facts you enter and does not claim to know the governing zoning code automatically.</div>
+        <p className="lede">Describe the lot, the rules you are using, the project, and access. LotScope keeps physical feasibility separate from how confident we should be in the information behind it.</p>
+        <div className="notice"><strong>Planning aid, not permit approval.</strong> LotScope uses the facts and assumptions you enter. It does not invent zoning rules or silently convert assumptions into confirmed facts.</div>
       </section>
+
+      <section className="mode-selector" aria-label="Lot input mode">
+        <button className={lotMode === "RECTANGLE" ? "mode-card active" : "mode-card"} onClick={() => setLotMode("RECTANGLE")}>
+          <strong>QUICK RECTANGLE</strong><span>Use width + depth for a fast dimensional screen.</span>
+        </button>
+        <button className={lotMode === "CUSTOM" ? "mode-card active" : "mode-card"} onClick={() => setLotMode("CUSTOM")}>
+          <strong>CUSTOM LOT FACTS</strong><span>Use the same assessment as an approximation when the real parcel is irregular.</span>
+        </button>
+      </section>
+
+      {lotMode === "CUSTOM" && (
+        <div className="notice custom-mode-note"><strong>Custom lot mode is intentionally honest in v2.0.</strong> The Workbench already supports irregular geometry, but this public release does not add a new drawing tool. Width/depth below are treated as an approximate bounding rectangle and information confidence should reflect that.</div>
+      )}
 
       <section className="workspace">
         <article className="input-panel">
           <div className="section-heading">
-            <div><p className="eyebrow">STEP 1</p><h2>Lot + project facts</h2></div>
-            <span className="mode-pill">MANUAL FACTS MODE</span>
+            <div><p className="eyebrow">STEP 1</p><h2>Describe the site</h2></div>
+            <span className="mode-pill">{lotMode === "RECTANGLE" ? "RECTANGLE" : "CUSTOM / APPROX"}</span>
           </div>
 
-          <div className="field-grid">
-            {fields.map((field) => (
-              <label className="field" key={field.key}>
-                <span>{field.label}</span>
-                <div className="input-wrap">
-                  <input
-                    inputMode="decimal"
-                    type="number"
-                    min={field.min ?? 0}
-                    step={field.step ?? 1}
-                    value={input[field.key]}
-                    onChange={(event) => update(field.key, event.target.value)}
-                  />
-                  {field.suffix && <small>{field.suffix}</small>}
+          <div className="input-groups">
+            {groups.map((group) => (
+              <section className="input-group" key={group.id}>
+                <div className="group-heading"><div><strong>{group.title}</strong><span>{group.note}</span></div></div>
+                <div className="field-grid">
+                  {group.fields.map((field) => (
+                    <label className="field" key={field.key}>
+                      <span>{field.label}</span>
+                      <div className="input-wrap">
+                        <input inputMode="decimal" type="number" min={field.min ?? 0} step={1} value={input[field.key]} onChange={(event) => update(field.key, event.target.value)} />
+                        {field.suffix && <small>{field.suffix}</small>}
+                      </div>
+                      <select className={`fact-state ${confidence[field.key].toLowerCase()}`} value={confidence[field.key]} onChange={(event) => updateConfidence(field.key, event.target.value as FactState)}>
+                        <option value="CONFIRMED">Confirmed</option>
+                        <option value="USER_SUPPLIED">User supplied</option>
+                        <option value="ASSUMED">Assumed</option>
+                        <option value="UNKNOWN">Unknown</option>
+                      </select>
+                    </label>
+                  ))}
                 </div>
-              </label>
+              </section>
             ))}
           </div>
 
-          <label className="toggle-row">
-            <input
-              type="checkbox"
-              checked={input.garageIntegrated}
-              onChange={(event) => setInput((current) => ({ ...current, garageIntegrated: event.target.checked }))}
-            />
-            <span><strong>Garage integrated under/within building footprint</strong><small>Use this when upper-floor living area can overlap the garage footprint.</small></span>
-          </label>
+          <div className="toggle-row">
+            <input id="garageIntegrated" type="checkbox" checked={input.garageIntegrated} onChange={(event) => setInput((current) => ({ ...current, garageIntegrated: event.target.checked }))} />
+            <label htmlFor="garageIntegrated"><strong>Garage integrated under/within building footprint</strong><small>Use this when upper-floor living area can overlap the garage footprint.</small></label>
+            <select className={`fact-state ${confidence.garageIntegrated.toLowerCase()}`} value={confidence.garageIntegrated} onChange={(event) => updateConfidence("garageIntegrated", event.target.value as FactState)}>
+              <option value="CONFIRMED">Confirmed</option>
+              <option value="USER_SUPPLIED">User supplied</option>
+              <option value="ASSUMED">Assumed</option>
+              <option value="UNKNOWN">Unknown</option>
+            </select>
+          </div>
 
           <button className="primary-button full" onClick={runAssessment}>Assess this lot</button>
         </article>
@@ -158,17 +231,26 @@ export default function Home() {
             <div><span>Coverage cap</span><strong>{fmt(result.maxCoverageAreaSqFt)} sq ft</strong></div>
             <div><span>Estimated footprint</span><strong>{fmt(result.estimatedProjectFootprintSqFt)} sq ft</strong></div>
           </div>
-          <p className="microcopy">This is intentionally rectangular. Irregular lot lines, easements, driveway turns, utilities, slope and building shape are not modeled yet.</p>
+          <div className="confidence-mini">
+            <span>Information confidence</span>
+            <strong>{infoConfidence.level} · {infoConfidence.score}/100</strong>
+          </div>
+          <p className="microcopy">{lotMode === "RECTANGLE" ? "Quick Rectangle is a dimensional screen. Irregular lines, easements, driveway turns, utilities, slope and building shape still require deeper review." : "Custom Lot Facts uses a rectangular approximation in public v2.0. Do not treat this preview as the true parcel polygon."}</p>
         </aside>
       </section>
 
       <section className={`result-card ${hasRun ? "visible" : "muted"}`} id="result">
-        <div className="result-top">
+        <div className="dual-result">
           <div>
-            <p className="eyebrow">STEP 2 · EARLY FEASIBILITY</p>
+            <p className="eyebrow">FEASIBILITY</p>
             <h2>{hasRun ? result.status : "RUN THE ASSESSMENT"}</h2>
+            <div className="score-line"><strong>{hasRun ? result.score : "—"}</strong><span>/100</span></div>
           </div>
-          <div className="score-ring"><strong>{hasRun ? result.score : "—"}</strong><span>/100</span></div>
+          <div>
+            <p className="eyebrow">INFORMATION CONFIDENCE</p>
+            <h2>{hasRun ? infoConfidence.level : "—"}</h2>
+            <div className="score-line"><strong>{hasRun ? infoConfidence.score : "—"}</strong><span>/100</span></div>
+          </div>
         </div>
 
         {hasRun ? (
@@ -177,44 +259,28 @@ export default function Home() {
             <p className="capacity-copy">Estimated project footprint uses about <strong>{fmt(result.utilizationPct)}%</strong> of calculated footprint capacity.</p>
 
             <div className="result-columns">
-              <article>
-                <p className="mini-label">WHAT WORKS</p>
-                {result.reasons.length ? result.reasons.map((reason) => <p className="check" key={reason}>✓ {reason}</p>) : <p>No positive finding is strong enough yet.</p>}
-              </article>
-              <article>
-                <p className="mini-label">CURRENT CONCERNS</p>
-                {result.concerns.length ? result.concerns.map((concern) => <p className="concern" key={concern}>! {concern}</p>) : <p>No immediate dimensional red flags from the entered facts.</p>}
-              </article>
+              <article><p className="mini-label">WHAT WORKS</p>{result.reasons.length ? result.reasons.map((reason) => <p className="check" key={reason}>✓ {reason}</p>) : <p>No positive finding is strong enough yet.</p>}</article>
+              <article><p className="mini-label">CURRENT CONCERNS</p>{result.concerns.length ? result.concerns.map((concern) => <p className="concern" key={concern}>! {concern}</p>) : <p>No immediate dimensional red flags from the entered facts.</p>}</article>
             </div>
 
-            <div className="next-checks">
-              <p className="mini-label">VERIFY NEXT</p>
-              <ol>{result.nextChecks.map((item) => <li key={item}>{item}</li>)}</ol>
+            <div className="result-columns">
+              <article className="verify-panel">
+                <p className="mini-label">ASSUMPTIONS TO VERIFY</p>
+                {infoConfidence.verify.length ? infoConfidence.verify.map((key) => <p className="concern" key={key}>! {fieldLabels[key] || String(key)} — {stateLabel(confidence[key])}</p>) : <p className="check">✓ No tracked input is currently marked assumed or unknown.</p>}
+                {lotMode === "CUSTOM" && <p className="concern">! Parcel shape — public v2.0 is using a bounding-rectangle approximation.</p>}
+              </article>
+              <article className="next-checks"><p className="mini-label">VERIFY NEXT</p><ol>{result.nextChecks.map((item) => <li key={item}>{item}</li>)}</ol></article>
             </div>
 
-            <div className="hero-actions">
-              <button className="primary-button" onClick={share}>Share summary</button>
-              <a className="secondary-button" href="#roadmap" onClick={() => trackEvent("roadmap_view")}>What gets smarter next?</a>
-            </div>
+            <div className="hero-actions"><button className="primary-button" onClick={share}>Share summary</button></div>
           </>
-        ) : <p>Adjust the assumptions above, then run the assessment. Nothing here is sent to analytics as an address or parcel identifier.</p>}
-      </section>
-
-      <section className="section" id="roadmap">
-        <p className="eyebrow">CAPABILITY ROADMAP</p>
-        <h2>This starts as a calculator. It grows into a site-planning assistant.</h2>
-        <div className="roadmap-grid">
-          <article><span>NOW</span><h3>Dimensional feasibility</h3><p>Setbacks, coverage, unit size, stories, garages, access width and plain-English constraint flags.</p></article>
-          <article><span>NEXT</span><h3>Jurisdiction + parcel facts</h3><p>Address/parcel lookup, zoning district, allowed uses, official code citations, frontage, parking and source timestamps.</p></article>
-          <article><span>PONDY LEARNING LAYER</span><h3>Geometry + circulation</h3><p>Irregular lot shapes, driveway adjustment, garage door placement, turning paths, two-building placement, pass/fail geometry and alternative layouts.</p></article>
-          <article><span>LATER</span><h3>Visual site-fit engine</h3><p>Drop conceptual footprints onto a lot, compare schemes, explain why one layout works better and preserve an auditable chain from source rule to design constraint.</p></article>
-        </div>
+        ) : <p>Adjust the facts and confidence states above, then run the assessment. Feasibility and information confidence are intentionally scored separately.</p>}
       </section>
 
       <section className="section disclaimer-card">
-        <p className="eyebrow">SOURCE STANDARD</p>
-        <h2>No invented zoning answers.</h2>
-        <p>When automatic jurisdiction data is added, every rule that affects the result should carry its source, effective/verified date and confidence. If the source is unavailable or ambiguous, the app should say <strong>Needs Verification</strong> instead of guessing.</p>
+        <p className="eyebrow">PUBLIC PROMOTION RULE</p>
+        <h2>Proven capability first.</h2>
+        <p>LotScope Public packages capabilities already proven in the shared engine and Workbench. New geometry, circulation, placement and solver behavior is validated internally before it is promoted here.</p>
       </section>
 
       <footer>LotScope · “Can I Build That Here?” · An AeroVista Local utility</footer>

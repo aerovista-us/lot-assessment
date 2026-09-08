@@ -1,11 +1,21 @@
 {
   "id": "pondy-lot2",
   "name": "Pondy Flats Lot 2",
-  "revision": "workbench-seed-1",
+  "revision": "discovery-reset-2026-08-27",
   "parcel": {
     "polygon": [[0,0],[148,0],[148,50],[125.143,43.016],[84.813,43.016],[0,57.01]],
     "frontage": "Pennsylvania Street",
     "accessSides": ["Pennsylvania Street"]
+  },
+  "scenario": {
+    "id": "baseline-no-alley",
+    "label": "Baseline · no alley / no special rear access",
+    "status": "ACTIVE",
+    "notes": [
+      "Pennsylvania is the only modeled vehicle-access origin.",
+      "Rear-25 accessory-structure treatment must be run as a separately labeled alternate scenario.",
+      "Lot 1 easement/rear-access interpretation remains on hold until legally verified."
+    ]
   },
   "setbacks": {
     "frontFt": 20,
@@ -28,23 +38,42 @@
     "minRearAxleRadiusFt": 25
   },
   "hardRules": [
-    "Vehicle access is from Pennsylvania Street only",
+    "Vehicle access originates from Pennsylvania Street only in the baseline scenario",
     "Parcel boundary is immutable",
-    "Setback gate may not be relaxed to make a candidate pass",
+    "Selected-scenario setbacks may not be relaxed to make a candidate pass",
+    "Two dwelling units and required enclosed parking remain hard program gates",
     "Both homes must satisfy living-area range and maximum area difference",
-    "Circulation must be checked against the full-size design vehicle"
+    "Circulation must use the same full-size design-vehicle assumptions for comparable tests"
+  ],
+  "optimizationPreferences": [
+    { "id": "setback-circulation", "weight": "HIGH", "label": "Prefer circulation in otherwise-unbuildable setback land when legal and usable" },
+    { "id": "buildable-pavement", "weight": "HIGH", "label": "Minimize pavement occupying otherwise-buildable residential envelope" },
+    { "id": "garage-intercept", "weight": "HIGH", "label": "Prefer garages that intercept access without unnecessary motor-court pavement" },
+    { "id": "unit-balance", "weight": "HIGH", "label": "Preserve balanced residential capacity between units" },
+    { "id": "open-space", "weight": "MEDIUM", "label": "Preserve useful private/open space" },
+    { "id": "simplicity", "weight": "LOW", "label": "Prefer simpler circulation when candidates are otherwise comparable" }
   ],
   "movementPolicy": {
-    "driveway": "reshape/shift within parcel while retaining Pennsylvania entry",
-    "garage": "translate/orient/change door face if all hard gates still pass",
-    "building": "translate/resize within program and setback gates",
+    "driveway": "reshape/shift/flare within legal site area while retaining Pennsylvania entry",
+    "garage": "translate/orient/change door face and test credible two-car dimensions if all hard gates still pass",
+    "building": "translate/resize/re-proportion within program and setback gates",
     "presentation": "free after geometry freeze; may not alter canonical geometry"
   },
+  "discoveryFamilies": [
+    "side-spine",
+    "staggered-spine",
+    "split-front",
+    "e2-r",
+    "g1-r",
+    "v2-r"
+  ],
+  "benchmarkControl": "R5.1e",
   "provenance": {
     "parcel": { "source": "Pondy project survey geometry", "confidence": "planning" },
-    "setbacks": { "source": "Pondy working assumptions; verify professionally", "confidence": "planning" },
-    "access": { "source": "project owner requirement", "confidence": "confirmed" },
-    "program": { "source": "restored Pondy living-program gate", "confidence": "confirmed" },
-    "vehicle": { "source": "Pondy design-vehicle assumption", "confidence": "assumed" }
+    "setbacks": { "source": "Current Pondy baseline planning interpretation; verify professionally", "confidence": "planning" },
+    "access": { "source": "Current baseline project assumption: Pennsylvania frontage", "confidence": "confirmed" },
+    "program": { "source": "Pondy owner program gate", "confidence": "confirmed" },
+    "vehicle": { "source": "Pondy design-vehicle benchmark assumption", "confidence": "assumed" },
+    "preferences": { "source": "2026-08-27 Pondy discovery reset", "confidence": "confirmed" }
   }
 }
