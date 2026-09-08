@@ -1,65 +1,100 @@
 # LotScope — Build Status
 
-Updated: 2026-08-22
+Updated: 2026-09-08
 
 ## Status
 
-**ACTIVE BUILD · MVP SLICE 1 DEPLOYED · SLICE 2 NEXT**
+**ACTIVE BUILD · PUBLIC V2 SHIPPED · WORKBENCH DIVERSITY PROVEN · FINALIST REFINEMENT NEXT**
 
-## Live surfaces
+## Canonical surfaces
 
-- Primary: `https://lotscope.aerovista.us`
+- Public: `https://lotscope.aerovista.us`
 - Vercel fallback: `https://lotscope.vercel.app`
-- GitHub: `aerovista-us/lot-assessment`
+- Workbench route: `/workbench`
+- Proven public examples: `/proven-patterns`
+- GitHub source of truth: `aerovista-us/lot-assessment`
+- Durable solver evidence: `benchmark-results` branch
 
 ## Working now
 
-- Next.js 16 / React 19 / TypeScript foundation
-- AeroVista Local branding and separate Umami-ready analytics foundation
-- LotScope branding with the user-facing promise **Can I Build That Here?**
-- Manual lot/project input workflow
-- Deterministic assessment engine
-- Rectangular buildable-envelope calculation
-- Lot area, setback envelope and lot-coverage capacity
-- Estimated project footprint from living area / stories / garage assumptions
-- Access-width check
-- Multi-unit / enclosed-parking constraint flags
-- `POSSIBLE`, `CONSTRAINED`, `LIKELY NOT FEASIBLE`, `NEEDS VERIFICATION`
-- Plain-English positive findings, concerns and next checks
-- Shareable assessment summary
-- Explicit authority/safety boundary
-- 1200×630 OpenGraph image
-- Production-domain environment contract
-- Custom AeroVista domain live
-- Future Pondy-derived capability layer documented
+### Public LotScope v2
 
-## Important current limitation
+- Guided Assessment with grouped Lot / Rules / Project / Access inputs
+- Quick Rectangle and explicit Custom Lot Facts approximation modes
+- Deterministic feasibility engine
+- Separate feasibility and information-confidence results
+- Confirmed / user-supplied / assumed / unknown input states
+- Explicit assumptions and next-verification guidance
+- Public-safe authority boundary: no invented zoning/legal certainty
 
-The app does **not** automatically know zoning or parcel facts yet. The user supplies setbacks, coverage and access assumptions. This is deliberate: v1 would rather ask for a fact than fabricate a code answer.
+### Workbench / shared engine
 
-## Slice 2
+- Exact irregular parcel + segment-specific setback handling
+- Parameterized topology generation
+- Placement containment and intentional integration groups
+- Compound / L-shaped residential massing
+- Full-size SUV swept-path validation
+- Near-pass-only bounded repair
+- Fast program-feasibility and net living-capacity checks
+- Pavement / buildable-land efficiency ranking
+- Promotion gate requiring physical PASS + program PASS + 1,800 SF target with 8% capacity reserve + >=1 ft non-access boundary clearance
+- Solver-derived SVG/comparison evidence
+- GitHub Actions benchmark artifacts and durable benchmark-results history
 
-**Parcel + jurisdiction foundation**
+## Pondy proof — current result
 
-1. Add optional address/parcel input without sending the address to analytics.
-2. Resolve governing jurisdiction separately from the deterministic geometry engine.
-3. Define a normalized rule model for use/unit count, setbacks, coverage, height, frontage and parking.
-4. Require source URL + verified/effective date on every automatic rule.
-5. Preserve manual override mode for unusual cases and source conflicts.
-6. Add rectangular site-plan visualization with front/street orientation.
-7. Establish the first supported jurisdiction and source adapter.
+The original Workbench proof objective is now achieved without one-off Pondy logic replacing the general engine.
 
-## Pondy follow-on
+Diversity Run 48 / strict regression gate:
 
-Do not prematurely hard-code the unresolved project. Once Pondy has a defensible final solution, convert its lessons into generic geometry tests and fixtures. See `PONDY_CAPABILITY_ROADMAP.md`.
+- 11 search families
+- 110 retained/evaluated candidates
+- 89 physical passes
+- 86 combined physical + program passes
+- 49 promotion-ready candidates
+- **5 materially distinct promotion-ready concept groups**
 
-## Remaining launch/polish items
+Current promotion-ready concept groups:
 
-- Confirm `NEXT_PUBLIC_SITE_URL=https://lotscope.aerovista.us` in Vercel production env
-- Dedicated Umami website ID
-- Mobile QA
-- Meta Sharing Debugger / Facebook preview validation
-- Decide first supported jurisdiction(s) for automatic rule lookup
+1. Compact Front Block
+2. Front L / Rear Standard
+3. Balanced Twin Blocks
+4. Edge / Staggered Spine control family
+5. Deep Narrow Rear
+
+The owner-selected **Accessory Rear Garage Stack / connected L-duplex** remains a separately proven active refinement family. Diversity ranking is evidence; it does not silently override the selected design direction.
+
+## Current design boundary
+
+What the Workbench proves today:
+
+- site-fit geometry
+- selected setback-envelope containment under labeled assumptions
+- vehicle access / circulation against the benchmark design vehicle
+- coarse program capacity
+- comparable candidate scoring and promotion readiness
+
+What it does **not** yet prove:
+
+- permit approval
+- verified final zoning interpretation
+- detailed room-by-room floor-plan quality
+- structural / civil / architectural construction feasibility
+- final legal status of alternate access or accessory-building assumptions
+
+## Next implementation milestone
+
+### Finalist refinement + canonical freeze
+
+1. Extend program feasibility into room-level packing and architectural-quality checks (issue #3).
+2. Select/freeze finalist geometry instead of continuing uncontrolled topology movement.
+3. Implement canonical candidate schema + stable geometry IDs + ProjectSpec/candidate/solver freeze hash (issue #9).
+4. Derive plans, elevations, sections and customer packages from frozen geometry only.
+5. Complete open-source strategy/licensing documentation before importing any third-party implementation code (issue #6).
+
+## Later product layer
+
+Parcel/jurisdiction/code retrieval remains future work. When added, every automatic rule must preserve source URL, jurisdiction, effective/verification date and explicit uncertainty/conflict handling. Manual override mode remains required.
 
 ## Product rule
 
