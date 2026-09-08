@@ -59,6 +59,6 @@ export default function ProvenPatterns() {
     </section>
     <section className={styles.elevations}><div><h2>Design #2 · street character</h2><p>The elevation studies deliberately stay conceptual. The solver proves site geometry; architecture can now develop without pretending these are permit drawings.</p></div><Elevation/><Elevation rear/></section>
     <section className={styles.explain}><h2>Why Design #2 matters</h2><div><p><strong>Different topology.</strong> This is not another coordinate variation of Design #1. Parking is pulled to a detached rear stack and the duplex becomes a connected L-shaped residential mass.</p><p><strong>Real vehicle test.</strong> The Workbench checks a 20.5 ft × 8 ft full-size SUV/pickup with a 25 ft minimum rear-axle turning radius rather than treating a centerline as proof of access.</p><p><strong>Separate envelopes.</strong> Residential mass remains in the principal-building envelope. The reduced rear/side assumption applies only to detached accessory garages and still requires local-code verification.</p></div></section>
-    <footer>LotScope · Proven capability first · Planning aid, not permit approval.</footer>
+    <footer className={styles.footer}>LotScope · Proven capability first · Planning aid, not permit approval.</footer>
   </main>;
 }
