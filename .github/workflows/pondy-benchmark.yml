@@ -38,6 +38,7 @@ jobs:
         run: |
           npm install --no-audit --no-fund
           npm run lint
+          npm run test:canonical
           npm run build
 
       - name: Start local LotScope
