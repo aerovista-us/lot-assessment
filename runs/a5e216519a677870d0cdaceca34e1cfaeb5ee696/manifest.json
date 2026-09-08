@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 3,
+  "repository": "aerovista-us/lot-assessment",
+  "commitSha": "a5e216519a677870d0cdaceca34e1cfaeb5ee696",
+  "runId": "34287237803",
+  "projectSpecSha256": "bf1745acec60c130b6f361e68b00e2b3a4519af6797d3b6265077e90a686772a",
+  "solver": "lotscope-rapid-v0.7",
+  "scoringVersion": "pondy-site-efficiency-v4",
+  "scenario": "baseline-no-alley",
+  "searchAdjustments": [
+    "rearW max widened to 37 ft where supported",
+    "frontX min widened to 77 ft where supported"
+  ],
+  "evaluatedCount": 48,
+  "physicalPassCount": 16,
+  "combinedPassCount": 16,
+  "promotionReadyCount": 5,
+  "families": [
+    "side-spine",
+    "staggered-spine",
+    "split-front",
+    "e2-r",
+    "g1-r",
+    "v2-r"
+  ],
+  "reviewSet": [
+    {
+      "id": "PONDY-SS-13",
+      "family": "side-spine",
+      "promotionReady": true,
+      "score": 171.83873230677276,
+      "clearance": 2.2456717477504426
+    },
+    {
+      "id": "PONDY-Z-191",
+      "family": "staggered-spine",
+      "promotionReady": true,
+      "score": 171.3486451882961,
+      "clearance": 2.2422282907106137
+    },
+    {
+      "id": "PONDY-SS-148",
+      "family": "side-spine",
+      "promotionReady": true,
+      "score": 171.83873230677276,
+      "clearance": 2.2456717477504426
+    },
+    {
+      "id": "PONDY-SS-283",
+      "family": "side-spine",
+      "promotionReady": true,
+      "score": 171.83873230677276,
+      "clearance": 2.2456717477504426
+    },
+    {
+      "id": "PONDY-Z-281",
+      "family": "staggered-spine",
+      "promotionReady": true,
+      "score": 171.12297643097642,
+      "clearance": 2.241953087556908
+    }
+  ]
+}

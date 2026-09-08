@@ -1,0 +1,6309 @@
+{
+  "project": "pondy-lot2",
+  "scenario": "baseline-no-alley",
+  "solver": "lotscope-rapid-v0.7",
+  "count": 48,
+  "passCount": 16,
+  "families": [
+    "side-spine",
+    "staggered-spine",
+    "split-front",
+    "e2-r",
+    "g1-r",
+    "v2-r"
+  ],
+  "results": [
+    {
+      "id": "PONDY-SS-13",
+      "family": "side-spine",
+      "pass": true,
+      "objective": 8.104438359228652,
+      "repaired": true,
+      "minimumClearanceFt": 0.3895561640771348,
+      "promotionBoundaryClearanceFt": 2.2456717477504426,
+      "issues": [],
+      "placements": [
+        {
+          "id": "HOME-A",
+          "kind": "home",
+          "x": 77,
+          "y": 5,
+          "widthFt": 51,
+          "depthFt": 24,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-A",
+          "kind": "garage",
+          "x": 108,
+          "y": 7,
+          "widthFt": 20,
+          "depthFt": 20,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B",
+          "kind": "home",
+          "x": 25,
+          "y": 5,
+          "widthFt": 32,
+          "depthFt": 32.5,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-B",
+          "kind": "garage",
+          "x": 37,
+          "y": 17,
+          "widthFt": 20,
+          "depthFt": 20,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B-WING",
+          "kind": "home",
+          "x": 57,
+          "y": 5,
+          "widthFt": 14,
+          "depthFt": 10,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        }
+      ],
+      "drives": [
+        {
+          "id": "DRIVE-A",
+          "garageId": "GARAGE-A",
+          "points": [
+            [
+              151,
+              17
+            ],
+            [
+              128,
+              17
+            ]
+          ],
+          "movableControlPoints": []
+        },
+        {
+          "id": "DRIVE-B",
+          "garageId": "GARAGE-B",
+          "points": [
+            [
+              151,
+              36.5
+            ],
+            [
+              79,
+              36.5
+            ],
+            [
+              67,
+              28
+            ],
+            [
+              57,
+              27
+            ]
+          ],
+          "movableControlPoints": [
+            1,
+            2
+          ],
+          "controlPointLimitFt": 2
+        }
+      ],
+      "variables": {
+        "alignX": 67,
+        "turnX": 78,
+        "spineY": 36.5,
+        "rearGarageY": 17,
+        "wingD": 10,
+        "wingW": 14,
+        "rearW": 32,
+        "rearX": 25,
+        "frontX": 77
+      },
+      "metadata": {
+        "topology": "side-spine-compound-rear",
+        "intendedLivingA": 1800,
+        "intendedLivingB": 1800,
+        "run08Compound": true
+      }
+    },
+    {
+      "id": "PONDY-SS-148",
+      "family": "side-spine",
+      "pass": true,
+      "objective": 8.104438359228652,
+      "repaired": true,
+      "minimumClearanceFt": 0.3895561640771348,
+      "promotionBoundaryClearanceFt": 2.2456717477504426,
+      "issues": [],
+      "placements": [
+        {
+          "id": "HOME-A",
+          "kind": "home",
+          "x": 78,
+          "y": 5,
+          "widthFt": 50,
+          "depthFt": 24,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-A",
+          "kind": "garage",
+          "x": 108,
+          "y": 7,
+          "widthFt": 20,
+          "depthFt": 20,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B",
+          "kind": "home",
+          "x": 25,
+          "y": 5,
+          "widthFt": 32,
+          "depthFt": 32.5,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-B",
+          "kind": "garage",
+          "x": 37,
+          "y": 17,
+          "widthFt": 20,
+          "depthFt": 20,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B-WING",
+          "kind": "home",
+          "x": 57,
+          "y": 5,
+          "widthFt": 14,
+          "depthFt": 10,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        }
+      ],
+      "drives": [
+        {
+          "id": "DRIVE-A",
+          "garageId": "GARAGE-A",
+          "points": [
+            [
+              151,
+              17
+            ],
+            [
+              128,
+              17
+            ]
+          ],
+          "movableControlPoints": []
+        },
+        {
+          "id": "DRIVE-B",
+          "garageId": "GARAGE-B",
+          "points": [
+            [
+              151,
+              36.5
+            ],
+            [
+              79,
+              36.5
+            ],
+            [
+              67,
+              28
+            ],
+            [
+              57,
+              27
+            ]
+          ],
+          "movableControlPoints": [
+            1,
+            2
+          ],
+          "controlPointLimitFt": 2
+        }
+      ],
+      "variables": {
+        "alignX": 67,
+        "turnX": 78,
+        "spineY": 36.5,
+        "rearGarageY": 17,
+        "wingD": 10,
+        "wingW": 14,
+        "rearW": 32,
+        "rearX": 25,
+        "frontX": 78
+      },
+      "metadata": {
+        "topology": "side-spine-compound-rear",
+        "intendedLivingA": 1800,
+        "intendedLivingB": 1800,
+        "run08Compound": true
+      }
+    },
+    {
+      "id": "PONDY-SS-283",
+      "family": "side-spine",
+      "pass": true,
+      "objective": 8.104438359228652,
+      "repaired": true,
+      "minimumClearanceFt": 0.3895561640771348,
+      "promotionBoundaryClearanceFt": 2.2456717477504426,
+      "issues": [],
+      "placements": [
+        {
+          "id": "HOME-A",
+          "kind": "home",
+          "x": 79,
+          "y": 5,
+          "widthFt": 49,
+          "depthFt": 24,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-A",
+          "kind": "garage",
+          "x": 108,
+          "y": 7,
+          "widthFt": 20,
+          "depthFt": 20,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B",
+          "kind": "home",
+          "x": 25,
+          "y": 5,
+          "widthFt": 32,
+          "depthFt": 32.5,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-B",
+          "kind": "garage",
+          "x": 37,
+          "y": 17,
+          "widthFt": 20,
+          "depthFt": 20,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B-WING",
+          "kind": "home",
+          "x": 57,
+          "y": 5,
+          "widthFt": 14,
+          "depthFt": 10,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        }
+      ],
+      "drives": [
+        {
+          "id": "DRIVE-A",
+          "garageId": "GARAGE-A",
+          "points": [
+            [
+              151,
+              17
+            ],
+            [
+              128,
+              17
+            ]
+          ],
+          "movableControlPoints": []
+        },
+        {
+          "id": "DRIVE-B",
+          "garageId": "GARAGE-B",
+          "points": [
+            [
+              151,
+              36.5
+            ],
+            [
+              79,
+              36.5
+            ],
+            [
+              67,
+              28
+            ],
+            [
+              57,
+              27
+            ]
+          ],
+          "movableControlPoints": [
+            1,
+            2
+          ],
+          "controlPointLimitFt": 2
+        }
+      ],
+      "variables": {
+        "alignX": 67,
+        "turnX": 78,
+        "spineY": 36.5,
+        "rearGarageY": 17,
+        "wingD": 10,
+        "wingW": 14,
+        "rearW": 32,
+        "rearX": 25,
+        "frontX": 79
+      },
+      "metadata": {
+        "topology": "side-spine-compound-rear",
+        "intendedLivingA": 1800,
+        "intendedLivingB": 1800,
+        "run08Compound": true
+      }
+    },
+    {
+      "id": "PONDY-Z-191",
+      "family": "staggered-spine",
+      "pass": true,
+      "objective": 7.006268846655473,
+      "repaired": true,
+      "minimumClearanceFt": 0.4493731153344527,
+      "promotionBoundaryClearanceFt": 2.2422282907106137,
+      "issues": [],
+      "placements": [
+        {
+          "id": "HOME-A",
+          "kind": "home",
+          "x": 79,
+          "y": 5,
+          "widthFt": 49,
+          "depthFt": 25,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-A",
+          "kind": "garage",
+          "x": 108,
+          "y": 8,
+          "widthFt": 20,
+          "depthFt": 20,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B",
+          "kind": "home",
+          "x": 25,
+          "y": 5,
+          "widthFt": 32,
+          "depthFt": 32.5,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-B",
+          "kind": "garage",
+          "x": 37,
+          "y": 16,
+          "widthFt": 20,
+          "depthFt": 20,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B-WING",
+          "kind": "home",
+          "x": 57,
+          "y": 5,
+          "widthFt": 16,
+          "depthFt": 10,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        }
+      ],
+      "drives": [
+        {
+          "id": "DRIVE-A",
+          "garageId": "GARAGE-A",
+          "points": [
+            [
+              151,
+              18
+            ],
+            [
+              128,
+              18
+            ]
+          ],
+          "movableControlPoints": []
+        },
+        {
+          "id": "DRIVE-B",
+          "garageId": "GARAGE-B",
+          "points": [
+            [
+              151,
+              36.5
+            ],
+            [
+              80.5,
+              36.5
+            ],
+            [
+              68,
+              27
+            ],
+            [
+              57,
+              26
+            ]
+          ],
+          "movableControlPoints": [
+            1,
+            2
+          ],
+          "controlPointLimitFt": 2
+        }
+      ],
+      "variables": {
+        "alignX": 68,
+        "turnX": 80,
+        "spineY": 36.5,
+        "rearGarageY": 16,
+        "wingD": 10,
+        "wingW": 16,
+        "rearW": 32,
+        "rearX": 25,
+        "frontX": 79
+      },
+      "metadata": {
+        "topology": "staggered-compound-rear",
+        "intendedLivingA": 1800,
+        "intendedLivingB": 1800,
+        "run08Compound": true
+      }
+    },
+    {
+      "id": "PONDY-Z-281",
+      "family": "staggered-spine",
+      "pass": true,
+      "objective": 7.999999999999943,
+      "repaired": true,
+      "minimumClearanceFt": 0.4000000000000057,
+      "promotionBoundaryClearanceFt": 2.241953087556908,
+      "issues": [],
+      "placements": [
+        {
+          "id": "HOME-A",
+          "kind": "home",
+          "x": 80,
+          "y": 5,
+          "widthFt": 48,
+          "depthFt": 25,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-A",
+          "kind": "garage",
+          "x": 108,
+          "y": 8,
+          "widthFt": 20,
+          "depthFt": 20,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B",
+          "kind": "home",
+          "x": 25,
+          "y": 5,
+          "widthFt": 32,
+          "depthFt": 32.5,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-B",
+          "kind": "garage",
+          "x": 37,
+          "y": 16,
+          "widthFt": 20,
+          "depthFt": 20,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B-WING",
+          "kind": "home",
+          "x": 57,
+          "y": 5,
+          "widthFt": 16,
+          "depthFt": 10,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        }
+      ],
+      "drives": [
+        {
+          "id": "DRIVE-A",
+          "garageId": "GARAGE-A",
+          "points": [
+            [
+              151,
+              18
+            ],
+            [
+              128,
+              18
+            ]
+          ],
+          "movableControlPoints": []
+        },
+        {
+          "id": "DRIVE-B",
+          "garageId": "GARAGE-B",
+          "points": [
+            [
+              151,
+              36.5
+            ],
+            [
+              81,
+              36.5
+            ],
+            [
+              67,
+              26
+            ],
+            [
+              57,
+              26
+            ]
+          ],
+          "movableControlPoints": [
+            1,
+            2
+          ],
+          "controlPointLimitFt": 2
+        }
+      ],
+      "variables": {
+        "alignX": 68,
+        "turnX": 80,
+        "spineY": 36.5,
+        "rearGarageY": 16,
+        "wingD": 10,
+        "wingW": 16,
+        "rearW": 32,
+        "rearX": 25,
+        "frontX": 80
+      },
+      "metadata": {
+        "topology": "staggered-compound-rear",
+        "intendedLivingA": 1800,
+        "intendedLivingB": 1800,
+        "run08Compound": true
+      }
+    },
+    {
+      "id": "PONDY-Z-231",
+      "family": "staggered-spine",
+      "pass": true,
+      "objective": 7.006268846655473,
+      "repaired": true,
+      "minimumClearanceFt": 0.4493731153344527,
+      "promotionBoundaryClearanceFt": 2.2422282907106137,
+      "issues": [],
+      "placements": [
+        {
+          "id": "HOME-A",
+          "kind": "home",
+          "x": 79,
+          "y": 5,
+          "widthFt": 49,
+          "depthFt": 25,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-A",
+          "kind": "garage",
+          "x": 108,
+          "y": 8,
+          "widthFt": 20,
+          "depthFt": 20,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B",
+          "kind": "home",
+          "x": 26,
+          "y": 5,
+          "widthFt": 31,
+          "depthFt": 32.5,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-B",
+          "kind": "garage",
+          "x": 37,
+          "y": 16,
+          "widthFt": 20,
+          "depthFt": 20,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B-WING",
+          "kind": "home",
+          "x": 57,
+          "y": 5,
+          "widthFt": 18,
+          "depthFt": 9,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        }
+      ],
+      "drives": [
+        {
+          "id": "DRIVE-A",
+          "garageId": "GARAGE-A",
+          "points": [
+            [
+              151,
+              18
+            ],
+            [
+              128,
+              18
+            ]
+          ],
+          "movableControlPoints": []
+        },
+        {
+          "id": "DRIVE-B",
+          "garageId": "GARAGE-B",
+          "points": [
+            [
+              151,
+              36.5
+            ],
+            [
+              80.5,
+              36.5
+            ],
+            [
+              68,
+              27
+            ],
+            [
+              57,
+              26
+            ]
+          ],
+          "movableControlPoints": [
+            1,
+            2
+          ],
+          "controlPointLimitFt": 2
+        }
+      ],
+      "variables": {
+        "alignX": 68,
+        "turnX": 80,
+        "spineY": 36.5,
+        "rearGarageY": 16,
+        "wingD": 9,
+        "wingW": 18,
+        "rearW": 31,
+        "rearX": 26,
+        "frontX": 79
+      },
+      "metadata": {
+        "topology": "staggered-compound-rear",
+        "intendedLivingA": 1800,
+        "intendedLivingB": 1800,
+        "run08Compound": true
+      }
+    },
+    {
+      "id": "PONDY-Z-321",
+      "family": "staggered-spine",
+      "pass": true,
+      "objective": 7.999999999999943,
+      "repaired": true,
+      "minimumClearanceFt": 0.4000000000000057,
+      "promotionBoundaryClearanceFt": 2.241953087556908,
+      "issues": [],
+      "placements": [
+        {
+          "id": "HOME-A",
+          "kind": "home",
+          "x": 80,
+          "y": 5,
+          "widthFt": 48,
+          "depthFt": 25,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-A",
+          "kind": "garage",
+          "x": 108,
+          "y": 8,
+          "widthFt": 20,
+          "depthFt": 20,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B",
+          "kind": "home",
+          "x": 26,
+          "y": 5,
+          "widthFt": 31,
+          "depthFt": 32.5,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-B",
+          "kind": "garage",
+          "x": 37,
+          "y": 16,
+          "widthFt": 20,
+          "depthFt": 20,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B-WING",
+          "kind": "home",
+          "x": 57,
+          "y": 5,
+          "widthFt": 18,
+          "depthFt": 9,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        }
+      ],
+      "drives": [
+        {
+          "id": "DRIVE-A",
+          "garageId": "GARAGE-A",
+          "points": [
+            [
+              151,
+              18
+            ],
+            [
+              128,
+              18
+            ]
+          ],
+          "movableControlPoints": []
+        },
+        {
+          "id": "DRIVE-B",
+          "garageId": "GARAGE-B",
+          "points": [
+            [
+              151,
+              36.5
+            ],
+            [
+              81,
+              36.5
+            ],
+            [
+              67,
+              26
+            ],
+            [
+              57,
+              26
+            ]
+          ],
+          "movableControlPoints": [
+            1,
+            2
+          ],
+          "controlPointLimitFt": 2
+        }
+      ],
+      "variables": {
+        "alignX": 68,
+        "turnX": 80,
+        "spineY": 36.5,
+        "rearGarageY": 16,
+        "wingD": 9,
+        "wingW": 18,
+        "rearW": 31,
+        "rearX": 26,
+        "frontX": 80
+      },
+      "metadata": {
+        "topology": "staggered-compound-rear",
+        "intendedLivingA": 1800,
+        "intendedLivingB": 1800,
+        "run08Compound": true
+      }
+    },
+    {
+      "id": "PONDY-Z-276",
+      "family": "staggered-spine",
+      "pass": true,
+      "objective": 7.999999999999943,
+      "repaired": true,
+      "minimumClearanceFt": 0.4000000000000057,
+      "promotionBoundaryClearanceFt": 2.241953087556908,
+      "issues": [],
+      "placements": [
+        {
+          "id": "HOME-A",
+          "kind": "home",
+          "x": 80,
+          "y": 5,
+          "widthFt": 48,
+          "depthFt": 25,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-A",
+          "kind": "garage",
+          "x": 108,
+          "y": 8,
+          "widthFt": 20,
+          "depthFt": 20,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B",
+          "kind": "home",
+          "x": 25,
+          "y": 5,
+          "widthFt": 31,
+          "depthFt": 32.5,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-B",
+          "kind": "garage",
+          "x": 36,
+          "y": 16,
+          "widthFt": 20,
+          "depthFt": 20,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B-WING",
+          "kind": "home",
+          "x": 56,
+          "y": 5,
+          "widthFt": 18,
+          "depthFt": 9,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        }
+      ],
+      "drives": [
+        {
+          "id": "DRIVE-A",
+          "garageId": "GARAGE-A",
+          "points": [
+            [
+              151,
+              18
+            ],
+            [
+              128,
+              18
+            ]
+          ],
+          "movableControlPoints": []
+        },
+        {
+          "id": "DRIVE-B",
+          "garageId": "GARAGE-B",
+          "points": [
+            [
+              151,
+              36.5
+            ],
+            [
+              81,
+              36.5
+            ],
+            [
+              67,
+              26
+            ],
+            [
+              56,
+              26
+            ]
+          ],
+          "movableControlPoints": [
+            1,
+            2
+          ],
+          "controlPointLimitFt": 2
+        }
+      ],
+      "variables": {
+        "alignX": 68,
+        "turnX": 80,
+        "spineY": 36.5,
+        "rearGarageY": 16,
+        "wingD": 9,
+        "wingW": 18,
+        "rearW": 31,
+        "rearX": 25,
+        "frontX": 80
+      },
+      "metadata": {
+        "topology": "staggered-compound-rear",
+        "intendedLivingA": 1800,
+        "intendedLivingB": 1800,
+        "run08Compound": true
+      }
+    },
+    {
+      "id": "PONDY-SS-418",
+      "family": "side-spine",
+      "pass": true,
+      "objective": 8.104438359228652,
+      "repaired": true,
+      "minimumClearanceFt": 0.3895561640771348,
+      "promotionBoundaryClearanceFt": 2.2456717477504426,
+      "issues": [],
+      "placements": [
+        {
+          "id": "HOME-A",
+          "kind": "home",
+          "x": 80,
+          "y": 5,
+          "widthFt": 48,
+          "depthFt": 24,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-A",
+          "kind": "garage",
+          "x": 108,
+          "y": 7,
+          "widthFt": 20,
+          "depthFt": 20,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B",
+          "kind": "home",
+          "x": 25,
+          "y": 5,
+          "widthFt": 32,
+          "depthFt": 32.5,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-B",
+          "kind": "garage",
+          "x": 37,
+          "y": 17,
+          "widthFt": 20,
+          "depthFt": 20,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B-WING",
+          "kind": "home",
+          "x": 57,
+          "y": 5,
+          "widthFt": 14,
+          "depthFt": 10,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        }
+      ],
+      "drives": [
+        {
+          "id": "DRIVE-A",
+          "garageId": "GARAGE-A",
+          "points": [
+            [
+              151,
+              17
+            ],
+            [
+              128,
+              17
+            ]
+          ],
+          "movableControlPoints": []
+        },
+        {
+          "id": "DRIVE-B",
+          "garageId": "GARAGE-B",
+          "points": [
+            [
+              151,
+              36.5
+            ],
+            [
+              79,
+              36.5
+            ],
+            [
+              67,
+              28
+            ],
+            [
+              57,
+              27
+            ]
+          ],
+          "movableControlPoints": [
+            1,
+            2
+          ],
+          "controlPointLimitFt": 2
+        }
+      ],
+      "variables": {
+        "alignX": 67,
+        "turnX": 78,
+        "spineY": 36.5,
+        "rearGarageY": 17,
+        "wingD": 10,
+        "wingW": 14,
+        "rearW": 32,
+        "rearX": 25,
+        "frontX": 80
+      },
+      "metadata": {
+        "topology": "side-spine-compound-rear",
+        "intendedLivingA": 1800,
+        "intendedLivingB": 1800,
+        "run08Compound": true
+      }
+    },
+    {
+      "id": "PONDY-SS-208",
+      "family": "side-spine",
+      "pass": true,
+      "objective": 8.104438359228652,
+      "repaired": true,
+      "minimumClearanceFt": 0.3895561640771348,
+      "promotionBoundaryClearanceFt": 2.2456717477504426,
+      "issues": [],
+      "placements": [
+        {
+          "id": "HOME-A",
+          "kind": "home",
+          "x": 78,
+          "y": 5,
+          "widthFt": 50,
+          "depthFt": 24,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-A",
+          "kind": "garage",
+          "x": 108,
+          "y": 7,
+          "widthFt": 20,
+          "depthFt": 20,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B",
+          "kind": "home",
+          "x": 26,
+          "y": 5,
+          "widthFt": 31,
+          "depthFt": 32.5,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-B",
+          "kind": "garage",
+          "x": 37,
+          "y": 17,
+          "widthFt": 20,
+          "depthFt": 20,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B-WING",
+          "kind": "home",
+          "x": 57,
+          "y": 5,
+          "widthFt": 16,
+          "depthFt": 9,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        }
+      ],
+      "drives": [
+        {
+          "id": "DRIVE-A",
+          "garageId": "GARAGE-A",
+          "points": [
+            [
+              151,
+              17
+            ],
+            [
+              128,
+              17
+            ]
+          ],
+          "movableControlPoints": []
+        },
+        {
+          "id": "DRIVE-B",
+          "garageId": "GARAGE-B",
+          "points": [
+            [
+              151,
+              36.5
+            ],
+            [
+              79,
+              36.5
+            ],
+            [
+              67,
+              28
+            ],
+            [
+              57,
+              27
+            ]
+          ],
+          "movableControlPoints": [
+            1,
+            2
+          ],
+          "controlPointLimitFt": 2
+        }
+      ],
+      "variables": {
+        "alignX": 67,
+        "turnX": 78,
+        "spineY": 36.5,
+        "rearGarageY": 17,
+        "wingD": 9,
+        "wingW": 16,
+        "rearW": 31,
+        "rearX": 26,
+        "frontX": 78
+      },
+      "metadata": {
+        "topology": "side-spine-compound-rear",
+        "intendedLivingA": 1800,
+        "intendedLivingB": 1800,
+        "run08Compound": true
+      }
+    },
+    {
+      "id": "PONDY-SS-343",
+      "family": "side-spine",
+      "pass": true,
+      "objective": 8.104438359228652,
+      "repaired": true,
+      "minimumClearanceFt": 0.3895561640771348,
+      "promotionBoundaryClearanceFt": 2.2456717477504426,
+      "issues": [],
+      "placements": [
+        {
+          "id": "HOME-A",
+          "kind": "home",
+          "x": 79,
+          "y": 5,
+          "widthFt": 49,
+          "depthFt": 24,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-A",
+          "kind": "garage",
+          "x": 108,
+          "y": 7,
+          "widthFt": 20,
+          "depthFt": 20,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B",
+          "kind": "home",
+          "x": 26,
+          "y": 5,
+          "widthFt": 31,
+          "depthFt": 32.5,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-B",
+          "kind": "garage",
+          "x": 37,
+          "y": 17,
+          "widthFt": 20,
+          "depthFt": 20,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B-WING",
+          "kind": "home",
+          "x": 57,
+          "y": 5,
+          "widthFt": 16,
+          "depthFt": 9,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        }
+      ],
+      "drives": [
+        {
+          "id": "DRIVE-A",
+          "garageId": "GARAGE-A",
+          "points": [
+            [
+              151,
+              17
+            ],
+            [
+              128,
+              17
+            ]
+          ],
+          "movableControlPoints": []
+        },
+        {
+          "id": "DRIVE-B",
+          "garageId": "GARAGE-B",
+          "points": [
+            [
+              151,
+              36.5
+            ],
+            [
+              79,
+              36.5
+            ],
+            [
+              67,
+              28
+            ],
+            [
+              57,
+              27
+            ]
+          ],
+          "movableControlPoints": [
+            1,
+            2
+          ],
+          "controlPointLimitFt": 2
+        }
+      ],
+      "variables": {
+        "alignX": 67,
+        "turnX": 78,
+        "spineY": 36.5,
+        "rearGarageY": 17,
+        "wingD": 9,
+        "wingW": 16,
+        "rearW": 31,
+        "rearX": 26,
+        "frontX": 79
+      },
+      "metadata": {
+        "topology": "side-spine-compound-rear",
+        "intendedLivingA": 1800,
+        "intendedLivingB": 1800,
+        "run08Compound": true
+      }
+    },
+    {
+      "id": "PONDY-SS-73",
+      "family": "side-spine",
+      "pass": true,
+      "objective": 8.104438359228652,
+      "repaired": true,
+      "minimumClearanceFt": 0.3895561640771348,
+      "promotionBoundaryClearanceFt": 2.2456717477504426,
+      "issues": [],
+      "placements": [
+        {
+          "id": "HOME-A",
+          "kind": "home",
+          "x": 77,
+          "y": 5,
+          "widthFt": 51,
+          "depthFt": 24,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-A",
+          "kind": "garage",
+          "x": 108,
+          "y": 7,
+          "widthFt": 20,
+          "depthFt": 20,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B",
+          "kind": "home",
+          "x": 26,
+          "y": 5,
+          "widthFt": 31,
+          "depthFt": 32.5,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-B",
+          "kind": "garage",
+          "x": 37,
+          "y": 17,
+          "widthFt": 20,
+          "depthFt": 20,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B-WING",
+          "kind": "home",
+          "x": 57,
+          "y": 5,
+          "widthFt": 16,
+          "depthFt": 9,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        }
+      ],
+      "drives": [
+        {
+          "id": "DRIVE-A",
+          "garageId": "GARAGE-A",
+          "points": [
+            [
+              151,
+              17
+            ],
+            [
+              128,
+              17
+            ]
+          ],
+          "movableControlPoints": []
+        },
+        {
+          "id": "DRIVE-B",
+          "garageId": "GARAGE-B",
+          "points": [
+            [
+              151,
+              36.5
+            ],
+            [
+              79,
+              36.5
+            ],
+            [
+              67,
+              28
+            ],
+            [
+              57,
+              27
+            ]
+          ],
+          "movableControlPoints": [
+            1,
+            2
+          ],
+          "controlPointLimitFt": 2
+        }
+      ],
+      "variables": {
+        "alignX": 67,
+        "turnX": 78,
+        "spineY": 36.5,
+        "rearGarageY": 17,
+        "wingD": 9,
+        "wingW": 16,
+        "rearW": 31,
+        "rearX": 26,
+        "frontX": 77
+      },
+      "metadata": {
+        "topology": "side-spine-compound-rear",
+        "intendedLivingA": 1800,
+        "intendedLivingB": 1800,
+        "run08Compound": true
+      }
+    },
+    {
+      "id": "PONDY-Z-226",
+      "family": "staggered-spine",
+      "pass": true,
+      "objective": 7.006268846655473,
+      "repaired": true,
+      "minimumClearanceFt": 0.4493731153344527,
+      "promotionBoundaryClearanceFt": 2.2422282907106137,
+      "issues": [],
+      "placements": [
+        {
+          "id": "HOME-A",
+          "kind": "home",
+          "x": 79,
+          "y": 5,
+          "widthFt": 49,
+          "depthFt": 25,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-A",
+          "kind": "garage",
+          "x": 108,
+          "y": 8,
+          "widthFt": 20,
+          "depthFt": 20,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B",
+          "kind": "home",
+          "x": 26,
+          "y": 5,
+          "widthFt": 31,
+          "depthFt": 32.5,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-B",
+          "kind": "garage",
+          "x": 37,
+          "y": 16,
+          "widthFt": 20,
+          "depthFt": 20,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B-WING",
+          "kind": "home",
+          "x": 57,
+          "y": 5,
+          "widthFt": 14,
+          "depthFt": 8,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        }
+      ],
+      "drives": [
+        {
+          "id": "DRIVE-A",
+          "garageId": "GARAGE-A",
+          "points": [
+            [
+              151,
+              18
+            ],
+            [
+              128,
+              18
+            ]
+          ],
+          "movableControlPoints": []
+        },
+        {
+          "id": "DRIVE-B",
+          "garageId": "GARAGE-B",
+          "points": [
+            [
+              151,
+              36.5
+            ],
+            [
+              80.5,
+              36.5
+            ],
+            [
+              68,
+              27
+            ],
+            [
+              57,
+              26
+            ]
+          ],
+          "movableControlPoints": [
+            1,
+            2
+          ],
+          "controlPointLimitFt": 2
+        }
+      ],
+      "variables": {
+        "alignX": 68,
+        "turnX": 80,
+        "spineY": 36.5,
+        "rearGarageY": 16,
+        "wingD": 8,
+        "wingW": 14,
+        "rearW": 31,
+        "rearX": 26,
+        "frontX": 79
+      },
+      "metadata": {
+        "topology": "staggered-compound-rear",
+        "intendedLivingA": 1800,
+        "intendedLivingB": 1800,
+        "run08Compound": true
+      }
+    },
+    {
+      "id": "PONDY-Z-316",
+      "family": "staggered-spine",
+      "pass": true,
+      "objective": 7.999999999999943,
+      "repaired": true,
+      "minimumClearanceFt": 0.4000000000000057,
+      "promotionBoundaryClearanceFt": 2.241953087556908,
+      "issues": [],
+      "placements": [
+        {
+          "id": "HOME-A",
+          "kind": "home",
+          "x": 80,
+          "y": 5,
+          "widthFt": 48,
+          "depthFt": 25,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-A",
+          "kind": "garage",
+          "x": 108,
+          "y": 8,
+          "widthFt": 20,
+          "depthFt": 20,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B",
+          "kind": "home",
+          "x": 26,
+          "y": 5,
+          "widthFt": 31,
+          "depthFt": 32.5,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-B",
+          "kind": "garage",
+          "x": 37,
+          "y": 16,
+          "widthFt": 20,
+          "depthFt": 20,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B-WING",
+          "kind": "home",
+          "x": 57,
+          "y": 5,
+          "widthFt": 14,
+          "depthFt": 8,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        }
+      ],
+      "drives": [
+        {
+          "id": "DRIVE-A",
+          "garageId": "GARAGE-A",
+          "points": [
+            [
+              151,
+              18
+            ],
+            [
+              128,
+              18
+            ]
+          ],
+          "movableControlPoints": []
+        },
+        {
+          "id": "DRIVE-B",
+          "garageId": "GARAGE-B",
+          "points": [
+            [
+              151,
+              36.5
+            ],
+            [
+              81,
+              36.5
+            ],
+            [
+              67,
+              26
+            ],
+            [
+              57,
+              26
+            ]
+          ],
+          "movableControlPoints": [
+            1,
+            2
+          ],
+          "controlPointLimitFt": 2
+        }
+      ],
+      "variables": {
+        "alignX": 68,
+        "turnX": 80,
+        "spineY": 36.5,
+        "rearGarageY": 16,
+        "wingD": 8,
+        "wingW": 14,
+        "rearW": 31,
+        "rearX": 26,
+        "frontX": 80
+      },
+      "metadata": {
+        "topology": "staggered-compound-rear",
+        "intendedLivingA": 1800,
+        "intendedLivingB": 1800,
+        "run08Compound": true
+      }
+    },
+    {
+      "id": "PONDY-Z-271",
+      "family": "staggered-spine",
+      "pass": true,
+      "objective": 7.999999999999943,
+      "repaired": true,
+      "minimumClearanceFt": 0.4000000000000057,
+      "promotionBoundaryClearanceFt": 2.241953087556908,
+      "issues": [],
+      "placements": [
+        {
+          "id": "HOME-A",
+          "kind": "home",
+          "x": 80,
+          "y": 5,
+          "widthFt": 48,
+          "depthFt": 25,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-A",
+          "kind": "garage",
+          "x": 108,
+          "y": 8,
+          "widthFt": 20,
+          "depthFt": 20,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B",
+          "kind": "home",
+          "x": 25,
+          "y": 5,
+          "widthFt": 31,
+          "depthFt": 32.5,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-B",
+          "kind": "garage",
+          "x": 36,
+          "y": 16,
+          "widthFt": 20,
+          "depthFt": 20,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B-WING",
+          "kind": "home",
+          "x": 56,
+          "y": 5,
+          "widthFt": 14,
+          "depthFt": 8,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        }
+      ],
+      "drives": [
+        {
+          "id": "DRIVE-A",
+          "garageId": "GARAGE-A",
+          "points": [
+            [
+              151,
+              18
+            ],
+            [
+              128,
+              18
+            ]
+          ],
+          "movableControlPoints": []
+        },
+        {
+          "id": "DRIVE-B",
+          "garageId": "GARAGE-B",
+          "points": [
+            [
+              151,
+              36.5
+            ],
+            [
+              81,
+              36.5
+            ],
+            [
+              67,
+              26
+            ],
+            [
+              56,
+              26
+            ]
+          ],
+          "movableControlPoints": [
+            1,
+            2
+          ],
+          "controlPointLimitFt": 2
+        }
+      ],
+      "variables": {
+        "alignX": 68,
+        "turnX": 80,
+        "spineY": 36.5,
+        "rearGarageY": 16,
+        "wingD": 8,
+        "wingW": 14,
+        "rearW": 31,
+        "rearX": 25,
+        "frontX": 80
+      },
+      "metadata": {
+        "topology": "staggered-compound-rear",
+        "intendedLivingA": 1800,
+        "intendedLivingB": 1800,
+        "run08Compound": true
+      }
+    },
+    {
+      "id": "PONDY-SS-478",
+      "family": "side-spine",
+      "pass": true,
+      "objective": 8.104438359228652,
+      "repaired": true,
+      "minimumClearanceFt": 0.3895561640771348,
+      "promotionBoundaryClearanceFt": 2.2456717477504426,
+      "issues": [],
+      "placements": [
+        {
+          "id": "HOME-A",
+          "kind": "home",
+          "x": 80,
+          "y": 5,
+          "widthFt": 48,
+          "depthFt": 24,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-A",
+          "kind": "garage",
+          "x": 108,
+          "y": 7,
+          "widthFt": 20,
+          "depthFt": 20,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B",
+          "kind": "home",
+          "x": 26,
+          "y": 5,
+          "widthFt": 31,
+          "depthFt": 32.5,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-B",
+          "kind": "garage",
+          "x": 37,
+          "y": 17,
+          "widthFt": 20,
+          "depthFt": 20,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B-WING",
+          "kind": "home",
+          "x": 57,
+          "y": 5,
+          "widthFt": 16,
+          "depthFt": 9,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        }
+      ],
+      "drives": [
+        {
+          "id": "DRIVE-A",
+          "garageId": "GARAGE-A",
+          "points": [
+            [
+              151,
+              17
+            ],
+            [
+              128,
+              17
+            ]
+          ],
+          "movableControlPoints": []
+        },
+        {
+          "id": "DRIVE-B",
+          "garageId": "GARAGE-B",
+          "points": [
+            [
+              151,
+              36.5
+            ],
+            [
+              79,
+              36.5
+            ],
+            [
+              67,
+              28
+            ],
+            [
+              57,
+              27
+            ]
+          ],
+          "movableControlPoints": [
+            1,
+            2
+          ],
+          "controlPointLimitFt": 2
+        }
+      ],
+      "variables": {
+        "alignX": 67,
+        "turnX": 78,
+        "spineY": 36.5,
+        "rearGarageY": 17,
+        "wingD": 9,
+        "wingW": 16,
+        "rearW": 31,
+        "rearX": 26,
+        "frontX": 80
+      },
+      "metadata": {
+        "topology": "side-spine-compound-rear",
+        "intendedLivingA": 1800,
+        "intendedLivingB": 1800,
+        "run08Compound": true
+      }
+    },
+    {
+      "id": "PONDY-SF-112",
+      "family": "split-front",
+      "pass": false,
+      "objective": 130755.65217391304,
+      "repaired": false,
+      "minimumClearanceFt": 0.4347826086956559,
+      "promotionBoundaryClearanceFt": 0.7852307692307647,
+      "issues": [
+        "HOME-B: outside buildable envelope",
+        "GARAGE-B: outside buildable envelope",
+        "HOME-A/HOME-B: footprints overlap",
+        "HOME-A/GARAGE-B: footprints overlap",
+        "GARAGE-A/GARAGE-B: footprints overlap",
+        "DRIVE-B: swept body hits HOME-B",
+        "DRIVE-B: swept body hits HOME-A",
+        "DRIVE-B: swept body hits GARAGE-A"
+      ],
+      "placements": [
+        {
+          "id": "HOME-A",
+          "kind": "home",
+          "x": 74,
+          "y": 5,
+          "widthFt": 42,
+          "depthFt": 27,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-A",
+          "kind": "garage",
+          "x": 104,
+          "y": 6,
+          "widthFt": 22,
+          "depthFt": 22,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B",
+          "kind": "home",
+          "x": 56,
+          "y": 10,
+          "widthFt": 40,
+          "depthFt": 28,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-B",
+          "kind": "garage",
+          "x": 84,
+          "y": 21,
+          "widthFt": 22,
+          "depthFt": 22,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": true
+        }
+      ],
+      "drives": [
+        {
+          "id": "DRIVE-A",
+          "garageId": "GARAGE-A",
+          "points": [
+            [
+              151,
+              17
+            ],
+            [
+              126,
+              17
+            ]
+          ],
+          "movableControlPoints": []
+        },
+        {
+          "id": "DRIVE-B",
+          "garageId": "GARAGE-B",
+          "points": [
+            [
+              151,
+              37
+            ],
+            [
+              94,
+              37
+            ],
+            [
+              106,
+              32
+            ]
+          ],
+          "movableControlPoints": [
+            1
+          ],
+          "controlPointLimitFt": 3
+        }
+      ],
+      "variables": {
+        "turnX": 94,
+        "spineY": 37,
+        "bgy": 21,
+        "bgx": 84,
+        "agy": 6,
+        "agx": 104
+      },
+      "metadata": {
+        "topology": "split-front",
+        "intendedLivingA": 1800,
+        "intendedLivingB": 1760
+      }
+    },
+    {
+      "id": "PONDY-SF-127",
+      "family": "split-front",
+      "pass": false,
+      "objective": 130755.65217391304,
+      "repaired": false,
+      "minimumClearanceFt": 0.4347826086956559,
+      "promotionBoundaryClearanceFt": 0.7852307692307647,
+      "issues": [
+        "HOME-B: outside buildable envelope",
+        "GARAGE-B: outside buildable envelope",
+        "HOME-A/HOME-B: footprints overlap",
+        "HOME-A/GARAGE-B: footprints overlap",
+        "GARAGE-A/GARAGE-B: footprints overlap",
+        "DRIVE-B: swept body hits HOME-B",
+        "DRIVE-B: swept body hits HOME-A",
+        "DRIVE-B: swept body hits GARAGE-A"
+      ],
+      "placements": [
+        {
+          "id": "HOME-A",
+          "kind": "home",
+          "x": 74,
+          "y": 5,
+          "widthFt": 42,
+          "depthFt": 27,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-A",
+          "kind": "garage",
+          "x": 104,
+          "y": 7,
+          "widthFt": 22,
+          "depthFt": 22,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B",
+          "kind": "home",
+          "x": 56,
+          "y": 10,
+          "widthFt": 40,
+          "depthFt": 28,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-B",
+          "kind": "garage",
+          "x": 84,
+          "y": 21,
+          "widthFt": 22,
+          "depthFt": 22,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": true
+        }
+      ],
+      "drives": [
+        {
+          "id": "DRIVE-A",
+          "garageId": "GARAGE-A",
+          "points": [
+            [
+              151,
+              18
+            ],
+            [
+              126,
+              18
+            ]
+          ],
+          "movableControlPoints": []
+        },
+        {
+          "id": "DRIVE-B",
+          "garageId": "GARAGE-B",
+          "points": [
+            [
+              151,
+              37
+            ],
+            [
+              94,
+              37
+            ],
+            [
+              106,
+              32
+            ]
+          ],
+          "movableControlPoints": [
+            1
+          ],
+          "controlPointLimitFt": 3
+        }
+      ],
+      "variables": {
+        "turnX": 94,
+        "spineY": 37,
+        "bgy": 21,
+        "bgx": 84,
+        "agy": 7,
+        "agx": 104
+      },
+      "metadata": {
+        "topology": "split-front",
+        "intendedLivingA": 1800,
+        "intendedLivingB": 1760
+      }
+    },
+    {
+      "id": "PONDY-SF-102",
+      "family": "split-front",
+      "pass": false,
+      "objective": 130755.65217391304,
+      "repaired": false,
+      "minimumClearanceFt": 0.4347826086956559,
+      "promotionBoundaryClearanceFt": 1.0913529063358638,
+      "issues": [
+        "HOME-B: outside buildable envelope",
+        "GARAGE-B: outside buildable envelope",
+        "HOME-A/HOME-B: footprints overlap",
+        "HOME-A/GARAGE-B: footprints overlap",
+        "GARAGE-A/GARAGE-B: footprints overlap",
+        "DRIVE-B: swept body hits HOME-B",
+        "DRIVE-B: swept body hits HOME-A",
+        "DRIVE-B: swept body hits GARAGE-A"
+      ],
+      "placements": [
+        {
+          "id": "HOME-A",
+          "kind": "home",
+          "x": 74,
+          "y": 5,
+          "widthFt": 42,
+          "depthFt": 27,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-A",
+          "kind": "garage",
+          "x": 104,
+          "y": 5,
+          "widthFt": 22,
+          "depthFt": 22,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B",
+          "kind": "home",
+          "x": 62,
+          "y": 10,
+          "widthFt": 40,
+          "depthFt": 28,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-B",
+          "kind": "garage",
+          "x": 90,
+          "y": 21,
+          "widthFt": 22,
+          "depthFt": 22,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": true
+        }
+      ],
+      "drives": [
+        {
+          "id": "DRIVE-A",
+          "garageId": "GARAGE-A",
+          "points": [
+            [
+              151,
+              16
+            ],
+            [
+              126,
+              16
+            ]
+          ],
+          "movableControlPoints": []
+        },
+        {
+          "id": "DRIVE-B",
+          "garageId": "GARAGE-B",
+          "points": [
+            [
+              151,
+              37
+            ],
+            [
+              94,
+              37
+            ],
+            [
+              112,
+              32
+            ]
+          ],
+          "movableControlPoints": [
+            1
+          ],
+          "controlPointLimitFt": 3
+        }
+      ],
+      "variables": {
+        "turnX": 94,
+        "spineY": 37,
+        "bgy": 21,
+        "bgx": 90,
+        "agy": 5,
+        "agx": 104
+      },
+      "metadata": {
+        "topology": "split-front",
+        "intendedLivingA": 1800,
+        "intendedLivingB": 1760
+      }
+    },
+    {
+      "id": "PONDY-SF-110",
+      "family": "split-front",
+      "pass": false,
+      "objective": 130755.65217391304,
+      "repaired": false,
+      "minimumClearanceFt": 0.4347826086956559,
+      "promotionBoundaryClearanceFt": 1.6494368540004984,
+      "issues": [
+        "HOME-B: outside buildable envelope",
+        "GARAGE-B: outside buildable envelope",
+        "HOME-A/HOME-B: footprints overlap",
+        "HOME-A/GARAGE-B: footprints overlap",
+        "GARAGE-A/GARAGE-B: footprints overlap",
+        "DRIVE-B: swept body hits HOME-A",
+        "DRIVE-B: swept body hits HOME-B",
+        "DRIVE-B: swept body hits GARAGE-A"
+      ],
+      "placements": [
+        {
+          "id": "HOME-A",
+          "kind": "home",
+          "x": 74,
+          "y": 5,
+          "widthFt": 42,
+          "depthFt": 27,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-A",
+          "kind": "garage",
+          "x": 104,
+          "y": 6,
+          "widthFt": 22,
+          "depthFt": 22,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B",
+          "kind": "home",
+          "x": 54,
+          "y": 10,
+          "widthFt": 40,
+          "depthFt": 28,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-B",
+          "kind": "garage",
+          "x": 82,
+          "y": 20,
+          "widthFt": 22,
+          "depthFt": 22,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": true
+        }
+      ],
+      "drives": [
+        {
+          "id": "DRIVE-A",
+          "garageId": "GARAGE-A",
+          "points": [
+            [
+              151,
+              17
+            ],
+            [
+              126,
+              17
+            ]
+          ],
+          "movableControlPoints": []
+        },
+        {
+          "id": "DRIVE-B",
+          "garageId": "GARAGE-B",
+          "points": [
+            [
+              151,
+              36
+            ],
+            [
+              94,
+              36
+            ],
+            [
+              104,
+              31
+            ]
+          ],
+          "movableControlPoints": [
+            1
+          ],
+          "controlPointLimitFt": 3
+        }
+      ],
+      "variables": {
+        "turnX": 94,
+        "spineY": 36,
+        "bgy": 20,
+        "bgx": 82,
+        "agy": 6,
+        "agx": 104
+      },
+      "metadata": {
+        "topology": "split-front",
+        "intendedLivingA": 1800,
+        "intendedLivingB": 1760
+      }
+    },
+    {
+      "id": "PONDY-SF-125",
+      "family": "split-front",
+      "pass": false,
+      "objective": 130755.65217391304,
+      "repaired": false,
+      "minimumClearanceFt": 0.4347826086956559,
+      "promotionBoundaryClearanceFt": 1.6494368540004984,
+      "issues": [
+        "HOME-B: outside buildable envelope",
+        "GARAGE-B: outside buildable envelope",
+        "HOME-A/HOME-B: footprints overlap",
+        "HOME-A/GARAGE-B: footprints overlap",
+        "GARAGE-A/GARAGE-B: footprints overlap",
+        "DRIVE-B: swept body hits HOME-A",
+        "DRIVE-B: swept body hits HOME-B",
+        "DRIVE-B: swept body hits GARAGE-A"
+      ],
+      "placements": [
+        {
+          "id": "HOME-A",
+          "kind": "home",
+          "x": 74,
+          "y": 5,
+          "widthFt": 42,
+          "depthFt": 27,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-A",
+          "kind": "garage",
+          "x": 104,
+          "y": 7,
+          "widthFt": 22,
+          "depthFt": 22,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B",
+          "kind": "home",
+          "x": 54,
+          "y": 10,
+          "widthFt": 40,
+          "depthFt": 28,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-B",
+          "kind": "garage",
+          "x": 82,
+          "y": 20,
+          "widthFt": 22,
+          "depthFt": 22,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": true
+        }
+      ],
+      "drives": [
+        {
+          "id": "DRIVE-A",
+          "garageId": "GARAGE-A",
+          "points": [
+            [
+              151,
+              18
+            ],
+            [
+              126,
+              18
+            ]
+          ],
+          "movableControlPoints": []
+        },
+        {
+          "id": "DRIVE-B",
+          "garageId": "GARAGE-B",
+          "points": [
+            [
+              151,
+              36
+            ],
+            [
+              94,
+              36
+            ],
+            [
+              104,
+              31
+            ]
+          ],
+          "movableControlPoints": [
+            1
+          ],
+          "controlPointLimitFt": 3
+        }
+      ],
+      "variables": {
+        "turnX": 94,
+        "spineY": 36,
+        "bgy": 20,
+        "bgx": 82,
+        "agy": 7,
+        "agx": 104
+      },
+      "metadata": {
+        "topology": "split-front",
+        "intendedLivingA": 1800,
+        "intendedLivingB": 1760
+      }
+    },
+    {
+      "id": "PONDY-SF-140",
+      "family": "split-front",
+      "pass": false,
+      "objective": 130755.65217391304,
+      "repaired": false,
+      "minimumClearanceFt": 0.4347826086956559,
+      "promotionBoundaryClearanceFt": 1.6494368540004984,
+      "issues": [
+        "HOME-B: outside buildable envelope",
+        "GARAGE-B: outside buildable envelope",
+        "HOME-A/HOME-B: footprints overlap",
+        "HOME-A/GARAGE-B: footprints overlap",
+        "GARAGE-A/GARAGE-B: footprints overlap",
+        "DRIVE-B: swept body hits HOME-A",
+        "DRIVE-B: swept body hits HOME-B",
+        "DRIVE-B: swept body hits GARAGE-A"
+      ],
+      "placements": [
+        {
+          "id": "HOME-A",
+          "kind": "home",
+          "x": 74,
+          "y": 5,
+          "widthFt": 42,
+          "depthFt": 27,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-A",
+          "kind": "garage",
+          "x": 104,
+          "y": 8,
+          "widthFt": 22,
+          "depthFt": 22,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B",
+          "kind": "home",
+          "x": 54,
+          "y": 10,
+          "widthFt": 40,
+          "depthFt": 28,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-B",
+          "kind": "garage",
+          "x": 82,
+          "y": 20,
+          "widthFt": 22,
+          "depthFt": 22,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": true
+        }
+      ],
+      "drives": [
+        {
+          "id": "DRIVE-A",
+          "garageId": "GARAGE-A",
+          "points": [
+            [
+              151,
+              19
+            ],
+            [
+              126,
+              19
+            ]
+          ],
+          "movableControlPoints": []
+        },
+        {
+          "id": "DRIVE-B",
+          "garageId": "GARAGE-B",
+          "points": [
+            [
+              151,
+              36
+            ],
+            [
+              94,
+              36
+            ],
+            [
+              104,
+              31
+            ]
+          ],
+          "movableControlPoints": [
+            1
+          ],
+          "controlPointLimitFt": 3
+        }
+      ],
+      "variables": {
+        "turnX": 94,
+        "spineY": 36,
+        "bgy": 20,
+        "bgx": 82,
+        "agy": 8,
+        "agx": 104
+      },
+      "metadata": {
+        "topology": "split-front",
+        "intendedLivingA": 1800,
+        "intendedLivingB": 1760
+      }
+    },
+    {
+      "id": "PONDY-SF-113",
+      "family": "split-front",
+      "pass": false,
+      "objective": 130755.65217391304,
+      "repaired": false,
+      "minimumClearanceFt": 0.4347826086956559,
+      "promotionBoundaryClearanceFt": 2.9036867656280236,
+      "issues": [
+        "HOME-B: outside buildable envelope",
+        "GARAGE-B: outside buildable envelope",
+        "HOME-A/HOME-B: footprints overlap",
+        "HOME-A/GARAGE-B: footprints overlap",
+        "GARAGE-A/GARAGE-B: footprints overlap",
+        "DRIVE-B: swept body hits HOME-A",
+        "DRIVE-B: swept body hits HOME-B",
+        "DRIVE-B: swept body hits GARAGE-A"
+      ],
+      "placements": [
+        {
+          "id": "HOME-A",
+          "kind": "home",
+          "x": 74,
+          "y": 5,
+          "widthFt": 42,
+          "depthFt": 27,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-A",
+          "kind": "garage",
+          "x": 104,
+          "y": 6,
+          "widthFt": 22,
+          "depthFt": 22,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B",
+          "kind": "home",
+          "x": 58,
+          "y": 10,
+          "widthFt": 40,
+          "depthFt": 28,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-B",
+          "kind": "garage",
+          "x": 86,
+          "y": 19,
+          "widthFt": 22,
+          "depthFt": 22,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": true
+        }
+      ],
+      "drives": [
+        {
+          "id": "DRIVE-A",
+          "garageId": "GARAGE-A",
+          "points": [
+            [
+              151,
+              17
+            ],
+            [
+              126,
+              17
+            ]
+          ],
+          "movableControlPoints": []
+        },
+        {
+          "id": "DRIVE-B",
+          "garageId": "GARAGE-B",
+          "points": [
+            [
+              151,
+              35
+            ],
+            [
+              94,
+              35
+            ],
+            [
+              108,
+              30
+            ]
+          ],
+          "movableControlPoints": [
+            1
+          ],
+          "controlPointLimitFt": 3
+        }
+      ],
+      "variables": {
+        "turnX": 94,
+        "spineY": 35,
+        "bgy": 19,
+        "bgx": 86,
+        "agy": 6,
+        "agx": 104
+      },
+      "metadata": {
+        "topology": "split-front",
+        "intendedLivingA": 1800,
+        "intendedLivingB": 1760
+      }
+    },
+    {
+      "id": "PONDY-SF-128",
+      "family": "split-front",
+      "pass": false,
+      "objective": 130755.65217391304,
+      "repaired": false,
+      "minimumClearanceFt": 0.4347826086956559,
+      "promotionBoundaryClearanceFt": 2.9036867656280236,
+      "issues": [
+        "HOME-B: outside buildable envelope",
+        "GARAGE-B: outside buildable envelope",
+        "HOME-A/HOME-B: footprints overlap",
+        "HOME-A/GARAGE-B: footprints overlap",
+        "GARAGE-A/GARAGE-B: footprints overlap",
+        "DRIVE-B: swept body hits HOME-A",
+        "DRIVE-B: swept body hits HOME-B",
+        "DRIVE-B: swept body hits GARAGE-A"
+      ],
+      "placements": [
+        {
+          "id": "HOME-A",
+          "kind": "home",
+          "x": 74,
+          "y": 5,
+          "widthFt": 42,
+          "depthFt": 27,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-A",
+          "kind": "garage",
+          "x": 104,
+          "y": 7,
+          "widthFt": 22,
+          "depthFt": 22,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B",
+          "kind": "home",
+          "x": 58,
+          "y": 10,
+          "widthFt": 40,
+          "depthFt": 28,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-B",
+          "kind": "garage",
+          "x": 86,
+          "y": 19,
+          "widthFt": 22,
+          "depthFt": 22,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": true
+        }
+      ],
+      "drives": [
+        {
+          "id": "DRIVE-A",
+          "garageId": "GARAGE-A",
+          "points": [
+            [
+              151,
+              18
+            ],
+            [
+              126,
+              18
+            ]
+          ],
+          "movableControlPoints": []
+        },
+        {
+          "id": "DRIVE-B",
+          "garageId": "GARAGE-B",
+          "points": [
+            [
+              151,
+              35
+            ],
+            [
+              94,
+              35
+            ],
+            [
+              108,
+              30
+            ]
+          ],
+          "movableControlPoints": [
+            1
+          ],
+          "controlPointLimitFt": 3
+        }
+      ],
+      "variables": {
+        "turnX": 94,
+        "spineY": 35,
+        "bgy": 19,
+        "bgx": 86,
+        "agy": 7,
+        "agx": 104
+      },
+      "metadata": {
+        "topology": "split-front",
+        "intendedLivingA": 1800,
+        "intendedLivingB": 1760
+      }
+    },
+    {
+      "id": "PONDY-G1R-114",
+      "family": "g1-r",
+      "pass": false,
+      "objective": 110506.72007451557,
+      "repaired": true,
+      "minimumClearanceFt": 0.35299254844264283,
+      "promotionBoundaryClearanceFt": 1.7487243062940792,
+      "issues": [
+        "DRIVE-B: short tangent 4.9′ < 10.5′"
+      ],
+      "placements": [
+        {
+          "id": "HOME-A",
+          "kind": "home",
+          "x": 78,
+          "y": 5,
+          "widthFt": 50,
+          "depthFt": 24,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-A",
+          "kind": "garage",
+          "x": 108,
+          "y": 8,
+          "widthFt": 20,
+          "depthFt": 20,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B",
+          "kind": "home",
+          "x": 25,
+          "y": 5,
+          "widthFt": 31,
+          "depthFt": 32.7,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-B",
+          "kind": "garage",
+          "x": 36,
+          "y": 16,
+          "widthFt": 20,
+          "depthFt": 20,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B-WING",
+          "kind": "home",
+          "x": 56,
+          "y": 5,
+          "widthFt": 18,
+          "depthFt": 8,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        }
+      ],
+      "drives": [
+        {
+          "id": "DRIVE-A",
+          "garageId": "GARAGE-A",
+          "points": [
+            [
+              151,
+              18
+            ],
+            [
+              128,
+              18
+            ]
+          ],
+          "movableControlPoints": []
+        },
+        {
+          "id": "DRIVE-B",
+          "garageId": "GARAGE-B",
+          "points": [
+            [
+              151,
+              37
+            ],
+            [
+              76.75,
+              37
+            ],
+            [
+              66,
+              26
+            ],
+            [
+              56,
+              26
+            ]
+          ],
+          "movableControlPoints": [
+            1,
+            2
+          ],
+          "controlPointLimitFt": 2
+        }
+      ],
+      "variables": {
+        "alignX": 66,
+        "turnX": 77,
+        "spineY": 37,
+        "rearGarageY": 16,
+        "wingD": 8,
+        "wingW": 18,
+        "rearW": 31,
+        "rearX": 25,
+        "frontX": 78
+      },
+      "metadata": {
+        "topology": "g1-reset-compound-rear",
+        "historicalSeed": "G1",
+        "intendedLivingA": 1800,
+        "intendedLivingB": 1800,
+        "run08Compound": true
+      }
+    },
+    {
+      "id": "PONDY-G1R-222",
+      "family": "g1-r",
+      "pass": false,
+      "objective": 110506.72007451557,
+      "repaired": true,
+      "minimumClearanceFt": 0.35299254844264283,
+      "promotionBoundaryClearanceFt": 1.7487243062940792,
+      "issues": [
+        "DRIVE-B: short tangent 4.9′ < 10.5′"
+      ],
+      "placements": [
+        {
+          "id": "HOME-A",
+          "kind": "home",
+          "x": 79,
+          "y": 5,
+          "widthFt": 49,
+          "depthFt": 24,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-A",
+          "kind": "garage",
+          "x": 108,
+          "y": 8,
+          "widthFt": 20,
+          "depthFt": 20,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B",
+          "kind": "home",
+          "x": 25,
+          "y": 5,
+          "widthFt": 31,
+          "depthFt": 32.7,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-B",
+          "kind": "garage",
+          "x": 36,
+          "y": 16,
+          "widthFt": 20,
+          "depthFt": 20,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B-WING",
+          "kind": "home",
+          "x": 56,
+          "y": 5,
+          "widthFt": 18,
+          "depthFt": 8,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        }
+      ],
+      "drives": [
+        {
+          "id": "DRIVE-A",
+          "garageId": "GARAGE-A",
+          "points": [
+            [
+              151,
+              18
+            ],
+            [
+              128,
+              18
+            ]
+          ],
+          "movableControlPoints": []
+        },
+        {
+          "id": "DRIVE-B",
+          "garageId": "GARAGE-B",
+          "points": [
+            [
+              151,
+              37
+            ],
+            [
+              76.75,
+              37
+            ],
+            [
+              66,
+              26
+            ],
+            [
+              56,
+              26
+            ]
+          ],
+          "movableControlPoints": [
+            1,
+            2
+          ],
+          "controlPointLimitFt": 2
+        }
+      ],
+      "variables": {
+        "alignX": 66,
+        "turnX": 77,
+        "spineY": 37,
+        "rearGarageY": 16,
+        "wingD": 8,
+        "wingW": 18,
+        "rearW": 31,
+        "rearX": 25,
+        "frontX": 79
+      },
+      "metadata": {
+        "topology": "g1-reset-compound-rear",
+        "historicalSeed": "G1",
+        "intendedLivingA": 1800,
+        "intendedLivingB": 1800,
+        "run08Compound": true
+      }
+    },
+    {
+      "id": "PONDY-G1R-110",
+      "family": "g1-r",
+      "pass": false,
+      "objective": 110505.91936594238,
+      "repaired": true,
+      "minimumClearanceFt": 0.43306340576171465,
+      "promotionBoundaryClearanceFt": 1.743831191755632,
+      "issues": [
+        "DRIVE-B: short tangent 4.9′ < 9.8′"
+      ],
+      "placements": [
+        {
+          "id": "HOME-A",
+          "kind": "home",
+          "x": 78,
+          "y": 5,
+          "widthFt": 50,
+          "depthFt": 24,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-A",
+          "kind": "garage",
+          "x": 108,
+          "y": 8,
+          "widthFt": 20,
+          "depthFt": 20,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B",
+          "kind": "home",
+          "x": 25,
+          "y": 5,
+          "widthFt": 31,
+          "depthFt": 32.7,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-B",
+          "kind": "garage",
+          "x": 36,
+          "y": 17,
+          "widthFt": 20,
+          "depthFt": 20,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B-WING",
+          "kind": "home",
+          "x": 56,
+          "y": 5,
+          "widthFt": 14,
+          "depthFt": 9,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        }
+      ],
+      "drives": [
+        {
+          "id": "DRIVE-A",
+          "garageId": "GARAGE-A",
+          "points": [
+            [
+              151,
+              18
+            ],
+            [
+              128,
+              18
+            ]
+          ],
+          "movableControlPoints": []
+        },
+        {
+          "id": "DRIVE-B",
+          "garageId": "GARAGE-B",
+          "points": [
+            [
+              151,
+              37
+            ],
+            [
+              76.75,
+              37
+            ],
+            [
+              66,
+              27
+            ],
+            [
+              56,
+              27
+            ]
+          ],
+          "movableControlPoints": [
+            1,
+            2
+          ],
+          "controlPointLimitFt": 2
+        }
+      ],
+      "variables": {
+        "alignX": 66,
+        "turnX": 77,
+        "spineY": 37,
+        "rearGarageY": 17,
+        "wingD": 9,
+        "wingW": 14,
+        "rearW": 31,
+        "rearX": 25,
+        "frontX": 78
+      },
+      "metadata": {
+        "topology": "g1-reset-compound-rear",
+        "historicalSeed": "G1",
+        "intendedLivingA": 1800,
+        "intendedLivingB": 1800,
+        "run08Compound": true
+      }
+    },
+    {
+      "id": "PONDY-G1R-2",
+      "family": "g1-r",
+      "pass": false,
+      "objective": 110505.91936594238,
+      "repaired": true,
+      "minimumClearanceFt": 0.43306340576171465,
+      "promotionBoundaryClearanceFt": 1.743831191755632,
+      "issues": [
+        "DRIVE-B: short tangent 4.9′ < 9.8′"
+      ],
+      "placements": [
+        {
+          "id": "HOME-A",
+          "kind": "home",
+          "x": 77,
+          "y": 5,
+          "widthFt": 51,
+          "depthFt": 24,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-A",
+          "kind": "garage",
+          "x": 108,
+          "y": 8,
+          "widthFt": 20,
+          "depthFt": 20,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B",
+          "kind": "home",
+          "x": 25,
+          "y": 5,
+          "widthFt": 31,
+          "depthFt": 32.7,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-B",
+          "kind": "garage",
+          "x": 36,
+          "y": 17,
+          "widthFt": 20,
+          "depthFt": 20,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B-WING",
+          "kind": "home",
+          "x": 56,
+          "y": 5,
+          "widthFt": 14,
+          "depthFt": 9,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        }
+      ],
+      "drives": [
+        {
+          "id": "DRIVE-A",
+          "garageId": "GARAGE-A",
+          "points": [
+            [
+              151,
+              18
+            ],
+            [
+              128,
+              18
+            ]
+          ],
+          "movableControlPoints": []
+        },
+        {
+          "id": "DRIVE-B",
+          "garageId": "GARAGE-B",
+          "points": [
+            [
+              151,
+              37
+            ],
+            [
+              76.75,
+              37
+            ],
+            [
+              66,
+              27
+            ],
+            [
+              56,
+              27
+            ]
+          ],
+          "movableControlPoints": [
+            1,
+            2
+          ],
+          "controlPointLimitFt": 2
+        }
+      ],
+      "variables": {
+        "alignX": 66,
+        "turnX": 77,
+        "spineY": 37,
+        "rearGarageY": 17,
+        "wingD": 9,
+        "wingW": 14,
+        "rearW": 31,
+        "rearX": 25,
+        "frontX": 77
+      },
+      "metadata": {
+        "topology": "g1-reset-compound-rear",
+        "historicalSeed": "G1",
+        "intendedLivingA": 1800,
+        "intendedLivingB": 1800,
+        "run08Compound": true
+      }
+    },
+    {
+      "id": "PONDY-G1R-218",
+      "family": "g1-r",
+      "pass": false,
+      "objective": 110505.91936594238,
+      "repaired": true,
+      "minimumClearanceFt": 0.43306340576171465,
+      "promotionBoundaryClearanceFt": 1.743831191755632,
+      "issues": [
+        "DRIVE-B: short tangent 4.9′ < 9.8′"
+      ],
+      "placements": [
+        {
+          "id": "HOME-A",
+          "kind": "home",
+          "x": 79,
+          "y": 5,
+          "widthFt": 49,
+          "depthFt": 24,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-A",
+          "kind": "garage",
+          "x": 108,
+          "y": 8,
+          "widthFt": 20,
+          "depthFt": 20,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B",
+          "kind": "home",
+          "x": 25,
+          "y": 5,
+          "widthFt": 31,
+          "depthFt": 32.7,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-B",
+          "kind": "garage",
+          "x": 36,
+          "y": 17,
+          "widthFt": 20,
+          "depthFt": 20,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B-WING",
+          "kind": "home",
+          "x": 56,
+          "y": 5,
+          "widthFt": 14,
+          "depthFt": 9,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        }
+      ],
+      "drives": [
+        {
+          "id": "DRIVE-A",
+          "garageId": "GARAGE-A",
+          "points": [
+            [
+              151,
+              18
+            ],
+            [
+              128,
+              18
+            ]
+          ],
+          "movableControlPoints": []
+        },
+        {
+          "id": "DRIVE-B",
+          "garageId": "GARAGE-B",
+          "points": [
+            [
+              151,
+              37
+            ],
+            [
+              76.75,
+              37
+            ],
+            [
+              66,
+              27
+            ],
+            [
+              56,
+              27
+            ]
+          ],
+          "movableControlPoints": [
+            1,
+            2
+          ],
+          "controlPointLimitFt": 2
+        }
+      ],
+      "variables": {
+        "alignX": 66,
+        "turnX": 77,
+        "spineY": 37,
+        "rearGarageY": 17,
+        "wingD": 9,
+        "wingW": 14,
+        "rearW": 31,
+        "rearX": 25,
+        "frontX": 79
+      },
+      "metadata": {
+        "topology": "g1-reset-compound-rear",
+        "historicalSeed": "G1",
+        "intendedLivingA": 1800,
+        "intendedLivingB": 1800,
+        "run08Compound": true
+      }
+    },
+    {
+      "id": "PONDY-G1R-330",
+      "family": "g1-r",
+      "pass": false,
+      "objective": 110506.72007451557,
+      "repaired": true,
+      "minimumClearanceFt": 0.35299254844264283,
+      "promotionBoundaryClearanceFt": 1.7487243062940792,
+      "issues": [
+        "DRIVE-B: short tangent 4.9′ < 10.5′"
+      ],
+      "placements": [
+        {
+          "id": "HOME-A",
+          "kind": "home",
+          "x": 80,
+          "y": 5,
+          "widthFt": 48,
+          "depthFt": 24,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-A",
+          "kind": "garage",
+          "x": 108,
+          "y": 8,
+          "widthFt": 20,
+          "depthFt": 20,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B",
+          "kind": "home",
+          "x": 25,
+          "y": 5,
+          "widthFt": 31,
+          "depthFt": 32.7,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-B",
+          "kind": "garage",
+          "x": 36,
+          "y": 16,
+          "widthFt": 20,
+          "depthFt": 20,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B-WING",
+          "kind": "home",
+          "x": 56,
+          "y": 5,
+          "widthFt": 18,
+          "depthFt": 8,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        }
+      ],
+      "drives": [
+        {
+          "id": "DRIVE-A",
+          "garageId": "GARAGE-A",
+          "points": [
+            [
+              151,
+              18
+            ],
+            [
+              128,
+              18
+            ]
+          ],
+          "movableControlPoints": []
+        },
+        {
+          "id": "DRIVE-B",
+          "garageId": "GARAGE-B",
+          "points": [
+            [
+              151,
+              37
+            ],
+            [
+              76.75,
+              37
+            ],
+            [
+              66,
+              26
+            ],
+            [
+              56,
+              26
+            ]
+          ],
+          "movableControlPoints": [
+            1,
+            2
+          ],
+          "controlPointLimitFt": 2
+        }
+      ],
+      "variables": {
+        "alignX": 66,
+        "turnX": 77,
+        "spineY": 37,
+        "rearGarageY": 16,
+        "wingD": 8,
+        "wingW": 18,
+        "rearW": 31,
+        "rearX": 25,
+        "frontX": 80
+      },
+      "metadata": {
+        "topology": "g1-reset-compound-rear",
+        "historicalSeed": "G1",
+        "intendedLivingA": 1800,
+        "intendedLivingB": 1800,
+        "run08Compound": true
+      }
+    },
+    {
+      "id": "PONDY-E2R-114",
+      "family": "e2-r",
+      "pass": false,
+      "objective": 110508.26703792703,
+      "repaired": true,
+      "minimumClearanceFt": 0.323296207297318,
+      "promotionBoundaryClearanceFt": 1.7449859170432234,
+      "issues": [
+        "DRIVE-B: short tangent 5.9′ < 8.6′"
+      ],
+      "placements": [
+        {
+          "id": "HOME-A",
+          "kind": "home",
+          "x": 78,
+          "y": 5,
+          "widthFt": 50,
+          "depthFt": 23,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-A",
+          "kind": "garage",
+          "x": 108,
+          "y": 6,
+          "widthFt": 20,
+          "depthFt": 20,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B",
+          "kind": "home",
+          "x": 25,
+          "y": 5,
+          "widthFt": 31,
+          "depthFt": 32.5,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-B",
+          "kind": "garage",
+          "x": 36,
+          "y": 15,
+          "widthFt": 20,
+          "depthFt": 20,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B-WING",
+          "kind": "home",
+          "x": 56,
+          "y": 5,
+          "widthFt": 18,
+          "depthFt": 8,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        }
+      ],
+      "drives": [
+        {
+          "id": "DRIVE-A",
+          "garageId": "GARAGE-A",
+          "points": [
+            [
+              151,
+              16
+            ],
+            [
+              128,
+              16
+            ]
+          ],
+          "movableControlPoints": []
+        },
+        {
+          "id": "DRIVE-B",
+          "garageId": "GARAGE-B",
+          "points": [
+            [
+              151,
+              37
+            ],
+            [
+              77.5,
+              37
+            ],
+            [
+              66,
+              26
+            ],
+            [
+              56,
+              25
+            ]
+          ],
+          "movableControlPoints": [
+            1,
+            2
+          ],
+          "controlPointLimitFt": 2
+        }
+      ],
+      "variables": {
+        "alignX": 66,
+        "turnX": 77,
+        "spineY": 37,
+        "rearGarageY": 15,
+        "wingD": 8,
+        "wingW": 18,
+        "rearW": 31,
+        "rearX": 25,
+        "frontX": 78
+      },
+      "metadata": {
+        "topology": "e2-reset-compound-rear",
+        "historicalSeed": "E2",
+        "intendedLivingA": 1800,
+        "intendedLivingB": 1800,
+        "run08Compound": true
+      }
+    },
+    {
+      "id": "PONDY-G1R-326",
+      "family": "g1-r",
+      "pass": false,
+      "objective": 110505.91936594238,
+      "repaired": true,
+      "minimumClearanceFt": 0.43306340576171465,
+      "promotionBoundaryClearanceFt": 1.743831191755632,
+      "issues": [
+        "DRIVE-B: short tangent 4.9′ < 9.8′"
+      ],
+      "placements": [
+        {
+          "id": "HOME-A",
+          "kind": "home",
+          "x": 80,
+          "y": 5,
+          "widthFt": 48,
+          "depthFt": 24,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-A",
+          "kind": "garage",
+          "x": 108,
+          "y": 8,
+          "widthFt": 20,
+          "depthFt": 20,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B",
+          "kind": "home",
+          "x": 25,
+          "y": 5,
+          "widthFt": 31,
+          "depthFt": 32.7,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-B",
+          "kind": "garage",
+          "x": 36,
+          "y": 17,
+          "widthFt": 20,
+          "depthFt": 20,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B-WING",
+          "kind": "home",
+          "x": 56,
+          "y": 5,
+          "widthFt": 14,
+          "depthFt": 9,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        }
+      ],
+      "drives": [
+        {
+          "id": "DRIVE-A",
+          "garageId": "GARAGE-A",
+          "points": [
+            [
+              151,
+              18
+            ],
+            [
+              128,
+              18
+            ]
+          ],
+          "movableControlPoints": []
+        },
+        {
+          "id": "DRIVE-B",
+          "garageId": "GARAGE-B",
+          "points": [
+            [
+              151,
+              37
+            ],
+            [
+              76.75,
+              37
+            ],
+            [
+              66,
+              27
+            ],
+            [
+              56,
+              27
+            ]
+          ],
+          "movableControlPoints": [
+            1,
+            2
+          ],
+          "controlPointLimitFt": 2
+        }
+      ],
+      "variables": {
+        "alignX": 66,
+        "turnX": 77,
+        "spineY": 37,
+        "rearGarageY": 17,
+        "wingD": 9,
+        "wingW": 14,
+        "rearW": 31,
+        "rearX": 25,
+        "frontX": 80
+      },
+      "metadata": {
+        "topology": "g1-reset-compound-rear",
+        "historicalSeed": "G1",
+        "intendedLivingA": 1800,
+        "intendedLivingB": 1800,
+        "run08Compound": true
+      }
+    },
+    {
+      "id": "PONDY-E2R-110",
+      "family": "e2-r",
+      "pass": false,
+      "objective": 110506.76750600188,
+      "repaired": true,
+      "minimumClearanceFt": 0.4232493998119651,
+      "promotionBoundaryClearanceFt": 1.7430504369450759,
+      "issues": [
+        "DRIVE-B: short tangent 5.2′ < 8.3′"
+      ],
+      "placements": [
+        {
+          "id": "HOME-A",
+          "kind": "home",
+          "x": 78,
+          "y": 5,
+          "widthFt": 50,
+          "depthFt": 23,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-A",
+          "kind": "garage",
+          "x": 108,
+          "y": 6,
+          "widthFt": 20,
+          "depthFt": 20,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B",
+          "kind": "home",
+          "x": 25,
+          "y": 5,
+          "widthFt": 31,
+          "depthFt": 32.5,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-B",
+          "kind": "garage",
+          "x": 36,
+          "y": 16,
+          "widthFt": 20,
+          "depthFt": 20,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B-WING",
+          "kind": "home",
+          "x": 56,
+          "y": 5,
+          "widthFt": 14,
+          "depthFt": 9,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        }
+      ],
+      "drives": [
+        {
+          "id": "DRIVE-A",
+          "garageId": "GARAGE-A",
+          "points": [
+            [
+              151,
+              16
+            ],
+            [
+              128,
+              16
+            ]
+          ],
+          "movableControlPoints": []
+        },
+        {
+          "id": "DRIVE-B",
+          "garageId": "GARAGE-B",
+          "points": [
+            [
+              151,
+              37
+            ],
+            [
+              77,
+              37
+            ],
+            [
+              66,
+              27
+            ],
+            [
+              56,
+              26
+            ]
+          ],
+          "movableControlPoints": [
+            1,
+            2
+          ],
+          "controlPointLimitFt": 2
+        }
+      ],
+      "variables": {
+        "alignX": 66,
+        "turnX": 77,
+        "spineY": 37,
+        "rearGarageY": 16,
+        "wingD": 9,
+        "wingW": 14,
+        "rearW": 31,
+        "rearX": 25,
+        "frontX": 78
+      },
+      "metadata": {
+        "topology": "e2-reset-compound-rear",
+        "historicalSeed": "E2",
+        "intendedLivingA": 1800,
+        "intendedLivingB": 1800,
+        "run08Compound": true
+      }
+    },
+    {
+      "id": "PONDY-E2R-222",
+      "family": "e2-r",
+      "pass": false,
+      "objective": 110508.26703792703,
+      "repaired": true,
+      "minimumClearanceFt": 0.323296207297318,
+      "promotionBoundaryClearanceFt": 1.7449859170432234,
+      "issues": [
+        "DRIVE-B: short tangent 5.9′ < 8.6′"
+      ],
+      "placements": [
+        {
+          "id": "HOME-A",
+          "kind": "home",
+          "x": 79,
+          "y": 5,
+          "widthFt": 49,
+          "depthFt": 23,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-A",
+          "kind": "garage",
+          "x": 108,
+          "y": 6,
+          "widthFt": 20,
+          "depthFt": 20,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B",
+          "kind": "home",
+          "x": 25,
+          "y": 5,
+          "widthFt": 31,
+          "depthFt": 32.5,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-B",
+          "kind": "garage",
+          "x": 36,
+          "y": 15,
+          "widthFt": 20,
+          "depthFt": 20,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B-WING",
+          "kind": "home",
+          "x": 56,
+          "y": 5,
+          "widthFt": 18,
+          "depthFt": 8,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        }
+      ],
+      "drives": [
+        {
+          "id": "DRIVE-A",
+          "garageId": "GARAGE-A",
+          "points": [
+            [
+              151,
+              16
+            ],
+            [
+              128,
+              16
+            ]
+          ],
+          "movableControlPoints": []
+        },
+        {
+          "id": "DRIVE-B",
+          "garageId": "GARAGE-B",
+          "points": [
+            [
+              151,
+              37
+            ],
+            [
+              77.5,
+              37
+            ],
+            [
+              66,
+              26
+            ],
+            [
+              56,
+              25
+            ]
+          ],
+          "movableControlPoints": [
+            1,
+            2
+          ],
+          "controlPointLimitFt": 2
+        }
+      ],
+      "variables": {
+        "alignX": 66,
+        "turnX": 77,
+        "spineY": 37,
+        "rearGarageY": 15,
+        "wingD": 8,
+        "wingW": 18,
+        "rearW": 31,
+        "rearX": 25,
+        "frontX": 79
+      },
+      "metadata": {
+        "topology": "e2-reset-compound-rear",
+        "historicalSeed": "E2",
+        "intendedLivingA": 1800,
+        "intendedLivingB": 1800,
+        "run08Compound": true
+      }
+    },
+    {
+      "id": "PONDY-G1R-434",
+      "family": "g1-r",
+      "pass": false,
+      "objective": 110505.91936594238,
+      "repaired": true,
+      "minimumClearanceFt": 0.43306340576171465,
+      "promotionBoundaryClearanceFt": 1.743831191755632,
+      "issues": [
+        "DRIVE-B: short tangent 4.9′ < 9.8′"
+      ],
+      "placements": [
+        {
+          "id": "HOME-A",
+          "kind": "home",
+          "x": 81,
+          "y": 5,
+          "widthFt": 47,
+          "depthFt": 24,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-A",
+          "kind": "garage",
+          "x": 108,
+          "y": 8,
+          "widthFt": 20,
+          "depthFt": 20,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B",
+          "kind": "home",
+          "x": 25,
+          "y": 5,
+          "widthFt": 31,
+          "depthFt": 32.7,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-B",
+          "kind": "garage",
+          "x": 36,
+          "y": 17,
+          "widthFt": 20,
+          "depthFt": 20,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B-WING",
+          "kind": "home",
+          "x": 56,
+          "y": 5,
+          "widthFt": 14,
+          "depthFt": 9,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        }
+      ],
+      "drives": [
+        {
+          "id": "DRIVE-A",
+          "garageId": "GARAGE-A",
+          "points": [
+            [
+              151,
+              18
+            ],
+            [
+              128,
+              18
+            ]
+          ],
+          "movableControlPoints": []
+        },
+        {
+          "id": "DRIVE-B",
+          "garageId": "GARAGE-B",
+          "points": [
+            [
+              151,
+              37
+            ],
+            [
+              76.75,
+              37
+            ],
+            [
+              66,
+              27
+            ],
+            [
+              56,
+              27
+            ]
+          ],
+          "movableControlPoints": [
+            1,
+            2
+          ],
+          "controlPointLimitFt": 2
+        }
+      ],
+      "variables": {
+        "alignX": 66,
+        "turnX": 77,
+        "spineY": 37,
+        "rearGarageY": 17,
+        "wingD": 9,
+        "wingW": 14,
+        "rearW": 31,
+        "rearX": 25,
+        "frontX": 81
+      },
+      "metadata": {
+        "topology": "g1-reset-compound-rear",
+        "historicalSeed": "G1",
+        "intendedLivingA": 1800,
+        "intendedLivingB": 1800,
+        "run08Compound": true
+      }
+    },
+    {
+      "id": "PONDY-E2R-218",
+      "family": "e2-r",
+      "pass": false,
+      "objective": 110506.76750600188,
+      "repaired": true,
+      "minimumClearanceFt": 0.4232493998119651,
+      "promotionBoundaryClearanceFt": 1.7430504369450759,
+      "issues": [
+        "DRIVE-B: short tangent 5.2′ < 8.3′"
+      ],
+      "placements": [
+        {
+          "id": "HOME-A",
+          "kind": "home",
+          "x": 79,
+          "y": 5,
+          "widthFt": 49,
+          "depthFt": 23,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-A",
+          "kind": "garage",
+          "x": 108,
+          "y": 6,
+          "widthFt": 20,
+          "depthFt": 20,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B",
+          "kind": "home",
+          "x": 25,
+          "y": 5,
+          "widthFt": 31,
+          "depthFt": 32.5,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-B",
+          "kind": "garage",
+          "x": 36,
+          "y": 16,
+          "widthFt": 20,
+          "depthFt": 20,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B-WING",
+          "kind": "home",
+          "x": 56,
+          "y": 5,
+          "widthFt": 14,
+          "depthFt": 9,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        }
+      ],
+      "drives": [
+        {
+          "id": "DRIVE-A",
+          "garageId": "GARAGE-A",
+          "points": [
+            [
+              151,
+              16
+            ],
+            [
+              128,
+              16
+            ]
+          ],
+          "movableControlPoints": []
+        },
+        {
+          "id": "DRIVE-B",
+          "garageId": "GARAGE-B",
+          "points": [
+            [
+              151,
+              37
+            ],
+            [
+              77,
+              37
+            ],
+            [
+              66,
+              27
+            ],
+            [
+              56,
+              26
+            ]
+          ],
+          "movableControlPoints": [
+            1,
+            2
+          ],
+          "controlPointLimitFt": 2
+        }
+      ],
+      "variables": {
+        "alignX": 66,
+        "turnX": 77,
+        "spineY": 37,
+        "rearGarageY": 16,
+        "wingD": 9,
+        "wingW": 14,
+        "rearW": 31,
+        "rearX": 25,
+        "frontX": 79
+      },
+      "metadata": {
+        "topology": "e2-reset-compound-rear",
+        "historicalSeed": "E2",
+        "intendedLivingA": 1800,
+        "intendedLivingB": 1800,
+        "run08Compound": true
+      }
+    },
+    {
+      "id": "PONDY-E2R-330",
+      "family": "e2-r",
+      "pass": false,
+      "objective": 110508.26703792703,
+      "repaired": true,
+      "minimumClearanceFt": 0.323296207297318,
+      "promotionBoundaryClearanceFt": 1.7449859170432234,
+      "issues": [
+        "DRIVE-B: short tangent 5.9′ < 8.6′"
+      ],
+      "placements": [
+        {
+          "id": "HOME-A",
+          "kind": "home",
+          "x": 80,
+          "y": 5,
+          "widthFt": 48,
+          "depthFt": 23,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-A",
+          "kind": "garage",
+          "x": 108,
+          "y": 6,
+          "widthFt": 20,
+          "depthFt": 20,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B",
+          "kind": "home",
+          "x": 25,
+          "y": 5,
+          "widthFt": 31,
+          "depthFt": 32.5,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-B",
+          "kind": "garage",
+          "x": 36,
+          "y": 15,
+          "widthFt": 20,
+          "depthFt": 20,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B-WING",
+          "kind": "home",
+          "x": 56,
+          "y": 5,
+          "widthFt": 18,
+          "depthFt": 8,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        }
+      ],
+      "drives": [
+        {
+          "id": "DRIVE-A",
+          "garageId": "GARAGE-A",
+          "points": [
+            [
+              151,
+              16
+            ],
+            [
+              128,
+              16
+            ]
+          ],
+          "movableControlPoints": []
+        },
+        {
+          "id": "DRIVE-B",
+          "garageId": "GARAGE-B",
+          "points": [
+            [
+              151,
+              37
+            ],
+            [
+              77.5,
+              37
+            ],
+            [
+              66,
+              26
+            ],
+            [
+              56,
+              25
+            ]
+          ],
+          "movableControlPoints": [
+            1,
+            2
+          ],
+          "controlPointLimitFt": 2
+        }
+      ],
+      "variables": {
+        "alignX": 66,
+        "turnX": 77,
+        "spineY": 37,
+        "rearGarageY": 15,
+        "wingD": 8,
+        "wingW": 18,
+        "rearW": 31,
+        "rearX": 25,
+        "frontX": 80
+      },
+      "metadata": {
+        "topology": "e2-reset-compound-rear",
+        "historicalSeed": "E2",
+        "intendedLivingA": 1800,
+        "intendedLivingB": 1800,
+        "run08Compound": true
+      }
+    },
+    {
+      "id": "PONDY-E2R-326",
+      "family": "e2-r",
+      "pass": false,
+      "objective": 110506.76750600188,
+      "repaired": true,
+      "minimumClearanceFt": 0.4232493998119651,
+      "promotionBoundaryClearanceFt": 1.7430504369450759,
+      "issues": [
+        "DRIVE-B: short tangent 5.2′ < 8.3′"
+      ],
+      "placements": [
+        {
+          "id": "HOME-A",
+          "kind": "home",
+          "x": 80,
+          "y": 5,
+          "widthFt": 48,
+          "depthFt": 23,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-A",
+          "kind": "garage",
+          "x": 108,
+          "y": 6,
+          "widthFt": 20,
+          "depthFt": 20,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B",
+          "kind": "home",
+          "x": 25,
+          "y": 5,
+          "widthFt": 31,
+          "depthFt": 32.5,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-B",
+          "kind": "garage",
+          "x": 36,
+          "y": 16,
+          "widthFt": 20,
+          "depthFt": 20,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B-WING",
+          "kind": "home",
+          "x": 56,
+          "y": 5,
+          "widthFt": 14,
+          "depthFt": 9,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        }
+      ],
+      "drives": [
+        {
+          "id": "DRIVE-A",
+          "garageId": "GARAGE-A",
+          "points": [
+            [
+              151,
+              16
+            ],
+            [
+              128,
+              16
+            ]
+          ],
+          "movableControlPoints": []
+        },
+        {
+          "id": "DRIVE-B",
+          "garageId": "GARAGE-B",
+          "points": [
+            [
+              151,
+              37
+            ],
+            [
+              77,
+              37
+            ],
+            [
+              66,
+              27
+            ],
+            [
+              56,
+              26
+            ]
+          ],
+          "movableControlPoints": [
+            1,
+            2
+          ],
+          "controlPointLimitFt": 2
+        }
+      ],
+      "variables": {
+        "alignX": 66,
+        "turnX": 77,
+        "spineY": 37,
+        "rearGarageY": 16,
+        "wingD": 9,
+        "wingW": 14,
+        "rearW": 31,
+        "rearX": 25,
+        "frontX": 80
+      },
+      "metadata": {
+        "topology": "e2-reset-compound-rear",
+        "historicalSeed": "E2",
+        "intendedLivingA": 1800,
+        "intendedLivingB": 1800,
+        "run08Compound": true
+      }
+    },
+    {
+      "id": "PONDY-E2R-2",
+      "family": "e2-r",
+      "pass": false,
+      "objective": 110506.76750600188,
+      "repaired": true,
+      "minimumClearanceFt": 0.4232493998119651,
+      "promotionBoundaryClearanceFt": 1.7430504369450759,
+      "issues": [
+        "DRIVE-B: short tangent 5.2′ < 8.3′"
+      ],
+      "placements": [
+        {
+          "id": "HOME-A",
+          "kind": "home",
+          "x": 77,
+          "y": 5,
+          "widthFt": 51,
+          "depthFt": 23,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-A",
+          "kind": "garage",
+          "x": 108,
+          "y": 6,
+          "widthFt": 20,
+          "depthFt": 20,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B",
+          "kind": "home",
+          "x": 25,
+          "y": 5,
+          "widthFt": 31,
+          "depthFt": 32.5,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-B",
+          "kind": "garage",
+          "x": 36,
+          "y": 16,
+          "widthFt": 20,
+          "depthFt": 20,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B-WING",
+          "kind": "home",
+          "x": 56,
+          "y": 5,
+          "widthFt": 14,
+          "depthFt": 9,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        }
+      ],
+      "drives": [
+        {
+          "id": "DRIVE-A",
+          "garageId": "GARAGE-A",
+          "points": [
+            [
+              151,
+              16
+            ],
+            [
+              128,
+              16
+            ]
+          ],
+          "movableControlPoints": []
+        },
+        {
+          "id": "DRIVE-B",
+          "garageId": "GARAGE-B",
+          "points": [
+            [
+              151,
+              37
+            ],
+            [
+              77,
+              37
+            ],
+            [
+              66,
+              27
+            ],
+            [
+              56,
+              26
+            ]
+          ],
+          "movableControlPoints": [
+            1,
+            2
+          ],
+          "controlPointLimitFt": 2
+        }
+      ],
+      "variables": {
+        "alignX": 66,
+        "turnX": 77,
+        "spineY": 37,
+        "rearGarageY": 16,
+        "wingD": 9,
+        "wingW": 14,
+        "rearW": 31,
+        "rearX": 25,
+        "frontX": 77
+      },
+      "metadata": {
+        "topology": "e2-reset-compound-rear",
+        "historicalSeed": "E2",
+        "intendedLivingA": 1800,
+        "intendedLivingB": 1800,
+        "run08Compound": true
+      }
+    },
+    {
+      "id": "PONDY-V2R-489",
+      "family": "v2-r",
+      "pass": false,
+      "objective": 121256.35053535683,
+      "repaired": false,
+      "minimumClearanceFt": 0.3649464643167164,
+      "promotionBoundaryClearanceFt": 0.3689073699456813,
+      "issues": [
+        "HOME-A: outside buildable envelope",
+        "HOME-B: outside buildable envelope",
+        "GARAGE-B: outside buildable envelope",
+        "DRIVE-A: swept body hits HOME-A",
+        "DRIVE-A: short tangent 24.1′ < 65.8′",
+        "DRIVE-B: swept body hits HOME-A",
+        "DRIVE-B: swept body hits HOME-B"
+      ],
+      "placements": [
+        {
+          "id": "HOME-A",
+          "kind": "home",
+          "x": 86,
+          "y": 8,
+          "widthFt": 38,
+          "depthFt": 27,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-A",
+          "kind": "garage",
+          "x": 102,
+          "y": 10,
+          "widthFt": 22,
+          "depthFt": 22,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B",
+          "kind": "home",
+          "x": 46,
+          "y": 15,
+          "widthFt": 38,
+          "depthFt": 27,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-B",
+          "kind": "garage",
+          "x": 62,
+          "y": 16,
+          "widthFt": 22,
+          "depthFt": 22,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": true
+        }
+      ],
+      "drives": [
+        {
+          "id": "DRIVE-A",
+          "garageId": "GARAGE-A",
+          "points": [
+            [
+              151,
+              37
+            ],
+            [
+              106,
+              37
+            ],
+            [
+              124,
+              21
+            ]
+          ],
+          "movableControlPoints": [
+            1
+          ],
+          "controlPointLimitFt": 3
+        },
+        {
+          "id": "DRIVE-B",
+          "garageId": "GARAGE-B",
+          "points": [
+            [
+              151,
+              37
+            ],
+            [
+              94,
+              37
+            ],
+            [
+              84,
+              27
+            ]
+          ],
+          "movableControlPoints": [
+            1
+          ],
+          "controlPointLimitFt": 3
+        }
+      ],
+      "variables": {
+        "spineY": 37,
+        "branchX": 106,
+        "by": 15,
+        "ay": 8,
+        "bx": 60,
+        "ax": 102
+      },
+      "metadata": {
+        "topology": "v2-reset",
+        "historicalSeed": "V2",
+        "intendedLivingA": 1760,
+        "intendedLivingB": 1760
+      }
+    },
+    {
+      "id": "PONDY-V2R-399",
+      "family": "v2-r",
+      "pass": false,
+      "objective": 121256.31092630055,
+      "repaired": false,
+      "minimumClearanceFt": 0.3689073699456813,
+      "promotionBoundaryClearanceFt": 0.3689073699456813,
+      "issues": [
+        "HOME-B: outside buildable envelope",
+        "GARAGE-B: outside buildable envelope",
+        "DRIVE-A: swept body hits HOME-A",
+        "DRIVE-A: short tangent 24.1′ < 55.7′",
+        "DRIVE-B: swept body hits HOME-A",
+        "DRIVE-B: swept body hits HOME-B"
+      ],
+      "placements": [
+        {
+          "id": "HOME-A",
+          "kind": "home",
+          "x": 84,
+          "y": 6,
+          "widthFt": 38,
+          "depthFt": 27,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-A",
+          "kind": "garage",
+          "x": 100,
+          "y": 8,
+          "widthFt": 22,
+          "depthFt": 22,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B",
+          "kind": "home",
+          "x": 44,
+          "y": 15,
+          "widthFt": 38,
+          "depthFt": 27,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-B",
+          "kind": "garage",
+          "x": 60,
+          "y": 16,
+          "widthFt": 22,
+          "depthFt": 22,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": true
+        }
+      ],
+      "drives": [
+        {
+          "id": "DRIVE-A",
+          "garageId": "GARAGE-A",
+          "points": [
+            [
+              151,
+              37
+            ],
+            [
+              106,
+              37
+            ],
+            [
+              122,
+              19
+            ]
+          ],
+          "movableControlPoints": [
+            1
+          ],
+          "controlPointLimitFt": 3
+        },
+        {
+          "id": "DRIVE-B",
+          "garageId": "GARAGE-B",
+          "points": [
+            [
+              151,
+              37
+            ],
+            [
+              94,
+              37
+            ],
+            [
+              82,
+              27
+            ]
+          ],
+          "movableControlPoints": [
+            1
+          ],
+          "controlPointLimitFt": 3
+        }
+      ],
+      "variables": {
+        "spineY": 37,
+        "branchX": 106,
+        "by": 15,
+        "ay": 6,
+        "bx": 58,
+        "ax": 100
+      },
+      "metadata": {
+        "topology": "v2-reset",
+        "historicalSeed": "V2",
+        "intendedLivingA": 1760,
+        "intendedLivingB": 1760
+      }
+    },
+    {
+      "id": "PONDY-V2R-480",
+      "family": "v2-r",
+      "pass": false,
+      "objective": 121256.31092630055,
+      "repaired": false,
+      "minimumClearanceFt": 0.3689073699456813,
+      "promotionBoundaryClearanceFt": 0.3689073699456813,
+      "issues": [
+        "HOME-A: outside buildable envelope",
+        "HOME-B: outside buildable envelope",
+        "GARAGE-B: outside buildable envelope",
+        "DRIVE-A: swept body hits HOME-A",
+        "DRIVE-A: short tangent 24.1′ < 65.8′",
+        "DRIVE-B: swept body hits HOME-A",
+        "DRIVE-B: swept body hits HOME-B"
+      ],
+      "placements": [
+        {
+          "id": "HOME-A",
+          "kind": "home",
+          "x": 86,
+          "y": 8,
+          "widthFt": 38,
+          "depthFt": 27,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-A",
+          "kind": "garage",
+          "x": 102,
+          "y": 10,
+          "widthFt": 22,
+          "depthFt": 22,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B",
+          "kind": "home",
+          "x": 44,
+          "y": 14,
+          "widthFt": 38,
+          "depthFt": 27,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-B",
+          "kind": "garage",
+          "x": 60,
+          "y": 15,
+          "widthFt": 22,
+          "depthFt": 22,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": true
+        }
+      ],
+      "drives": [
+        {
+          "id": "DRIVE-A",
+          "garageId": "GARAGE-A",
+          "points": [
+            [
+              151,
+              37
+            ],
+            [
+              106,
+              37
+            ],
+            [
+              124,
+              21
+            ]
+          ],
+          "movableControlPoints": [
+            1
+          ],
+          "controlPointLimitFt": 3
+        },
+        {
+          "id": "DRIVE-B",
+          "garageId": "GARAGE-B",
+          "points": [
+            [
+              151,
+              37
+            ],
+            [
+              94,
+              37
+            ],
+            [
+              82,
+              26
+            ]
+          ],
+          "movableControlPoints": [
+            1
+          ],
+          "controlPointLimitFt": 3
+        }
+      ],
+      "variables": {
+        "spineY": 37,
+        "branchX": 106,
+        "by": 14,
+        "ay": 8,
+        "bx": 58,
+        "ax": 102
+      },
+      "metadata": {
+        "topology": "v2-reset",
+        "historicalSeed": "V2",
+        "intendedLivingA": 1760,
+        "intendedLivingB": 1760
+      }
+    },
+    {
+      "id": "PONDY-V2R-396",
+      "family": "v2-r",
+      "pass": false,
+      "objective": 121256.35053535683,
+      "repaired": false,
+      "minimumClearanceFt": 0.3649464643167164,
+      "promotionBoundaryClearanceFt": 0.3798122244006734,
+      "issues": [
+        "HOME-B: outside buildable envelope",
+        "GARAGE-B: outside buildable envelope",
+        "DRIVE-A: swept body hits HOME-A",
+        "DRIVE-A: short tangent 24.8′ < 53.7′",
+        "DRIVE-B: swept body hits HOME-A",
+        "DRIVE-B: swept body hits HOME-B"
+      ],
+      "placements": [
+        {
+          "id": "HOME-A",
+          "kind": "home",
+          "x": 84,
+          "y": 5,
+          "widthFt": 38,
+          "depthFt": 27,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-A",
+          "kind": "garage",
+          "x": 100,
+          "y": 7,
+          "widthFt": 22,
+          "depthFt": 22,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B",
+          "kind": "home",
+          "x": 44,
+          "y": 13,
+          "widthFt": 38,
+          "depthFt": 27,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-B",
+          "kind": "garage",
+          "x": 60,
+          "y": 14,
+          "widthFt": 22,
+          "depthFt": 22,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": true
+        }
+      ],
+      "drives": [
+        {
+          "id": "DRIVE-A",
+          "garageId": "GARAGE-A",
+          "points": [
+            [
+              151,
+              37
+            ],
+            [
+              106,
+              37
+            ],
+            [
+              122,
+              18
+            ]
+          ],
+          "movableControlPoints": [
+            1
+          ],
+          "controlPointLimitFt": 3
+        },
+        {
+          "id": "DRIVE-B",
+          "garageId": "GARAGE-B",
+          "points": [
+            [
+              151,
+              37
+            ],
+            [
+              94,
+              37
+            ],
+            [
+              82,
+              25
+            ]
+          ],
+          "movableControlPoints": [
+            1
+          ],
+          "controlPointLimitFt": 3
+        }
+      ],
+      "variables": {
+        "spineY": 37,
+        "branchX": 106,
+        "by": 13,
+        "ay": 5,
+        "bx": 58,
+        "ax": 100
+      },
+      "metadata": {
+        "topology": "v2-reset",
+        "historicalSeed": "V2",
+        "intendedLivingA": 1760,
+        "intendedLivingB": 1760
+      }
+    },
+    {
+      "id": "PONDY-V2R-312",
+      "family": "v2-r",
+      "pass": false,
+      "objective": 121255.97171323565,
+      "repaired": false,
+      "minimumClearanceFt": 0.4028286764350142,
+      "promotionBoundaryClearanceFt": 0.4028286764350142,
+      "issues": [
+        "HOME-B: outside buildable envelope",
+        "GARAGE-B: outside buildable envelope",
+        "DRIVE-A: swept body hits HOME-A",
+        "DRIVE-A: short tangent 22.8′ < 51.1′",
+        "DRIVE-B: swept body hits HOME-A",
+        "DRIVE-B: swept body hits HOME-B"
+      ],
+      "placements": [
+        {
+          "id": "HOME-A",
+          "kind": "home",
+          "x": 82,
+          "y": 6,
+          "widthFt": 38,
+          "depthFt": 27,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-A",
+          "kind": "garage",
+          "x": 98,
+          "y": 8,
+          "widthFt": 22,
+          "depthFt": 22,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B",
+          "kind": "home",
+          "x": 42,
+          "y": 12,
+          "widthFt": 38,
+          "depthFt": 27,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-B",
+          "kind": "garage",
+          "x": 58,
+          "y": 13,
+          "widthFt": 22,
+          "depthFt": 22,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": true
+        }
+      ],
+      "drives": [
+        {
+          "id": "DRIVE-A",
+          "garageId": "GARAGE-A",
+          "points": [
+            [
+              151,
+              37
+            ],
+            [
+              106,
+              37
+            ],
+            [
+              120,
+              19
+            ]
+          ],
+          "movableControlPoints": [
+            1
+          ],
+          "controlPointLimitFt": 3
+        },
+        {
+          "id": "DRIVE-B",
+          "garageId": "GARAGE-B",
+          "points": [
+            [
+              151,
+              37
+            ],
+            [
+              94,
+              37
+            ],
+            [
+              80,
+              24
+            ]
+          ],
+          "movableControlPoints": [
+            1
+          ],
+          "controlPointLimitFt": 3
+        }
+      ],
+      "variables": {
+        "spineY": 37,
+        "branchX": 106,
+        "by": 12,
+        "ay": 6,
+        "bx": 56,
+        "ax": 98
+      },
+      "metadata": {
+        "topology": "v2-reset",
+        "historicalSeed": "V2",
+        "intendedLivingA": 1760,
+        "intendedLivingB": 1760
+      }
+    },
+    {
+      "id": "PONDY-V2R-471",
+      "family": "v2-r",
+      "pass": false,
+      "objective": 121256.31092630055,
+      "repaired": false,
+      "minimumClearanceFt": 0.3689073699456813,
+      "promotionBoundaryClearanceFt": 0.3689073699456813,
+      "issues": [
+        "HOME-A: outside buildable envelope",
+        "HOME-B: outside buildable envelope",
+        "GARAGE-B: outside buildable envelope",
+        "DRIVE-A: swept body hits HOME-A",
+        "DRIVE-A: short tangent 24.1′ < 65.8′",
+        "DRIVE-B: swept body hits HOME-A",
+        "DRIVE-B: swept body hits HOME-B"
+      ],
+      "placements": [
+        {
+          "id": "HOME-A",
+          "kind": "home",
+          "x": 86,
+          "y": 8,
+          "widthFt": 38,
+          "depthFt": 27,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-A",
+          "kind": "garage",
+          "x": 102,
+          "y": 10,
+          "widthFt": 22,
+          "depthFt": 22,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B",
+          "kind": "home",
+          "x": 42,
+          "y": 13,
+          "widthFt": 38,
+          "depthFt": 27,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-B",
+          "kind": "garage",
+          "x": 58,
+          "y": 14,
+          "widthFt": 22,
+          "depthFt": 22,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": true
+        }
+      ],
+      "drives": [
+        {
+          "id": "DRIVE-A",
+          "garageId": "GARAGE-A",
+          "points": [
+            [
+              151,
+              37
+            ],
+            [
+              106,
+              37
+            ],
+            [
+              124,
+              21
+            ]
+          ],
+          "movableControlPoints": [
+            1
+          ],
+          "controlPointLimitFt": 3
+        },
+        {
+          "id": "DRIVE-B",
+          "garageId": "GARAGE-B",
+          "points": [
+            [
+              151,
+              37
+            ],
+            [
+              94,
+              37
+            ],
+            [
+              80,
+              25
+            ]
+          ],
+          "movableControlPoints": [
+            1
+          ],
+          "controlPointLimitFt": 3
+        }
+      ],
+      "variables": {
+        "spineY": 37,
+        "branchX": 106,
+        "by": 13,
+        "ay": 8,
+        "bx": 56,
+        "ax": 102
+      },
+      "metadata": {
+        "topology": "v2-reset",
+        "historicalSeed": "V2",
+        "intendedLivingA": 1760,
+        "intendedLivingB": 1760
+      }
+    },
+    {
+      "id": "PONDY-V2R-387",
+      "family": "v2-r",
+      "pass": false,
+      "objective": 121256.20187775599,
+      "repaired": false,
+      "minimumClearanceFt": 0.3798122244006734,
+      "promotionBoundaryClearanceFt": 0.3798122244006734,
+      "issues": [
+        "HOME-B: outside buildable envelope",
+        "GARAGE-B: outside buildable envelope",
+        "DRIVE-A: swept body hits HOME-A",
+        "DRIVE-A: short tangent 24.8′ < 53.7′",
+        "DRIVE-B: swept body hits HOME-A",
+        "DRIVE-B: swept body hits HOME-B"
+      ],
+      "placements": [
+        {
+          "id": "HOME-A",
+          "kind": "home",
+          "x": 84,
+          "y": 5,
+          "widthFt": 38,
+          "depthFt": 27,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-A",
+          "kind": "garage",
+          "x": 100,
+          "y": 7,
+          "widthFt": 22,
+          "depthFt": 22,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B",
+          "kind": "home",
+          "x": 42,
+          "y": 12,
+          "widthFt": 38,
+          "depthFt": 27,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-B",
+          "kind": "garage",
+          "x": 58,
+          "y": 13,
+          "widthFt": 22,
+          "depthFt": 22,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": true
+        }
+      ],
+      "drives": [
+        {
+          "id": "DRIVE-A",
+          "garageId": "GARAGE-A",
+          "points": [
+            [
+              151,
+              37
+            ],
+            [
+              106,
+              37
+            ],
+            [
+              122,
+              18
+            ]
+          ],
+          "movableControlPoints": [
+            1
+          ],
+          "controlPointLimitFt": 3
+        },
+        {
+          "id": "DRIVE-B",
+          "garageId": "GARAGE-B",
+          "points": [
+            [
+              151,
+              37
+            ],
+            [
+              94,
+              37
+            ],
+            [
+              80,
+              24
+            ]
+          ],
+          "movableControlPoints": [
+            1
+          ],
+          "controlPointLimitFt": 3
+        }
+      ],
+      "variables": {
+        "spineY": 37,
+        "branchX": 106,
+        "by": 12,
+        "ay": 5,
+        "bx": 56,
+        "ax": 100
+      },
+      "metadata": {
+        "topology": "v2-reset",
+        "historicalSeed": "V2",
+        "intendedLivingA": 1760,
+        "intendedLivingB": 1760
+      }
+    },
+    {
+      "id": "PONDY-V2R-468",
+      "family": "v2-r",
+      "pass": false,
+      "objective": 121256.38546742054,
+      "repaired": false,
+      "minimumClearanceFt": 0.36145325794586114,
+      "promotionBoundaryClearanceFt": 0.36145325794586114,
+      "issues": [
+        "HOME-A: outside buildable envelope",
+        "HOME-B: outside buildable envelope",
+        "GARAGE-B: outside buildable envelope",
+        "DRIVE-A: swept body hits HOME-A",
+        "DRIVE-A: short tangent 24.8′ < 62.9′",
+        "DRIVE-B: swept body hits HOME-A",
+        "DRIVE-B: swept body hits HOME-B"
+      ],
+      "placements": [
+        {
+          "id": "HOME-A",
+          "kind": "home",
+          "x": 86,
+          "y": 7,
+          "widthFt": 38,
+          "depthFt": 27,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-A",
+          "kind": "garage",
+          "x": 102,
+          "y": 9,
+          "widthFt": 22,
+          "depthFt": 22,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B",
+          "kind": "home",
+          "x": 42,
+          "y": 11,
+          "widthFt": 38,
+          "depthFt": 27,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-B",
+          "kind": "garage",
+          "x": 58,
+          "y": 12,
+          "widthFt": 22,
+          "depthFt": 22,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": true
+        }
+      ],
+      "drives": [
+        {
+          "id": "DRIVE-A",
+          "garageId": "GARAGE-A",
+          "points": [
+            [
+              151,
+              37
+            ],
+            [
+              106,
+              37
+            ],
+            [
+              124,
+              20
+            ]
+          ],
+          "movableControlPoints": [
+            1
+          ],
+          "controlPointLimitFt": 3
+        },
+        {
+          "id": "DRIVE-B",
+          "garageId": "GARAGE-B",
+          "points": [
+            [
+              151,
+              37
+            ],
+            [
+              94,
+              37
+            ],
+            [
+              80,
+              23
+            ]
+          ],
+          "movableControlPoints": [
+            1
+          ],
+          "controlPointLimitFt": 3
+        }
+      ],
+      "variables": {
+        "spineY": 37,
+        "branchX": 106,
+        "by": 11,
+        "ay": 7,
+        "bx": 56,
+        "ax": 102
+      },
+      "metadata": {
+        "topology": "v2-reset",
+        "historicalSeed": "V2",
+        "intendedLivingA": 1760,
+        "intendedLivingB": 1760
+      }
+    },
+    {
+      "id": "PONDY-E2R-434",
+      "family": "e2-r",
+      "pass": false,
+      "objective": 110506.76750600188,
+      "repaired": true,
+      "minimumClearanceFt": 0.4232493998119651,
+      "promotionBoundaryClearanceFt": 1.7430504369450759,
+      "issues": [
+        "DRIVE-B: short tangent 5.2′ < 8.3′"
+      ],
+      "placements": [
+        {
+          "id": "HOME-A",
+          "kind": "home",
+          "x": 81,
+          "y": 5,
+          "widthFt": 47,
+          "depthFt": 23,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-A",
+          "kind": "garage",
+          "x": 108,
+          "y": 6,
+          "widthFt": 20,
+          "depthFt": 20,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-A",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B",
+          "kind": "home",
+          "x": 25,
+          "y": 5,
+          "widthFt": 31,
+          "depthFt": 32.5,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        },
+        {
+          "id": "GARAGE-B",
+          "kind": "garage",
+          "x": 36,
+          "y": 16,
+          "widthFt": 20,
+          "depthFt": 20,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": true
+        },
+        {
+          "id": "HOME-B-WING",
+          "kind": "home",
+          "x": 56,
+          "y": 5,
+          "widthFt": 14,
+          "depthFt": 9,
+          "movable": true,
+          "movementLimitFt": 2,
+          "integrationGroupId": "unit-B",
+          "circulationObstacle": false
+        }
+      ],
+      "drives": [
+        {
+          "id": "DRIVE-A",
+          "garageId": "GARAGE-A",
+          "points": [
+            [
+              151,
+              16
+            ],
+            [
+              128,
+              16
+            ]
+          ],
+          "movableControlPoints": []
+        },
+        {
+          "id": "DRIVE-B",
+          "garageId": "GARAGE-B",
+          "points": [
+            [
+              151,
+              37
+            ],
+            [
+              77,
+              37
+            ],
+            [
+              66,
+              27
+            ],
+            [
+              56,
+              26
+            ]
+          ],
+          "movableControlPoints": [
+            1,
+            2
+          ],
+          "controlPointLimitFt": 2
+        }
+      ],
+      "variables": {
+        "alignX": 66,
+        "turnX": 77,
+        "spineY": 37,
+        "rearGarageY": 16,
+        "wingD": 9,
+        "wingW": 14,
+        "rearW": 31,
+        "rearX": 25,
+        "frontX": 81
+      },
+      "metadata": {
+        "topology": "e2-reset-compound-rear",
+        "historicalSeed": "E2",
+        "intendedLivingA": 1800,
+        "intendedLivingB": 1800,
+        "run08Compound": true
+      }
+    }
+  ]
+}
