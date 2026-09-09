@@ -20,6 +20,33 @@ type ProgramResult = {
   unitResults: ProgramUnitResult[];
 };
 
+type RoomPackingUnitResult = {
+  unitId: string;
+  pass: boolean;
+  score: number;
+  effectivePlanningCapacitySqFt: number;
+  primaryShortSideFt: number | null;
+  primaryAspectRatio: number | null;
+  daylightEdgeFt: number;
+  checks: Record<string, boolean>;
+  penalties: string[];
+  reasons: string[];
+};
+
+type RoomPackingResult = {
+  schemaVersion: string;
+  sourceFreezeHash: string;
+  pass: boolean;
+  score: number;
+  unitResults: RoomPackingUnitResult[];
+  reasons: string[];
+};
+
+type FreezeRecord = {
+  freezeHash: string;
+  canonical: { schemaVersion: string };
+};
+
 type RankedResult = {
   id: string;
   family: string;
@@ -49,6 +76,8 @@ type RankedResult = {
     buildableSharePct: number;
   };
   program: ProgramResult;
+  freeze?: FreezeRecord;
+  roomPacking?: RoomPackingResult;
 };
 
 type BenchmarkControl = {
@@ -67,6 +96,10 @@ type RankedResponse = {
   combinedPassCount: number;
   promotionReadyCount?: number;
   distinctPromotionReadyCount?: number;
+  finalistFreezeCount?: number;
+  finalistFreezeHashes?: string[];
+  roomPackingPassCount?: number;
+  roomPackingSchema?: string;
   preferredLivingSqFt?: number;
   promotionTargetCapacitySqFt?: number;
   promotionClearanceFt?: number;
@@ -188,6 +221,8 @@ export default function WorkbenchPage() {
           <div><span>Current concept</span><strong>{currentResults.filter(r => r.physicalPass).length}/{currentResults.length} physical pass</strong></div>
           <div><span>Best current</span><strong>{currentBest ? currentBest.id : "—"}</strong></div>
           <div><span>Promotion-ready</span><strong>{solver.promotionReadyCount ?? solver.shortlist.length}</strong></div>
+          <div><span>Frozen finalists</span><strong>{solver.finalistFreezeCount ?? solver.shortlist.filter(r => r.freeze).length}</strong></div>
+          <div><span>Room-pack pass</span><strong>{solver.roomPackingPassCount ?? solver.shortlist.filter(r => r.roomPacking?.pass).length}/{solver.shortlist.length}</strong></div>
           <div><span>Retained evidence</span><strong>{solver.evaluatedCount} candidates</strong></div>
           <div><span>Solver</span><strong>{solver.solver}</strong></div>
         </section>
@@ -212,6 +247,16 @@ export default function WorkbenchPage() {
         </section>
 
         <section className="wb-panel current-set">
+          <div className="section-heading"><div><p className="eyebrow">FROZEN FINALISTS · ARCHITECTURAL FEASIBILITY</p><h2>Room-packing gate</h2></div><span className="mode-pill">{solver.roomPackingSchema ?? "lotscope-room-pack-v1"}</span></div>
+          <p className="wb-copy">Only canonically frozen finalists enter this stage. The room-packing evaluator may reject or penalize a design, but it may not move the frozen site geometry.</p>
+          <div className="current-card-grid">{solver.shortlist.map((candidate) => <button key={candidate.id} className={`current-card ${candidate.id === activeSolved?.id ? "selected" : ""}`} onClick={() => selectResult(candidate)}>
+            <div><strong>{candidate.id}</strong><span className={candidate.roomPacking?.pass ? "pass-text" : "fail-text"}>{candidate.roomPacking?.pass ? "ROOM PACK PASS" : "ROOM PACK REVIEW"}</span></div>
+            <div className="mini-metrics"><span>arch score <b>{candidate.roomPacking?.score == null ? "—" : candidate.roomPacking.score.toFixed(1)}</b></span><span>freeze <b>{candidate.freeze?.freezeHash ? candidate.freeze.freezeHash.slice(0, 8) : "—"}</b></span></div>
+            <p>{candidate.roomPacking?.reasons[0] ?? candidate.roomPacking?.unitResults.flatMap(unit => [...unit.penalties, ...unit.reasons])[0] ?? "Frozen geometry cleared the current packing heuristics."}</p>
+          </button>)}</div>
+        </section>
+
+        <section className="wb-panel current-set">
           <div className="section-heading"><div><p className="eyebrow">CURRENT SET · REAR GARAGE STACK</p><h2>Refine this family, not the whole universe.</h2></div><span className="mode-pill">{currentResults.length} RETAINED VARIANTS</span></div>
           <p className="wb-copy">These are the best retained versions of the new base shape. Click one to inspect its exact geometry and gate status above.</p>
           <div className="current-card-grid">{currentResults.slice(0, 10).map((candidate) => <button key={candidate.id} className={`current-card ${candidate.id === activeSolved?.id ? "selected" : ""}`} onClick={() => selectResult(candidate)}>
@@ -227,6 +272,10 @@ export default function WorkbenchPage() {
             <div><span>Physical</span><strong>{activeSolved.physicalPass ? "PASS" : "FAIL"}</strong></div><div><span>Program</span><strong>{activeSolved.programPass ? "PASS" : "FAIL"}</strong></div><div><span>Promotion</span><strong>{activeSolved.promotionReady ? "READY" : "OPEN"}</strong></div><div><span>Combined score</span><strong>{activeSolved.combinedScore.toFixed(1)}</strong></div><div><span>Non-access clearance</span><strong>{activeSolved.promotionBoundaryClearanceFt == null ? "—" : `${activeSolved.promotionBoundaryClearanceFt.toFixed(2)}′`}</strong></div><div><span>Buildable-land pavement</span><strong>{fmt(activeSolved.pavement.estimatedBuildablePavementSqFt)} SF</strong></div>
           </div>
           <div className="unit-grid">{activeSolved.program.unitResults.map((unit) => <article key={unit.unitId}><p className="mini-label">UNIT {unit.unitId}</p><strong>{unit.netLivingCapacitySqFt == null ? "—" : `${fmt(unit.netLivingCapacitySqFt)} SF capacity`}</strong><span>Intent {unit.intendedLivingSqFt ?? "—"} SF</span>{[...unit.penalties, ...unit.reasons].slice(0,3).map((item) => <small key={item}>• {item}</small>)}</article>)}</div>
+          {activeSolved.roomPacking && <div className="next-checks"><p className="mini-label">FROZEN ROOM-PACKING · SCORE {activeSolved.roomPacking.score.toFixed(1)}</p><ol>{activeSolved.roomPacking.unitResults.flatMap((unit) => {
+            const failed = Object.entries(unit.checks).filter(([, pass]) => !pass).map(([check]) => `Unit ${unit.unitId}: ${check} needs review`);
+            return [...failed, ...unit.penalties.map(item => `Unit ${unit.unitId}: ${item}`), ...unit.reasons.map(item => `Unit ${unit.unitId}: ${item}`)];
+          }).slice(0,8).map((issue) => <li key={issue}>{issue}</li>)}</ol><p className="microcopy">Freeze {activeSolved.roomPacking.sourceFreezeHash.slice(0,12)} · site geometry is locked for this evaluation.</p></div>}
           {(activeSolved.physicalIssues.length > 0 || activeSolved.program.reasons.length > 0) && <div className="next-checks"><p className="mini-label">NEXT MOVES</p><ol>{[...activeSolved.physicalIssues, ...activeSolved.program.reasons].slice(0,6).map((issue) => <li key={issue}>{issue}</li>)}</ol></div>}
         </section>}
 
