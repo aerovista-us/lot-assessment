@@ -155,7 +155,8 @@ const searchFamilies = allFamilies.map((family) => ({
   })
 }));
 
-const baselineFamilies = searchFamilies.filter((family) => family.id !== "rear-garage-stack");
+const baselineFamilies = searchFamilies.filter((family) => !["rear-garage-stack", "compact-front-block"].includes(family.id));
+const architectureSearchFamilies = searchFamilies.filter((family) => family.id === "compact-front-block");
 const accessoryGarageFamilies = searchFamilies.filter((family) => family.id === "rear-garage-stack");
 const SOLVE_OPTIONS = {
   maxEvaluations: 900,
@@ -170,6 +171,7 @@ export async function GET() {
   const started = Date.now();
   const solved = [
     ...solveFamilies(pondyProblem, baselineFamilies, SOLVE_OPTIONS),
+    ...solveFamilies(pondyProblem, architectureSearchFamilies, { ...SOLVE_OPTIONS, diversePerFamily: 250 }),
     ...solveFamilies(pondyAccessoryGarageProblem, accessoryGarageFamilies, SOLVE_OPTIONS)
   ];
 
@@ -290,7 +292,8 @@ export async function GET() {
       "collapse Side Spine/Staggered/E2/G1 near-duplicates into one concept",
       "evaluate owner-selected rear-garage-stack with detached accessory 5 ft rear/side envelope",
       "keep all residential mass inside the principal-building envelope",
-      "require promotion-ready status before a concept can occupy a shortlist slot"
+      "require promotion-ready status before a concept can occupy a shortlist slot",
+      "retain up to 250 Compact Front candidates so architectural packing can rank beyond the top physical-only states"
     ],
     benchmarkControl: R51E_HISTORICAL_CONTROL,
     evaluatedCount: evaluated.length,
