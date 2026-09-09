@@ -131,6 +131,9 @@ jobs:
             finalistFreezeHashes: ranked.finalistFreezeHashes ?? [],
             roomPackingSchema: ranked.roomPackingSchema ?? null,
             roomPackingPassCount: ranked.roomPackingPassCount ?? 0,
+            architecturallyEvaluatedCount: ranked.architecturallyEvaluatedCount ?? 0,
+            architecturalPassCount: ranked.architecturalPassCount ?? 0,
+            architecturalLeader: ranked.architecturalLeader ?? null,
             reviewSet: cards.map(x => ({
               id:x.id,
               family:x.family,
@@ -141,7 +144,8 @@ jobs:
               freezeHash:x.freeze?.freezeHash ?? null,
               freezeSchema:x.freeze?.canonical?.schemaVersion ?? null,
               roomPackingPass:x.roomPacking?.pass ?? null,
-              roomPackingScore:x.roomPacking?.score ?? null
+              roomPackingScore:x.roomPacking?.score ?? null,
+              architecturalScore:x.architecturalScore ?? null
             }))
           };
           fs.writeFileSync('pondy-manifest.json', JSON.stringify(manifest, null, 2) + '\n');
@@ -181,6 +185,7 @@ jobs:
           if (new Set(validFreezeHashes).size !== validFreezeHashes.length) failures.push("finalist freeze hashes must be unique");
           if (ranked.roomPackingSchema !== "lotscope-room-pack-v1") failures.push("room packing schema missing or invalid");
           if ((ranked.shortlist || []).some(x => !x.roomPacking || x.roomPacking.sourceFreezeHash !== x.freeze?.freezeHash)) failures.push("room packing must derive from each finalist freeze hash");
+          if ((ranked.architecturallyEvaluatedCount || 0) !== (ranked.promotionReadyCount || 0)) failures.push("every promotion-ready candidate must receive architectural evaluation");
           console.log({ familyCount, evaluated: ranked.evaluatedCount, physical: ranked.physicalPassCount, combined: ranked.combinedPassCount, promotionReady: ranked.promotionReadyCount, distinctPromotionReadyCount, finalistFreezeCount: ranked.finalistFreezeCount, validFreezeHashes: validFreezeHashes.length });
           if (failures.length) { console.error(failures.join('; ')); process.exit(1); }
           NODE

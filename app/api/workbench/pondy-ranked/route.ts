@@ -155,7 +155,8 @@ const searchFamilies = allFamilies.map((family) => ({
   })
 }));
 
-const baselineFamilies = searchFamilies.filter((family) => family.id !== "rear-garage-stack");
+const baselineFamilies = searchFamilies.filter((family) => !["rear-garage-stack", "compact-front-block"].includes(family.id));
+const architectureSearchFamilies = searchFamilies.filter((family) => family.id === "compact-front-block");
 const accessoryGarageFamilies = searchFamilies.filter((family) => family.id === "rear-garage-stack");
 const SOLVE_OPTIONS = {
   maxEvaluations: 900,
@@ -170,6 +171,7 @@ export async function GET() {
   const started = Date.now();
   const solved = [
     ...solveFamilies(pondyProblem, baselineFamilies, SOLVE_OPTIONS),
+    ...solveFamilies(pondyProblem, architectureSearchFamilies, { ...SOLVE_OPTIONS, diversePerFamily: 250 }),
     ...solveFamilies(pondyAccessoryGarageProblem, accessoryGarageFamilies, SOLVE_OPTIONS)
   ];
 
@@ -227,36 +229,48 @@ export async function GET() {
     };
   }).sort((a, b) => Number(b.promotionReady) - Number(a.promotionReady) || Number(b.combinedPass) - Number(a.combinedPass) || b.combinedScore - a.combinedScore);
 
-  const shortlist = [] as typeof evaluated;
-  const seenConcepts = new Set<string>();
-  for (const result of evaluated) {
-    if (!result.promotionReady || seenConcepts.has(result.conceptGroup)) continue;
-    shortlist.push(result);
-    seenConcepts.add(result.conceptGroup);
-    if (shortlist.length >= 5) break;
-  }
+  const architecturallyEvaluated = evaluated
+    .filter((result) => result.promotionReady)
+    .map((result) => {
+      const freeze = freezeCandidate({
+        projectId: projectSpec.id,
+        projectRevision: projectSpec.revision,
+        scenarioId: BENCHMARK_SCENARIO_ID,
+        solverVersion: SOLVER_VERSION,
+        scoringVersion: SCORING_VERSION,
+        candidate: {
+          id: result.id,
+          family: result.family,
+          placements: result.placements,
+          drives: result.drives,
+          metadata: result.metadata
+        }
+      });
+      const roomPacking = evaluateRoomPacking(freeze, ROOM_PACKING_SPEC);
+      return {
+        ...result,
+        freeze,
+        roomPacking,
+        architecturalScore:
+          result.combinedScore +
+          roomPacking.score * 0.35 +
+          (roomPacking.pass ? 40 : 0)
+      };
+    })
+    .sort((a, b) =>
+      Number(b.roomPacking.pass) - Number(a.roomPacking.pass) ||
+      b.architecturalScore - a.architecturalScore ||
+      b.combinedScore - a.combinedScore
+    );
 
-  const frozenShortlist = shortlist.map((result) => {
-    const freeze = freezeCandidate({
-      projectId: projectSpec.id,
-      projectRevision: projectSpec.revision,
-      scenarioId: BENCHMARK_SCENARIO_ID,
-      solverVersion: SOLVER_VERSION,
-      scoringVersion: SCORING_VERSION,
-      candidate: {
-        id: result.id,
-        family: result.family,
-        placements: result.placements,
-        drives: result.drives,
-        metadata: result.metadata
-      }
-    });
-    return {
-      ...result,
-      freeze,
-      roomPacking: evaluateRoomPacking(freeze, ROOM_PACKING_SPEC)
-    };
-  });
+  const frozenShortlist = [] as typeof architecturallyEvaluated;
+  const seenConcepts = new Set<string>();
+  for (const result of architecturallyEvaluated) {
+    if (seenConcepts.has(result.conceptGroup)) continue;
+    frozenShortlist.push(result);
+    seenConcepts.add(result.conceptGroup);
+    if (frozenShortlist.length >= 5) break;
+  }
 
   return NextResponse.json({
     project: "pondy-lot2",
@@ -278,7 +292,8 @@ export async function GET() {
       "collapse Side Spine/Staggered/E2/G1 near-duplicates into one concept",
       "evaluate owner-selected rear-garage-stack with detached accessory 5 ft rear/side envelope",
       "keep all residential mass inside the principal-building envelope",
-      "require promotion-ready status before a concept can occupy a shortlist slot"
+      "require promotion-ready status before a concept can occupy a shortlist slot",
+      "retain up to 250 Compact Front candidates so architectural packing can rank beyond the top physical-only states"
     ],
     benchmarkControl: R51E_HISTORICAL_CONTROL,
     evaluatedCount: evaluated.length,
@@ -286,12 +301,15 @@ export async function GET() {
     programPassCount: evaluated.filter((item) => item.programPass).length,
     combinedPassCount: evaluated.filter((item) => item.combinedPass).length,
     promotionReadyCount: evaluated.filter((item) => item.promotionReady).length,
-    distinctPromotionReadyCount: shortlist.length,
+    distinctPromotionReadyCount: frozenShortlist.length,
     shortlist: frozenShortlist,
     finalistFreezeCount: frozenShortlist.length,
     finalistFreezeHashes: frozenShortlist.map((item) => item.freeze.freezeHash),
     roomPackingPassCount: frozenShortlist.filter((item) => item.roomPacking.pass).length,
     roomPackingSchema: "lotscope-room-pack-v1",
+    architecturallyEvaluatedCount: architecturallyEvaluated.length,
+    architecturalPassCount: architecturallyEvaluated.filter((item) => item.roomPacking.pass).length,
+    architecturalLeader: frozenShortlist[0]?.id ?? null,
     results: evaluated
   });
 }
