@@ -227,36 +227,48 @@ export async function GET() {
     };
   }).sort((a, b) => Number(b.promotionReady) - Number(a.promotionReady) || Number(b.combinedPass) - Number(a.combinedPass) || b.combinedScore - a.combinedScore);
 
-  const shortlist = [] as typeof evaluated;
-  const seenConcepts = new Set<string>();
-  for (const result of evaluated) {
-    if (!result.promotionReady || seenConcepts.has(result.conceptGroup)) continue;
-    shortlist.push(result);
-    seenConcepts.add(result.conceptGroup);
-    if (shortlist.length >= 5) break;
-  }
+  const architecturallyEvaluated = evaluated
+    .filter((result) => result.promotionReady)
+    .map((result) => {
+      const freeze = freezeCandidate({
+        projectId: projectSpec.id,
+        projectRevision: projectSpec.revision,
+        scenarioId: BENCHMARK_SCENARIO_ID,
+        solverVersion: SOLVER_VERSION,
+        scoringVersion: SCORING_VERSION,
+        candidate: {
+          id: result.id,
+          family: result.family,
+          placements: result.placements,
+          drives: result.drives,
+          metadata: result.metadata
+        }
+      });
+      const roomPacking = evaluateRoomPacking(freeze, ROOM_PACKING_SPEC);
+      return {
+        ...result,
+        freeze,
+        roomPacking,
+        architecturalScore:
+          result.combinedScore +
+          roomPacking.score * 0.35 +
+          (roomPacking.pass ? 40 : 0)
+      };
+    })
+    .sort((a, b) =>
+      Number(b.roomPacking.pass) - Number(a.roomPacking.pass) ||
+      b.architecturalScore - a.architecturalScore ||
+      b.combinedScore - a.combinedScore
+    );
 
-  const frozenShortlist = shortlist.map((result) => {
-    const freeze = freezeCandidate({
-      projectId: projectSpec.id,
-      projectRevision: projectSpec.revision,
-      scenarioId: BENCHMARK_SCENARIO_ID,
-      solverVersion: SOLVER_VERSION,
-      scoringVersion: SCORING_VERSION,
-      candidate: {
-        id: result.id,
-        family: result.family,
-        placements: result.placements,
-        drives: result.drives,
-        metadata: result.metadata
-      }
-    });
-    return {
-      ...result,
-      freeze,
-      roomPacking: evaluateRoomPacking(freeze, ROOM_PACKING_SPEC)
-    };
-  });
+  const frozenShortlist = [] as typeof architecturallyEvaluated;
+  const seenConcepts = new Set<string>();
+  for (const result of architecturallyEvaluated) {
+    if (seenConcepts.has(result.conceptGroup)) continue;
+    frozenShortlist.push(result);
+    seenConcepts.add(result.conceptGroup);
+    if (frozenShortlist.length >= 5) break;
+  }
 
   return NextResponse.json({
     project: "pondy-lot2",
@@ -292,6 +304,9 @@ export async function GET() {
     finalistFreezeHashes: frozenShortlist.map((item) => item.freeze.freezeHash),
     roomPackingPassCount: frozenShortlist.filter((item) => item.roomPacking.pass).length,
     roomPackingSchema: "lotscope-room-pack-v1",
+    architecturallyEvaluatedCount: architecturallyEvaluated.length,
+    architecturalPassCount: architecturallyEvaluated.filter((item) => item.roomPacking.pass).length,
+    architecturalLeader: frozenShortlist[0]?.id ?? null,
     results: evaluated
   });
 }
