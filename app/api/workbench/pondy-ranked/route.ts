@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { freezeCandidate } from "@/packages/canonical";
+import projectSpec from "@/projects/pondy-lot2/project.json";
 import { filletPath, FULL_SIZE_SUV, vehiclePolygon } from "@/packages/circulation";
 import { distance, insetPolygonBySegment, pointInPolygon, Point } from "@/packages/geometry";
 import { solveFamilies } from "@/packages/optimizer";
@@ -28,6 +30,9 @@ const PROMOTION_CLEARANCE_FT = 1;
 const PENNSYLVANIA_SEGMENT_INDEX = 1;
 const BENCHMARK_DRIVE_WIDTH_FT = 12;
 const SAMPLE_STEP_FT = 2;
+const BENCHMARK_SCENARIO_ID = "baseline-no-alley-plus-detached-accessory-rear-garage";
+const SOLVER_VERSION = "lotscope-diversity-v0.9";
+const SCORING_VERSION = "pondy-site-efficiency-v5";
 
 // Accessory-building hypothesis for detached rear-yard garages only.
 // Segment order follows PONDY_SURVEY: south side, Pennsylvania/front, irregular north side, rear.
@@ -224,12 +229,30 @@ export async function GET() {
     if (shortlist.length >= 5) break;
   }
 
+  const frozenShortlist = shortlist.map((result) => ({
+    ...result,
+    freeze: freezeCandidate({
+      projectId: projectSpec.id,
+      projectRevision: projectSpec.revision,
+      scenarioId: BENCHMARK_SCENARIO_ID,
+      solverVersion: SOLVER_VERSION,
+      scoringVersion: SCORING_VERSION,
+      candidate: {
+        id: result.id,
+        family: result.family,
+        placements: result.placements,
+        drives: result.drives,
+        metadata: result.metadata
+      }
+    })
+  }));
+
   return NextResponse.json({
     project: "pondy-lot2",
-    scenario: "baseline-no-alley-plus-detached-accessory-rear-garage",
-    solver: "lotscope-diversity-v0.9",
+    scenario: BENCHMARK_SCENARIO_ID,
+    solver: SOLVER_VERSION,
     searchMode: "material-topology-diversity-search",
-    scoringVersion: "pondy-site-efficiency-v5",
+    scoringVersion: SCORING_VERSION,
     preferredLivingSqFt: PREFERRED_LIVING_SQFT,
     promotionClearanceFt: PROMOTION_CLEARANCE_FT,
     promotionTargetCapacitySqFt: PROMOTION_TARGET_CAPACITY_SQFT,
@@ -253,7 +276,9 @@ export async function GET() {
     combinedPassCount: evaluated.filter((item) => item.combinedPass).length,
     promotionReadyCount: evaluated.filter((item) => item.promotionReady).length,
     distinctPromotionReadyCount: shortlist.length,
-    shortlist,
+    shortlist: frozenShortlist,
+    finalistFreezeCount: frozenShortlist.length,
+    finalistFreezeHashes: frozenShortlist.map((item) => item.freeze.freezeHash),
     results: evaluated
   });
 }
