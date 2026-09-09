@@ -22,7 +22,27 @@ function provenRearDrive(spineY:number,turnX:number,bendX:number,bendY:number,mo
  * <1 ft non-access clearance, and floor-plate capacity below the 8% reserve gate.
  * These families correct geometry; they do not relax promotion thresholds.
  */
-export const compactFrontBlock:FamilySearch={id:"compact-front-block",variables:[{id:"spineY",min:36,max:37,step:.5},{id:"turnX",min:79,max:82,step:1},{id:"bendY",min:26.5,max:27.5,step:.5}],build:(v,serial):PlacementCandidate=>({id:`PONDY-CFB-${serial}`,family:"compact-front-block",placements:[...unitMass({id:"A",plateX:84,plateY:5,plateW:44,plateD:27,garageX:108,garageY:8}),...unitMass({id:"B",plateX:25,plateY:5,plateW:32,plateD:32.5,garageX:37,garageY:16,wings:[{id:"EAST-WING",x:57,y:5,widthFt:16,depthFt:10}]})],drives:[frontStreetDrive,provenRearDrive(v.spineY,v.turnX,68,v.bendY,57,26)],metadata:{topology:"compact-front-block-proven-rear-mouth",designGroup:"compact-front-block",designIntent:"deeper-narrower-street-home-with-proven-rear-access",intendedLivingA:1800,intendedLivingB:1800,diversityPass:"run48-envelope-capacity-correction"}})};
+export const compactFrontBlock:FamilySearch={
+ id:"compact-front-block",
+ variables:[
+  {id:"spineY",min:36,max:37,step:.5},
+  {id:"turnX",min:79,max:82,step:1},
+  {id:"bendY",min:26.5,max:27.5,step:.5},
+  {id:"frontX",min:81,max:84,step:1},
+  {id:"rearWingW",min:16,max:20,step:2},
+  {id:"rearWingD",min:10,max:12,step:1}
+ ],
+ build:(v,serial):PlacementCandidate=>({
+  id:`PONDY-CFB-${serial}`,
+  family:"compact-front-block",
+  placements:[
+   ...unitMass({id:"A",plateX:v.frontX,plateY:5,plateW:128-v.frontX,plateD:27,garageX:108,garageY:8}),
+   ...unitMass({id:"B",plateX:25,plateY:5,plateW:32,plateD:32.5,garageX:37,garageY:16,wings:[{id:"EAST-WING",x:57,y:5,widthFt:v.rearWingW,depthFt:v.rearWingD}]})
+  ],
+  drives:[frontStreetDrive,provenRearDrive(v.spineY,v.turnX,68,v.bendY,57,26)],
+  metadata:{topology:"compact-front-block-proven-rear-mouth",designGroup:"compact-front-block",designIntent:"deeper-narrower-street-home-with-proven-rear-access",intendedLivingA:1800,intendedLivingB:1800,architectureSearch:"ground-floor-public-zone",diversityPass:"run48-envelope-capacity-correction"}
+ })
+};
 
 export const deepNarrowRear:FamilySearch={id:"deep-narrow-rear",variables:[{id:"spineY",min:36,max:37,step:.5},{id:"turnX",min:79,max:82,step:1},{id:"bendY",min:26.5,max:27.5,step:.5}],build:(v,serial):PlacementCandidate=>({id:`PONDY-DNR-${serial}`,family:"deep-narrow-rear",placements:[...unitMass({id:"A",plateX:79,plateY:5,plateW:49,plateD:25,garageX:108,garageY:8}),...unitMass({id:"B",plateX:25,plateY:5,plateW:29,plateD:32.5,garageX:34,garageY:16,wings:[{id:"EAST-WING",x:54,y:5,widthFt:20,depthFt:12}]})],drives:[frontStreetDrive,provenRearDrive(v.spineY,v.turnX,66,v.bendY,54,26)],metadata:{topology:"deep-narrow-rear-west-garage",designGroup:"deep-narrow-rear",designIntent:"deep-narrow-rear-home-with-west-shifted-garage-and-proven-corridor",intendedLivingA:1800,intendedLivingB:1800,diversityPass:"run48-envelope-capacity-correction"}})};
 
