@@ -38,6 +38,11 @@ export type UnitPackingResult = {
     circulationReserve: boolean;
     garageRelationship: boolean;
     daylightOpportunity: boolean;
+    contiguousMassing: boolean;
+    usableComponents: boolean;
+    publicZoneCapacity: boolean;
+    privateZoneCapacity: boolean;
+    wetCoreAllowance: boolean;
   };
   penalties: string[];
   reasons: string[];
@@ -53,6 +58,35 @@ export type RoomPackingEvaluation = {
 };
 
 type Placement = CanonicalCandidateV1["candidate"]["placements"][number];
+
+function rectGap(a: Placement, b: Placement) {
+  const dx = Math.max(b.x - (a.x + a.widthFt), a.x - (b.x + b.widthFt), 0);
+  const dy = Math.max(b.y - (a.y + a.depthFt), a.y - (b.y + b.depthFt), 0);
+  return Math.hypot(dx, dy);
+}
+
+function connectedComponents(items: Placement[]) {
+  if (!items.length) return 0;
+  const seen = new Set<number>();
+  let groups = 0;
+  for (let start = 0; start < items.length; start += 1) {
+    if (seen.has(start)) continue;
+    groups += 1;
+    const queue = [start];
+    seen.add(start);
+    while (queue.length) {
+      const current = queue.shift()!;
+      for (let next = 0; next < items.length; next += 1) {
+        if (seen.has(next)) continue;
+        if (rectGap(items[current], items[next]) <= 0.1) {
+          seen.add(next);
+          queue.push(next);
+        }
+      }
+    }
+  }
+  return groups;
+}
 
 function overlapArea(a: Placement, b: Placement) {
   const width = Math.max(0, Math.min(a.x + a.widthFt, b.x + b.widthFt) - Math.max(a.x, b.x));
@@ -85,7 +119,7 @@ export function evaluateRoomPacking(frozen: FrozenCandidate, spec: RoomPackingSp
         unitId, pass: false, score: 0, grossHomePlateSqFt: 0, garageOverlapSqFt: 0,
         netTwoStoryCapacitySqFt: 0, effectivePlanningCapacitySqFt: 0,
         primaryShortSideFt: null, primaryAspectRatio: null, daylightEdgeFt: 0,
-        checks: { roomWidth:false, stairZone:false, entryZone:false, mechanicalStorage:false, bedrooms:false, bathrooms:false, circulationReserve:false, garageRelationship:false, daylightOpportunity:false },
+        checks: { roomWidth:false, stairZone:false, entryZone:false, mechanicalStorage:false, bedrooms:false, bathrooms:false, circulationReserve:false, garageRelationship:false, daylightOpportunity:false, contiguousMassing:false, usableComponents:false, publicZoneCapacity:false, privateZoneCapacity:false, wetCoreAllowance:false },
         penalties, reasons:[`HOME-${unitId} geometry missing from frozen candidate`]
       };
     }
@@ -100,6 +134,15 @@ export function evaluateRoomPacking(frozen: FrozenCandidate, spec: RoomPackingSp
     const longSide = Math.max(primary.widthFt, primary.depthFt);
     const aspect = longSide / Math.max(shortSide, 0.01);
     const daylightEdge = homes.reduce((sum, home) => sum + 2 * (home.widthFt + home.depthFt), 0);
+    const componentGroups = connectedComponents(homes);
+    const usableComponents = homes.every((home) => Math.min(home.widthFt, home.depthFt) >= 8 && home.widthFt * home.depthFt >= 96);
+    const contiguousMassing = componentGroups === 1;
+    const groundPlanningCapacity = Math.max(0, plateArea - garageOverlap - reserve / Math.max(spec.stories, 1) - fixedProgram);
+    const upperPlanningCapacity = Math.max(0, plateArea * Math.max(spec.stories - 1, 0) - reserve * Math.max(spec.stories - 1, 0) / Math.max(spec.stories, 1));
+    const publicZoneCapacity = groundPlanningCapacity >= 520;
+    const privateZoneNeed = spec.bedroomsPerUnit * 100 + spec.fullBathsPerUnit * 45 + 120;
+    const privateZoneCapacity = upperPlanningCapacity >= privateZoneNeed;
+    const wetCoreAllowance = groundPlanningCapacity + upperPlanningCapacity >= privateZoneNeed + 650;
 
     const roomWidth = shortSide >= spec.minimumLivingWidthFt;
     const stairZone = shortSide >= spec.minimumStairWidthFt + 8 && effectivePlanningCapacity >= spec.stairFootprintSqFt;
@@ -117,13 +160,18 @@ export function evaluateRoomPacking(frozen: FrozenCandidate, spec: RoomPackingSp
     if (!bedrooms) reasons.push(`${spec.bedroomsPerUnit}-bedroom allowance does not fit after planning reserves`);
     if (!bathrooms) reasons.push(`${spec.fullBathsPerUnit} full-bath allowance does not fit after planning reserves`);
     if (!garageRelationship) reasons.push("garage relationship is missing");
+    if (!contiguousMassing) reasons.push(`home mass breaks into ${componentGroups} disconnected planning pieces`);
+    if (!usableComponents) reasons.push("one or more home components are too small/slender to count as useful planning area");
+    if (!publicZoneCapacity) reasons.push(`ground-floor public/service capacity ${groundPlanningCapacity.toFixed(0)} SF is too tight`);
+    if (!privateZoneCapacity) reasons.push(`upper/private capacity ${upperPlanningCapacity.toFixed(0)} SF is below the bedroom/bath planning allowance`);
+    if (!wetCoreAllowance) reasons.push("combined planning capacity leaves insufficient tolerance for wet-core stacking and circulation");
     if (!daylightOpportunity) penalties.push("limited exterior edge reduces daylight/frontage opportunity");
     if (aspect > 1.8) penalties.push(`elongated primary plate ${aspect.toFixed(2)} risks corridor-heavy planning`);
     if (shortSide < 26) penalties.push(`tight ${shortSide.toFixed(1)} ft primary short side reduces room flexibility`);
     if (reserve < 180) penalties.push("low wall/circulation reserve leaves little tolerance for detailed planning");
 
-    const checks = { roomWidth, stairZone, entryZone, mechanicalStorage, bedrooms, bathrooms, circulationReserve, garageRelationship, daylightOpportunity };
-    const hardPass = roomWidth && stairZone && entryZone && mechanicalStorage && bedrooms && bathrooms && circulationReserve && garageRelationship;
+    const checks = { roomWidth, stairZone, entryZone, mechanicalStorage, bedrooms, bathrooms, circulationReserve, garageRelationship, daylightOpportunity, contiguousMassing, usableComponents, publicZoneCapacity, privateZoneCapacity, wetCoreAllowance };
+    const hardPass = roomWidth && stairZone && entryZone && mechanicalStorage && bedrooms && bathrooms && circulationReserve && garageRelationship && contiguousMassing && usableComponents && publicZoneCapacity && privateZoneCapacity && wetCoreAllowance;
     const failedChecks = Object.values(checks).filter((value) => !value).length;
     const score = Math.max(0, Math.min(100, 100 - failedChecks * 12 - penalties.length * 6 - Math.max(0, aspect - 1.6) * 10));
 
