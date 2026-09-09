@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "tsc --noEmit",
-    "test:canonical": "node scripts/test-canonical.mjs"
+    "test:canonical": "node scripts/test-canonical.mjs",
+    "test:room-packing": "node scripts/test-room-packing.mjs"
   },
   "dependencies": {
     "next": "16.3.2",
