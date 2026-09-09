@@ -8,6 +8,7 @@ import { PONDY_BUILDABLE, PONDY_SURVEY, pondyFamilies, pondyProblem } from "@/pa
 import { diversityFamilies } from "@/packages/pondy/diversity";
 import { R51E_HISTORICAL_CONTROL } from "@/packages/pondy/control";
 import { evaluateProgram } from "@/packages/program";
+import { evaluateRoomPacking } from "@/packages/room-packing";
 import type { PlacementCandidate } from "@/packages/placement";
 
 export const dynamic = "force-dynamic";
@@ -30,6 +31,12 @@ const PROMOTION_CLEARANCE_FT = 1;
 const PENNSYLVANIA_SEGMENT_INDEX = 1;
 const BENCHMARK_DRIVE_WIDTH_FT = 12;
 const SAMPLE_STEP_FT = 2;
+const ROOM_PACKING_SPEC = {
+  units: ["A", "B"], stories: 2, bedroomsPerUnit: 3, fullBathsPerUnit: 2,
+  minimumLivingWidthFt: 22, minimumBedroomWidthFt: 9, minimumStairWidthFt: 3,
+  stairFootprintSqFt: 90, entryFootprintSqFt: 35, mechanicalStorageSqFt: 70,
+  circulationAndWallReservePct: 0.14, daylightEdgeTargetFt: 100
+};
 const BENCHMARK_SCENARIO_ID = "baseline-no-alley-plus-detached-accessory-rear-garage";
 const SOLVER_VERSION = "lotscope-diversity-v0.9";
 const SCORING_VERSION = "pondy-site-efficiency-v5";
@@ -229,9 +236,8 @@ export async function GET() {
     if (shortlist.length >= 5) break;
   }
 
-  const frozenShortlist = shortlist.map((result) => ({
-    ...result,
-    freeze: freezeCandidate({
+  const frozenShortlist = shortlist.map((result) => {
+    const freeze = freezeCandidate({
       projectId: projectSpec.id,
       projectRevision: projectSpec.revision,
       scenarioId: BENCHMARK_SCENARIO_ID,
@@ -244,8 +250,13 @@ export async function GET() {
         drives: result.drives,
         metadata: result.metadata
       }
-    })
-  }));
+    });
+    return {
+      ...result,
+      freeze,
+      roomPacking: evaluateRoomPacking(freeze, ROOM_PACKING_SPEC)
+    };
+  });
 
   return NextResponse.json({
     project: "pondy-lot2",
@@ -279,6 +290,8 @@ export async function GET() {
     shortlist: frozenShortlist,
     finalistFreezeCount: frozenShortlist.length,
     finalistFreezeHashes: frozenShortlist.map((item) => item.freeze.freezeHash),
+    roomPackingPassCount: frozenShortlist.filter((item) => item.roomPacking.pass).length,
+    roomPackingSchema: "lotscope-room-pack-v1",
     results: evaluated
   });
 }

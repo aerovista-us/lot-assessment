@@ -39,6 +39,7 @@ jobs:
           npm install --no-audit --no-fund
           npm run lint
           npm run test:canonical
+          npm run test:room-packing
           npm run build
 
       - name: Start local LotScope
@@ -128,6 +129,8 @@ jobs:
             families: ranked.families,
             finalistFreezeCount: ranked.finalistFreezeCount ?? 0,
             finalistFreezeHashes: ranked.finalistFreezeHashes ?? [],
+            roomPackingSchema: ranked.roomPackingSchema ?? null,
+            roomPackingPassCount: ranked.roomPackingPassCount ?? 0,
             reviewSet: cards.map(x => ({
               id:x.id,
               family:x.family,
@@ -136,7 +139,9 @@ jobs:
               score:x.combinedScore,
               clearance:x.promotionBoundaryClearanceFt,
               freezeHash:x.freeze?.freezeHash ?? null,
-              freezeSchema:x.freeze?.canonical?.schemaVersion ?? null
+              freezeSchema:x.freeze?.canonical?.schemaVersion ?? null,
+              roomPackingPass:x.roomPacking?.pass ?? null,
+              roomPackingScore:x.roomPacking?.score ?? null
             }))
           };
           fs.writeFileSync('pondy-manifest.json', JSON.stringify(manifest, null, 2) + '\n');
@@ -174,6 +179,8 @@ jobs:
           if ((ranked.finalistFreezeCount || 0) < 5) failures.push(`frozen finalists ${ranked.finalistFreezeCount || 0} < 5`);
           if (validFreezeHashes.length < 5) failures.push(`valid finalist freeze hashes ${validFreezeHashes.length} < 5`);
           if (new Set(validFreezeHashes).size !== validFreezeHashes.length) failures.push("finalist freeze hashes must be unique");
+          if (ranked.roomPackingSchema !== "lotscope-room-pack-v1") failures.push("room packing schema missing or invalid");
+          if ((ranked.shortlist || []).some(x => !x.roomPacking || x.roomPacking.sourceFreezeHash !== x.freeze?.freezeHash)) failures.push("room packing must derive from each finalist freeze hash");
           console.log({ familyCount, evaluated: ranked.evaluatedCount, physical: ranked.physicalPassCount, combined: ranked.combinedPassCount, promotionReady: ranked.promotionReadyCount, distinctPromotionReadyCount, finalistFreezeCount: ranked.finalistFreezeCount, validFreezeHashes: validFreezeHashes.length });
           if (failures.length) { console.error(failures.join('; ')); process.exit(1); }
           NODE
