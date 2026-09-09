@@ -126,7 +126,18 @@ jobs:
             promotionReadyCount: ranked.promotionReadyCount,
             distinctPromotionReadyCount: ranked.distinctPromotionReadyCount,
             families: ranked.families,
-            reviewSet: cards.map(x => ({ id:x.id, family:x.family, conceptGroup:x.conceptGroup, promotionReady:x.promotionReady, score:x.combinedScore, clearance:x.promotionBoundaryClearanceFt }))
+            finalistFreezeCount: ranked.finalistFreezeCount ?? 0,
+            finalistFreezeHashes: ranked.finalistFreezeHashes ?? [],
+            reviewSet: cards.map(x => ({
+              id:x.id,
+              family:x.family,
+              conceptGroup:x.conceptGroup,
+              promotionReady:x.promotionReady,
+              score:x.combinedScore,
+              clearance:x.promotionBoundaryClearanceFt,
+              freezeHash:x.freeze?.freezeHash ?? null,
+              freezeSchema:x.freeze?.canonical?.schemaVersion ?? null
+            }))
           };
           fs.writeFileSync('pondy-manifest.json', JSON.stringify(manifest, null, 2) + '\n');
           console.log(JSON.stringify(manifest, null, 2));
@@ -158,7 +169,12 @@ jobs:
           if ((ranked.physicalPassCount || 0) < 10) failures.push(`physical ${ranked.physicalPassCount || 0} < 10`);
           if ((ranked.combinedPassCount || 0) < 3) failures.push(`combined ${ranked.combinedPassCount || 0} < 3`);
           if (distinctPromotionReadyCount < 5) failures.push(`distinct promotion-ready concepts ${distinctPromotionReadyCount} < 5`);
-          console.log({ familyCount, evaluated: ranked.evaluatedCount, physical: ranked.physicalPassCount, combined: ranked.combinedPassCount, promotionReady: ranked.promotionReadyCount, distinctPromotionReadyCount });
+          const freezeHashes = ranked.finalistFreezeHashes || [];
+          const validFreezeHashes = freezeHashes.filter(hash => /^[a-f0-9]{64}$/.test(String(hash)));
+          if ((ranked.finalistFreezeCount || 0) < 5) failures.push(`frozen finalists ${ranked.finalistFreezeCount || 0} < 5`);
+          if (validFreezeHashes.length < 5) failures.push(`valid finalist freeze hashes ${validFreezeHashes.length} < 5`);
+          if (new Set(validFreezeHashes).size !== validFreezeHashes.length) failures.push("finalist freeze hashes must be unique");
+          console.log({ familyCount, evaluated: ranked.evaluatedCount, physical: ranked.physicalPassCount, combined: ranked.combinedPassCount, promotionReady: ranked.promotionReadyCount, distinctPromotionReadyCount, finalistFreezeCount: ranked.finalistFreezeCount, validFreezeHashes: validFreezeHashes.length });
           if (failures.length) { console.error(failures.join('; ')); process.exit(1); }
           NODE
 

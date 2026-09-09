@@ -1,6 +1,6 @@
 # LotScope Canonical Candidate Freeze Contract
 
-Status: implementation slice started 2026-09-08
+Status: freeze primitive merged 2026-09-08 · finalist emission slice in progress
 
 ## Purpose
 
@@ -71,6 +71,16 @@ If finalist development requires a geometry change:
 - `freezeCandidate()`
 - `freezeHash()`
 - `verifyFrozenCandidate()`
+
+## Finalist emission
+
+The Pondy ranked endpoint now freezes each promotion-ready shortlist finalist using the canonical contract and returns:
+
+- the complete frozen canonical record per finalist;
+- `finalistFreezeCount`;
+- `finalistFreezeHashes`.
+
+The benchmark manifest persists those hashes alongside the review set, and CI requires at least five valid, unique finalist hashes before the Pondy acceptance gate passes.
 
 ## Acceptance for issue #9
 
