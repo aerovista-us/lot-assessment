@@ -298,7 +298,7 @@ export async function GET() {
     programPassCount: evaluated.filter((item) => item.programPass).length,
     combinedPassCount: evaluated.filter((item) => item.combinedPass).length,
     promotionReadyCount: evaluated.filter((item) => item.promotionReady).length,
-    distinctPromotionReadyCount: shortlist.length,
+    distinctPromotionReadyCount: frozenShortlist.length,
     shortlist: frozenShortlist,
     finalistFreezeCount: frozenShortlist.length,
     finalistFreezeHashes: frozenShortlist.map((item) => item.freeze.freezeHash),
