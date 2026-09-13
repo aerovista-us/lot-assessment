@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import { evidenceForAudience, summarizeEvidence, type AssessmentEvidence, type EvidenceStatus } from "@/packages/evidence";
 import styles from "./assessment-result.module.css";
@@ -37,7 +39,7 @@ export function AssessmentResult({ evidence, mode }: { evidence: AssessmentEvide
         </div>
         <nav>
           <Link href="/">Public</Link>
-          <Link href="/workbench">Workbench</Link>
+          {!publicMode && <Link href="/workbench">Workbench</Link>}
         </nav>
       </header>
 
@@ -48,8 +50,8 @@ export function AssessmentResult({ evidence, mode }: { evidence: AssessmentEvide
           <p className={styles.subtitle}>{view.subtitle}</p>
           <p className={styles.lede}>{view.executiveSummary}</p>
           <div className={styles.pills}>
-            <span className={`${styles.pill} ${styles.pass}`}>Geometry {view.geometryVerdict}</span>
-            <span className={`${styles.pill} ${view.releaseVerdict === "READY" ? styles.pass : styles.watch}`}>Release {view.releaseVerdict}</span>
+            <span className={`${styles.pill} ${view.geometryVerdict === "PASS" ? styles.pass : styles.fail}`}>Geometry {view.geometryVerdict}</span>
+            <span className={`${styles.pill} ${view.releaseVerdict === "READY" ? styles.pass : view.releaseVerdict === "BLOCKED" ? styles.fail : styles.watch}`}>Release {view.releaseVerdict}</span>
             <span className={styles.pill}>{summary.passCount} passing gates</span>
             {summary.watchCount > 0 && <span className={`${styles.pill} ${styles.watch}`}>{summary.watchCount} watch items</span>}
           </div>
@@ -80,14 +82,14 @@ export function AssessmentResult({ evidence, mode }: { evidence: AssessmentEvide
       <section className={styles.section}>
         <div className={styles.sectionHead}><div><p className={styles.eyebrow}>ATTENTION</p><h2>What deserves another look</h2></div><p>Passing geometry is not the same thing as comfortable daily use or professional approval.</p></div>
         <div className={styles.findings}>
-          {view.findings.map((finding) => (
+          {view.findings.length ? view.findings.map((finding) => (
             <article className={styles.finding} key={finding.id}>
               <span className={`${styles.badge} ${statusClass[finding.status]}`}>{statusLabel[finding.status]}</span>
               <h3>{finding.title}</h3>
               <p>{finding.summary}</p>
               {finding.recommendation && <strong>{finding.recommendation}</strong>}
             </article>
-          ))}
+          )) : <article className={styles.finding}><span className={`${styles.badge} ${styles.pass}`}>CLEAR</span><h3>No additional surfaced findings</h3><p>The current evidence gates carry the active result.</p></article>}
         </div>
       </section>
 
