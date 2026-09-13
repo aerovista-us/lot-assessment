@@ -155,10 +155,98 @@ export const adaptiveStepped = adaptiveFamily({
   ]
 });
 
+/**
+ * Design #2 orientation spike. The original vertical rear stack cannot simply rotate
+ * farther because the upper 22x22 box collides with the sloped accessory envelope.
+ * This version allows the garages themselves to move: two detached 22x22 garages are
+ * staggered horizontally and rotated toward the north access corridor. Their door
+ * approach legs are collinear with the garage longitudinal axes, eliminating the old
+ * forced steering correction immediately before each door.
+ *
+ * The houses are temporarily kept shallow (top at y=30) so this spike answers the
+ * circulation/orientation question independently. Program capacity is intentionally
+ * still allowed to fail here; if the vehicle proof survives, the next pass can rebuild
+ * the residential L-massing around the measured swept corridor rather than guessing.
+ */
+export const rotatedRearGarageStack: FamilySearch = {
+  id: "rear-garage-stack",
+  variables: [
+    { id: "angleDeg", min: 45, max: 50, step: 5 },
+    { id: "highY", min: 41.6, max: 41.8, step: 0.2 }
+  ],
+  build: (v, serial): PlacementCandidate => {
+    const garageSize = 22;
+    const garageAY = 10;
+    const garageBY = 10;
+    const garageAX = 10;
+    const garageBX = 43;
+    const angleRad = v.angleDeg * Math.PI / 180;
+    const c = Math.cos(angleRad);
+    const s = Math.sin(angleRad);
+
+    const doorAndAlign = (x: number, y: number) => {
+      const centerX = x + garageSize / 2;
+      const centerY = y + garageSize / 2;
+      const door: [number, number] = [centerX + garageSize / 2 * c, centerY + garageSize / 2 * s];
+      const align: [number, number] = [door[0] + 13 * c, door[1] + 13 * s];
+      return { door, align };
+    };
+
+    const a = doorAndAlign(garageAX, garageAY);
+    const b = doorAndAlign(garageBX, garageBY);
+    const duplexX = 72;
+    const partyX = 100;
+    const partyGap = 0.04;
+
+    return {
+      id: `PONDY-RGSROT-${serial}`,
+      family: "rear-garage-stack",
+      placements: [
+        { id: "HOME-B", kind: "home", x: duplexX, y: 5, widthFt: partyX - duplexX - partyGap, depthFt: 25, movable: false, integrationGroupId: "unit-B", circulationObstacle: false },
+        { id: "HOME-A", kind: "home", x: partyX, y: 5, widthFt: 128 - partyX, depthFt: 25, movable: false, integrationGroupId: "unit-A", circulationObstacle: false },
+        { id: "GARAGE-A", kind: "garage", x: garageAX, y: garageAY, widthFt: garageSize, depthFt: garageSize, rotationDeg: v.angleDeg, rotationLimitDeg: 55, movable: false, integrationGroupId: "unit-A", circulationObstacle: true },
+        { id: "GARAGE-B", kind: "garage", x: garageBX, y: garageBY, widthFt: garageSize, depthFt: garageSize, rotationDeg: v.angleDeg, rotationLimitDeg: 55, movable: false, integrationGroupId: "unit-B", circulationObstacle: true }
+      ],
+      drives: [
+        {
+          id: "DRIVE-A",
+          garageId: "GARAGE-A",
+          points: [[151, 38], [82, 38], [64, v.highY], [50, v.highY], a.align, a.door],
+          movableControlPoints: [1, 2, 3, 4],
+          controlPointLimitFt: 1.5
+        },
+        {
+          id: "DRIVE-B",
+          garageId: "GARAGE-B",
+          points: [[151, 38], b.align, b.door],
+          movableControlPoints: [1],
+          controlPointLimitFt: 1.5
+        }
+      ],
+      metadata: {
+        topology: "accessory-rear-garages-diagonal-orientation-spike",
+        designGroup: "rear-garage-stack-rotation-spike",
+        designIntent: "owner-rear-garages-diagonal-access-proof",
+        intendedLivingA: 1800,
+        intendedLivingB: 1800,
+        garageStandard: "22x22",
+        garageRotationDeg: v.angleDeg,
+        garageAccessoryHypothesis: true,
+        accessoryRearSetbackFt: 5,
+        accessorySideSetbackFt: 5,
+        rotationSpike: true,
+        diagnosticProgramCapacityPending: true,
+        movementPolicy: "move and orient detached garages first, preserve the proven north vehicle corridor, then rebuild residential mass around the measured sweep"
+      }
+    };
+  }
+};
+
 export const adaptiveFamilies: FamilySearch[] = [
   adaptiveDeepNarrow,
   adaptiveFrontL,
   adaptiveBalanced,
   adaptiveCompact,
-  adaptiveStepped
+  adaptiveStepped,
+  rotatedRearGarageStack
 ];

@@ -5,7 +5,9 @@ import {
   distanceToPolygonBoundary,
   pointInPolygon,
   polygonsIntersect,
-  rectangle
+  rectangle,
+  rotatePoint,
+  rotatePolygon
 } from "@/packages/geometry";
 import { FULL_SIZE_SUV, type Obstacle, type VehicleSpec, vehiclePolygon } from "@/packages/circulation";
 
@@ -19,7 +21,7 @@ export type MotionPose = {
 };
 
 export type GarageOpening = {
-  garage: { x: number; y: number; widthFt: number; depthFt: number };
+  garage: { x: number; y: number; widthFt: number; depthFt: number; rotationRad?: number };
   wall: "east" | "west" | "north" | "south";
   openingStartFt: number;
   openingEndFt: number;
@@ -126,9 +128,21 @@ function lineIntersections(body: Polygon, axis: "x" | "y", value: number): numbe
   return intersections;
 }
 
+function garageCenter(opening: GarageOpening): Point {
+  return [opening.garage.x + opening.garage.widthFt / 2, opening.garage.y + opening.garage.depthFt / 2];
+}
+
+function bodyInGarageLocalFrame(body: Polygon, opening: GarageOpening): Point[] {
+  const rotation = opening.garage.rotationRad ?? 0;
+  if (Math.abs(rotation) < 1e-9) return body.map(([x, y]) => [x, y] as Point);
+  const center = garageCenter(opening);
+  return body.map((point) => rotatePoint(point, center, -rotation));
+}
+
 /** Returns null while the body is not crossing the target garage wall. */
 export function garageOpeningClearance(body: Polygon, opening: GarageOpening): number | null {
   const g = opening.garage;
+  const localBody = bodyInGarageLocalFrame(body, opening);
   const vertical = opening.wall === "east" || opening.wall === "west";
   const axis: "x" | "y" = vertical ? "x" : "y";
   const wallCoordinate = opening.wall === "east"
@@ -138,7 +152,7 @@ export function garageOpeningClearance(body: Polygon, opening: GarageOpening): n
       : opening.wall === "north"
         ? g.y
         : g.y + g.depthFt;
-  const intersections = lineIntersections(body, axis, wallCoordinate);
+  const intersections = lineIntersections(localBody, axis, wallCoordinate);
   if (intersections.length < 2) return null;
   const low = Math.min(...intersections);
   const high = Math.max(...intersections);
@@ -271,7 +285,13 @@ export function auditMotionPath(args: {
     staticResult.minimumObstacleClearanceFt ?? Infinity
   );
   const finalBody = sampledPoses.length ? vehiclePolygon(vehicle, sampledPoses[sampledPoses.length - 1].x, sampledPoses[sampledPoses.length - 1].y, sampledPoses[sampledPoses.length - 1].headingRad) : null;
-  const garagePoly = args.garageOpening ? rectangle(args.garageOpening.garage.x, args.garageOpening.garage.y, args.garageOpening.garage.widthFt, args.garageOpening.garage.depthFt) : null;
+  const garagePoly = args.garageOpening
+    ? rotatePolygon(
+        rectangle(args.garageOpening.garage.x, args.garageOpening.garage.y, args.garageOpening.garage.widthFt, args.garageOpening.garage.depthFt),
+        garageCenter(args.garageOpening),
+        args.garageOpening.garage.rotationRad ?? 0
+      )
+    : null;
   const finalParkedPass = args.requireFinalParkedInGarage
     ? Boolean(finalBody && garagePoly && finalBody.every((point) => pointInPolygon(point, garagePoly, 0.08)))
     : null;
