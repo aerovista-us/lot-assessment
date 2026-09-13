@@ -86,6 +86,24 @@
 .automation-candidate-grid .current-card small { color:var(--muted); font-size:9px; line-height:1.35; }
 .warn-text { color:#f8cf75 !important; }
 .report-frame { width:100%; min-height:calc(100vh - 130px); border:1px solid var(--line); border-radius:14px; background:white; }
+.pavement-test { display:flex; align-items:center; justify-content:space-between; gap:14px; margin-top:14px; padding:14px; border:1px solid rgba(245,158,11,.3); border-radius:12px; background:rgba(245,158,11,.05); }
+.pavement-test h3 { margin:2px 0 4px; font-size:15px; }
+.pavement-test p { margin:0; color:var(--muted); font-size:10px; line-height:1.45; max-width:620px; }
+.pavement-test .secondary-button { white-space:nowrap; }
+.pavement-results { margin-top:12px; border:1px solid var(--line); border-radius:12px; padding:12px; background:rgba(255,255,255,.018); }
+.pavement-verdict { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; align-items:baseline; }
+.pavement-verdict strong { font-size:13px; color:#f8cf75; }
+.pavement-verdict span { color:var(--muted); font-size:9px; }
+.pavement-scenario-grid { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:7px; margin-top:10px; }
+.pavement-scenario-grid article { border:1px solid var(--line); border-radius:9px; padding:9px; min-height:118px; }
+.pavement-scenario-grid article > span { display:block; color:var(--muted); font-size:8px; text-transform:uppercase; letter-spacing:.06em; }
+.pavement-scenario-grid article > strong { display:block; margin-top:3px; font-size:11px; }
+.pavement-scenario-grid article > small { display:block; color:var(--muted); font-size:8px; line-height:1.35; margin-top:4px; }
+.pavement-scenario-grid article > p { color:#bfc6cf; font-size:8px; line-height:1.35; margin:7px 0 0; }
+.pavement-scenario-grid .pave-pass { border-color:rgba(74,222,128,.35); background:rgba(74,222,128,.045); }
+.pavement-scenario-grid .pave-pass > strong { color:#86efac; }
+.pavement-scenario-grid .pave-fail { border-color:rgba(251,113,133,.24); }
+.pavement-scenario-grid .pave-fail > strong { color:#fda4af; }
 
-@media (max-width: 1200px) { .wb-grid { grid-template-columns:280px 1fr; } .wb-grid > aside:last-child { grid-column:1 / -1; } .candidate-list { grid-template-columns:repeat(2,1fr); } .automation-tool-grid,.automation-candidate-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } .automation-focus-grid { grid-template-columns:1fr; } }
-@media (max-width: 820px) { .wb-grid { grid-template-columns:1fr; } .candidate-list,.pipeline-grid,.score-grid,.automation-tool-grid,.automation-candidate-grid,.automation-metrics { grid-template-columns:1fr; } .site-svg { min-height:320px; } }
+@media (max-width: 1200px) { .wb-grid { grid-template-columns:280px 1fr; } .wb-grid > aside:last-child { grid-column:1 / -1; } .candidate-list { grid-template-columns:repeat(2,1fr); } .automation-tool-grid,.automation-candidate-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } .automation-focus-grid { grid-template-columns:1fr; } .pavement-scenario-grid { grid-template-columns:repeat(3,minmax(0,1fr)); } }
+@media (max-width: 820px) { .wb-grid { grid-template-columns:1fr; } .candidate-list,.pipeline-grid,.score-grid,.automation-tool-grid,.automation-candidate-grid,.automation-metrics,.pavement-scenario-grid { grid-template-columns:1fr; } .site-svg { min-height:320px; } .pavement-test { align-items:flex-start; flex-direction:column; } }
