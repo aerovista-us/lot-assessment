@@ -1,0 +1,74 @@
+name: LotScope vNext production diagnosis
+
+on:
+  push:
+    branches:
+      - feature/vnext-runtime-diagnosis
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - name: Query production ranked Workbench
+        run: |
+          set -euo pipefail
+          mkdir -p qa-artifacts/runtime
+          curl -fsSL --max-time 240 --retry 2 --retry-delay 3 \
+            https://lotscope.aerovista.us/api/workbench/pondy-ranked \
+            -o qa-artifacts/runtime/pondy-ranked.json
+          jq '{
+            project,
+            scenario,
+            solver,
+            scoringVersion,
+            mobilityAuditSchema,
+            elapsedMs,
+            evaluatedCount,
+            physicalPassCount,
+            mobilityPassCount,
+            mobilityPromotionReadyCount,
+            programPassCount,
+            combinedPassCount,
+            promotionReadyCount,
+            distinctPromotionReadyCount,
+            finalistFreezeCount,
+            roomPackingPassCount,
+            architecturalLeader
+          }' qa-artifacts/runtime/pondy-ranked.json | tee qa-artifacts/runtime/summary.json
+      - name: Print leading diagnostic candidates
+        run: |
+          jq '[.results[:12][] | {
+            id,
+            family,
+            lifecycle,
+            physicalPass,
+            programPass,
+            combinedPass,
+            promotionReady,
+            combinedScore,
+            promotionChecks,
+            mobilityStatus: .mobilityAudit.status,
+            mobilityHardPass: .mobilityAudit.pass,
+            mobilityPromotionReady: .mobilityAudit.promotionReady,
+            mobilityFailures: .mobilityAudit.failures[:4],
+            mobilityWarnings: .mobilityAudit.warnings[:4],
+            garages: [.placements[] | select(.kind == "garage") | {id,widthFt,depthFt}],
+            drives: [.mobilityAudit.drives[] | {driveId,garageId,status,hardPass,promotionReady,door: .result.doorClearanceFt,turnRadius: .result.minimumTurningRadiusFt,pavementViolations: .result.pavementViolationSamples,failures: .failures[:3],warnings: .warnings[:3]}]
+          }]' qa-artifacts/runtime/pondy-ranked.json | tee qa-artifacts/runtime/top-candidates.json
+      - name: Summarize failure reasons
+        run: |
+          jq -r '[.results[].mobilityAudit.failures[]?] | group_by(.) | map({reason: .[0], count: length}) | sort_by(-.count)[:20]' qa-artifacts/runtime/pondy-ranked.json | tee qa-artifacts/runtime/mobility-failure-counts.json
+          jq -r '[.results[].mobilityAudit.warnings[]?] | group_by(.) | map({reason: .[0], count: length}) | sort_by(-.count)[:20]' qa-artifacts/runtime/pondy-ranked.json | tee qa-artifacts/runtime/mobility-warning-counts.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lotscope-production-runtime-diagnosis
+          path: qa-artifacts/runtime
+          retention-days: 14
