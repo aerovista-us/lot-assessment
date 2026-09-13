@@ -24,7 +24,7 @@ export type SiteStrategyTool = {
 
 /**
  * Strategy catalog used by the Workbench automation layer. Priority is a default
- * search order, not a prohibition. Local pavement remains an active repair tool
+ * ranking hint, not a prohibition. Local pavement remains an active peer repair tool
  * whenever it produces a cleaner legal solution than moving structures.
  */
 export const SITE_STRATEGY_TOOLBOX: SiteStrategyTool[] = [
@@ -74,6 +74,15 @@ export const SITE_STRATEGY_TOOLBOX: SiteStrategyTool[] = [
     tradeoff: "Can remove a final steering correction but consumes setback margin at the rotated corners."
   },
   {
+    id: "local-pavement-flare",
+    label: "Add local pavement / apron",
+    category: "ACCESS",
+    availability: "ACTIVE",
+    defaultPriority: 45,
+    description: "Add only the local paved width or apron actually required by the full vehicle sweep.",
+    tradeoff: "Spends site area and impervious surface, but can be the cleanest solution and remains a first-class option."
+  },
+  {
     id: "reshape-drive",
     label: "Reshape access path",
     category: "ACCESS",
@@ -81,15 +90,6 @@ export const SITE_STRATEGY_TOOLBOX: SiteStrategyTool[] = [
     defaultPriority: 50,
     description: "Move bounded driveway control points while preserving the access side and vehicle radius.",
     tradeoff: "Low structural impact, but may increase pavement or create a less direct route."
-  },
-  {
-    id: "local-pavement-flare",
-    label: "Add local pavement / apron",
-    category: "ACCESS",
-    availability: "ACTIVE",
-    defaultPriority: 60,
-    description: "Add only the local paved width or apron actually required by the full vehicle sweep.",
-    tradeoff: "Spends site area and impervious surface, but can be the cleanest solution and remains a first-class option."
   },
   {
     id: "gear-maneuver",
@@ -101,6 +101,52 @@ export const SITE_STRATEGY_TOOLBOX: SiteStrategyTool[] = [
     tradeoff: "Can save site area, but daily usability falls as gear changes increase."
   }
 ];
+
+export type SiteAutomationPass = {
+  id: "active-repair" | "orientation" | "maneuver";
+  label: string;
+  tools: SiteStrategyId[];
+  trigger: string;
+  rankingRule: string;
+};
+
+/**
+ * Repair passes are capability buckets, not a waterfall. The active-repair pass compares
+ * massing, garage, route AND pavement options together. Orientation is separated only
+ * because it is still experimental, and maneuver planning is separated because it has
+ * not yet been wired into candidate generation.
+ */
+export const SITE_AUTOMATION_PASSES: SiteAutomationPass[] = [
+  {
+    id: "active-repair",
+    label: "Active site repair",
+    tools: ["translate-building", "reproportion-building", "translate-garage", "resize-garage", "reshape-drive", "local-pavement-flare"],
+    trigger: "Run for every near-pass or whenever a promotion margin can improve.",
+    rankingRule: "Hard-pass first; then compare daily usability, site efficiency, program quality, and intervention cost."
+  },
+  {
+    id: "orientation",
+    label: "Garage orientation",
+    tools: ["rotate-garage"],
+    trigger: "Use when tangent, door-heading, or setback geometry suggests an angled detached garage may outperform translation alone.",
+    rankingRule: "Keep the same hard vehicle and setback gates; reward simpler approaches and lower gear-change demand."
+  },
+  {
+    id: "maneuver",
+    label: "Bounded maneuver planning",
+    tools: ["gear-maneuver"],
+    trigger: "Use only when continuous-forward candidates remain inferior after active repair and orientation comparisons.",
+    rankingRule: "Prefer 0 gear changes, then 1, then 2; reject or heavily penalize higher daily-use complexity."
+  }
+];
+
+export const SITE_AUTOMATION_POLICY = {
+  schemaVersion: "lotscope-site-automation-v1" as const,
+  policy: "MULTI_TOOL_SITE_REPAIR_V1" as const,
+  hardGateRule: "Automation may change geometry and pavement, but may not relax parcel, setback, collision, turning-radius, door-crossing, final-parking, or program gates.",
+  pavementRule: "Localized pavement/apron expansion remains a normal active repair option and is compared against structure and route changes rather than suppressed.",
+  selectionRule: "No one tool owns the answer: compare feasible repair combinations and retain the tradeoff evidence."
+};
 
 export type CandidateAutomation = {
   policy: "MULTI_TOOL_SITE_REPAIR_V1";
