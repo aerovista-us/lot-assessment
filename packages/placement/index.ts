@@ -1,9 +1,11 @@
 import {
   Point,
   Polygon,
+  distancePointToSegment,
   polygonInside,
   polygonsIntersect,
-  rectangle
+  rectangle,
+  rotatePolygon
 } from "@/packages/geometry";
 import {
   FULL_SIZE_SUV,
@@ -20,6 +22,10 @@ export type AxisAlignedPlacement = {
   y: number;
   widthFt: number;
   depthFt: number;
+  /** Optional clockwise-positive plan rotation around the footprint center. */
+  rotationDeg?: number;
+  /** Optional solver/repair bound for future orientation mutations. */
+  rotationLimitDeg?: number;
   movable: boolean;
   movementLimitFt?: number;
   /** Components in the same integration group may intentionally overlap in plan. */
@@ -84,21 +90,44 @@ export type SearchResult = {
   evaluation: CandidateEvaluation;
 };
 
+export function placementCenter(item: AxisAlignedPlacement): Point {
+  return [item.x + item.widthFt / 2, item.y + item.depthFt / 2];
+}
+
 export function placementPolygon(item: AxisAlignedPlacement): Point[] {
-  return rectangle(item.x, item.y, item.widthFt, item.depthFt);
+  const base = rectangle(item.x, item.y, item.widthFt, item.depthFt);
+  const radians = ((item.rotationDeg ?? 0) * Math.PI) / 180;
+  return Math.abs(radians) < 1e-9 ? base : rotatePolygon(base, placementCenter(item), radians);
 }
 
 function intentionalOverlap(a: AxisAlignedPlacement, b: AxisAlignedPlacement): boolean {
   return Boolean(a.integrationGroupId && b.integrationGroupId && a.integrationGroupId === b.integrationGroupId);
 }
 
-function rectSeparation(a: AxisAlignedPlacement, b: AxisAlignedPlacement): number {
-  const dx = Math.max(b.x - (a.x + a.widthFt), a.x - (b.x + b.widthFt), 0);
-  const dy = Math.max(b.y - (a.y + a.depthFt), a.y - (b.y + b.depthFt), 0);
-  return Math.hypot(dx, dy);
+function polygonSeparation(a: Polygon, b: Polygon): number {
+  if (polygonsIntersect(a, b, 0.02)) return 0;
+  let minimum = Infinity;
+  for (const point of a) {
+    for (let i = 0; i < b.length; i += 1) minimum = Math.min(minimum, distancePointToSegment(point, b[i], b[(i + 1) % b.length]));
+  }
+  for (const point of b) {
+    for (let i = 0; i < a.length; i += 1) minimum = Math.min(minimum, distancePointToSegment(point, a[i], a[(i + 1) % a.length]));
+  }
+  return Number.isFinite(minimum) ? minimum : Infinity;
+}
+
+function structureSeparation(a: AxisAlignedPlacement, b: AxisAlignedPlacement): number {
+  return polygonSeparation(placementPolygon(a), placementPolygon(b));
 }
 
 function homeResidualObstacles(home: AxisAlignedPlacement, garage: AxisAlignedPlacement): Obstacle[] {
+  // A rotated integrated garage requires true polygon subtraction. Until that arrives,
+  // rotated garages are supported as detached structures only; an integrated rotated
+  // garage keeps the complete home as an obstacle rather than manufacturing a false opening.
+  if (Math.abs(garage.rotationDeg ?? 0) > 1e-9) {
+    return [{ id: home.id, label: home.id, polygon: placementPolygon(home) }];
+  }
+
   const hx1 = home.x;
   const hy1 = home.y;
   const hx2 = home.x + home.widthFt;
@@ -188,9 +217,10 @@ export function evaluatePlacement(problem: PlacementProblem, candidate: Placemen
         issues.push(`${a.id}/${b.id}: footprints overlap`);
       }
       const required = problem.minimumStructureSeparationFt ?? 0;
-      if (!integrated && required > 0 && rectSeparation(a, b) < required - 0.02) {
+      const separation = required > 0 && !integrated ? structureSeparation(a, b) : Infinity;
+      if (!integrated && required > 0 && separation < required - 0.02) {
         separationPass = false;
-        issues.push(`${a.id}/${b.id}: separation ${rectSeparation(a, b).toFixed(2)}′ < ${required}′`);
+        issues.push(`${a.id}/${b.id}: separation ${separation.toFixed(2)}′ < ${required}′`);
       }
     }
   }
@@ -254,7 +284,7 @@ export function shiftDriveControlPoint(candidate: PlacementCandidate, driveId: s
 }
 
 function signature(candidate: PlacementCandidate): string {
-  const structures = candidate.placements.map((p) => `${p.id}:${p.x.toFixed(2)},${p.y.toFixed(2)}`).sort().join("|");
+  const structures = candidate.placements.map((p) => `${p.id}:${p.x.toFixed(2)},${p.y.toFixed(2)},r${(p.rotationDeg ?? 0).toFixed(2)}`).sort().join("|");
   const drives = candidate.drives.map((d) => `${d.id}:${d.points.map((p) => `${p[0].toFixed(2)},${p[1].toFixed(2)}`).join(";")}`).sort().join("|");
   return `${structures}::${drives}`;
 }
@@ -349,7 +379,20 @@ export function searchGridPlacements(args: {
     }
     const template = args.templates[index];
     for (let x = template.xRange[0]; x <= template.xRange[1] + 1e-6; x += step) for (let y = template.yRange[0]; y <= template.yRange[1] + 1e-6; y += step) {
-      const item: AxisAlignedPlacement = { id: template.id, kind: template.kind, x, y, widthFt: template.widthFt, depthFt: template.depthFt, movable: template.movable, movementLimitFt: template.movementLimitFt, integrationGroupId: template.integrationGroupId, circulationObstacle: template.circulationObstacle };
+      const item: AxisAlignedPlacement = {
+        id: template.id,
+        kind: template.kind,
+        x,
+        y,
+        widthFt: template.widthFt,
+        depthFt: template.depthFt,
+        rotationDeg: template.rotationDeg,
+        rotationLimitDeg: template.rotationLimitDeg,
+        movable: template.movable,
+        movementLimitFt: template.movementLimitFt,
+        integrationGroupId: template.integrationGroupId,
+        circulationObstacle: template.circulationObstacle
+      };
       const poly = placementPolygon(item);
       if (!polygonInside(poly, args.problem.buildableEnvelope, 0.08)) continue;
       if ([...(args.fixedPlacements ?? []), ...placed].some((other) => !intentionalOverlap(item, other) && polygonsIntersect(poly, placementPolygon(other), 0.02))) continue;
