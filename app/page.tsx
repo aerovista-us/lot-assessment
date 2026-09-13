@@ -207,7 +207,7 @@ export default function Home() {
             <span className="mode-pill">{lotMode === "RECTANGLE" ? "RECTANGLE" : "IRREGULAR / SCREENED"}</span>
           </div>
 
-          {lotMode === "CUSTOM" && <IrregularLotSketch onChange={syncCustomLot} />}
+          {lotMode === "CUSTOM" && <IrregularLotSketch onChange={syncCustomLot} initialSnapshot={customLot} />}
 
           <div className="input-groups">
             {visibleGroups.map((group) => (
