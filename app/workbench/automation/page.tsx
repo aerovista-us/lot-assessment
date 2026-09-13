@@ -45,6 +45,25 @@ type RankedResponse = {
   shortlist: RankedResult[];
   results: RankedResult[];
 };
+type PavementScenario = {
+  driveWidthFt: number;
+  turningPavementWidthFt: number;
+  pass: boolean;
+  promotionReady: boolean;
+  status: string;
+  gearChanges: number;
+  failures: string[];
+  warnings: string[];
+};
+type PavementSensitivity = {
+  schemaVersion: string;
+  model: string;
+  note: string;
+  minimumHardPassWidthFt: number | null;
+  minimumPromotionWidthFt: number | null;
+  pavementOnlyRescuePossible: boolean;
+  scenarios: PavementScenario[];
+};
 
 function polygonFor(item: Placement) {
   const angle = (item.rotationDeg ?? 0) * Math.PI / 180;
@@ -71,10 +90,14 @@ export default function AutomationPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pavement, setPavement] = useState<PavementSensitivity | null>(null);
+  const [testingPavement, setTestingPavement] = useState(false);
+  const [pavementError, setPavementError] = useState<string | null>(null);
 
   const run = async () => {
     setRunning(true);
     setError(null);
+    setPavement(null);
     try {
       const response = await fetch("/api/workbench/pondy-ranked", { cache: "no-store" });
       if (!response.ok) throw new Error(`Workbench returned ${response.status}`);
@@ -102,6 +125,31 @@ export default function AutomationPage() {
   }, [candidate, data?.promotionClearanceFt]);
 
   const review = data ? [...data.shortlist, ...data.results.filter((item) => !data.shortlist.some((short) => short.id === item.id)).slice(0, 15)] : [];
+
+  const selectCandidate = (id: string) => {
+    setSelectedId(id);
+    setPavement(null);
+    setPavementError(null);
+  };
+
+  const testPavement = async () => {
+    if (!candidate) return;
+    setTestingPavement(true);
+    setPavementError(null);
+    try {
+      const response = await fetch("/api/workbench/pondy-pavement-sensitivity", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ candidate, widthsFt: [12, 14, 16, 18, 20] })
+      });
+      if (!response.ok) throw new Error(`Pavement sensitivity returned ${response.status}`);
+      setPavement(await response.json() as PavementSensitivity);
+    } catch (cause) {
+      setPavementError(cause instanceof Error ? cause.message : "Pavement sensitivity failed");
+    } finally {
+      setTestingPavement(false);
+    }
+  };
 
   return <main className="shell workbench-shell automation-shell">
     <section className="workbench-brief automation-hero">
@@ -159,6 +207,17 @@ export default function AutomationPage() {
           {candidate.placements.map((item) => <polygon key={item.id} points={polygonFor(item).map(([x,y]) => `${x},${y}`).join(" ")} className={item.kind === "garage" ? "wb-garage" : item.id.includes("HOME-A") ? "wb-mass-a" : "wb-mass-b"} />)}
         </svg>
         <div className="automation-metrics"><span>score <b>{candidate.combinedScore.toFixed(1)}</b></span><span>boundary <b>{fmt(candidate.promotionBoundaryClearanceFt)}′</b></span><span>straight aisle <b>{fmt(candidate.mobilityAudit.driveWidthFt, 0)}′</b></span><span>turn flare <b>{fmt(candidate.mobilityAudit.turningPavementWidthFt, 2)}′</b></span></div>
+
+        <div className="pavement-test">
+          <div><p className="mini-label">PAVEMENT AS AN ACTUAL REPAIR TOOL</p><h3>Would a wider paved corridor solve this geometry without moving the buildings?</h3><p>This runs the hardened vehicle audit again at 12′, 14′, 16′, 18′ and 20′ modeled corridor widths. It is a coarse sensitivity test—not a civil takeoff.</p></div>
+          <button className="secondary-button" onClick={testPavement} disabled={testingPavement}>{testingPavement ? "Testing widths…" : "Test more pavement"}</button>
+        </div>
+        {pavementError && <div className="notice"><strong>Pavement test:</strong> {pavementError}</div>}
+        {pavement && <div className="pavement-results">
+          <div className="pavement-verdict"><strong>{pavement.pavementOnlyRescuePossible ? `YES · hard pass at ${fmt(pavement.minimumHardPassWidthFt,0)}′` : pavement.minimumHardPassWidthFt != null ? `Already passes by ${fmt(pavement.minimumHardPassWidthFt,0)}′` : "NO · pavement alone does not clear the current hard failures"}</strong><span>{pavement.minimumPromotionWidthFt == null ? "No tested width reaches mobility promotion by pavement alone." : `Mobility promotion at ${fmt(pavement.minimumPromotionWidthFt,0)}′ corridor.`}</span></div>
+          <div className="pavement-scenario-grid">{pavement.scenarios.map((scenario) => <article key={scenario.driveWidthFt} className={scenario.pass ? "pave-pass" : "pave-fail"}><span>{fmt(scenario.driveWidthFt,0)}′ corridor</span><strong>{scenario.pass ? "HARD PASS" : "FAIL"}</strong><small>turn flare {fmt(scenario.turningPavementWidthFt,2)}′ · {scenario.gearChanges} gear changes</small><p>{scenario.failures[0] ?? scenario.warnings[0] ?? "Current hardened mobility gates pass."}</p></article>)}</div>
+          <p className="microcopy">{pavement.note}</p>
+        </div>}
       </article>
 
       <article className="wb-panel automation-decision">
@@ -172,7 +231,7 @@ export default function AutomationPage() {
 
     {data && <section className="wb-panel">
       <div className="section-heading"><div><p className="eyebrow">CANDIDATE QUEUE</p><h2>Compare strategies across viable and near-viable concepts</h2></div><span className="mode-pill">{review.length} SHOWN</span></div>
-      <div className="automation-candidate-grid">{review.map((item) => <button key={item.id} className={`current-card ${item.id === candidate?.id ? "selected" : ""}`} onClick={() => setSelectedId(item.id)}>
+      <div className="automation-candidate-grid">{review.map((item) => <button key={item.id} className={`current-card ${item.id === candidate?.id ? "selected" : ""}`} onClick={() => selectCandidate(item.id)}>
         <div><strong>{item.id}</strong><span className={item.promotionReady ? "pass-text" : item.physicalPass ? "warn-text" : "fail-text"}>{item.promotionReady ? "READY" : item.physicalPass ? "PHYSICAL" : "REPAIR"}</span></div>
         <p>{item.family}</p>
         <small>{item.physicalIssues[0] ?? item.program.reasons[0] ?? "Current hard gates pass."}</small>
