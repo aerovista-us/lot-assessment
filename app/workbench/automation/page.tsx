@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { SITE_STRATEGY_TOOLBOX, evaluateCandidateAutomation, type CandidateAutomation } from "@/packages/automation";
+import { SITE_AUTOMATION_PASSES, SITE_STRATEGY_TOOLBOX, evaluateCandidateAutomation, type CandidateAutomation } from "@/packages/automation";
 
 type RepairAction = { kind: "shift-placement" | "shift-drive-point"; targetId: string; dx: number; dy: number; pointIndex?: number };
 type MobilityDrive = { result?: { gearChanges?: number } | null; pathIssues: string[]; failures: string[]; warnings: string[] };
@@ -111,6 +111,7 @@ export default function AutomationPage() {
         <p className="lede">Workbench can move or re-proportion buildings, move/resize/rotate garages, reshape the access path, add localized pavement or apron area, and eventually use a bounded forward/reverse maneuver. Pavement is intentionally retained as a first-class option—not treated as a failure.</p>
         <div className="hero-actions">
           <button className="primary-button" onClick={run} disabled={running}>{running ? "Running authoritative search…" : "Run automation review"}</button>
+          <a className="secondary-button" href="/api/workbench/pondy-automation" target="_blank" rel="noreferrer">Machine-readable plan</a>
           <a className="secondary-button" href="/workbench/report">Open user report</a>
           <span className="mode-pill">MULTI-TOOL SITE REPAIR V1</span>
         </div>
@@ -132,6 +133,12 @@ export default function AutomationPage() {
         <p>{tool.description}</p>
         <small>{tool.tradeoff}</small>
       </article>)}</div>
+    </section>
+
+    <section className="wb-panel automation-toolbox">
+      <div className="section-heading"><div><p className="eyebrow">HOW THE AUTOMATION RUNS</p><h2>Passes are capability buckets, not a forced waterfall.</h2></div><span className="mode-pill">{SITE_AUTOMATION_PASSES.length} PASSES</span></div>
+      <p className="wb-copy">The first pass deliberately compares building, garage, access-path and pavement repairs together. Garage rotation is isolated while it remains experimental; explicit gear-change planning is the next planner capability.</p>
+      <div className="pipeline-grid">{SITE_AUTOMATION_PASSES.map((pass) => <article key={pass.id} className="pipeline-card"><div><span className="status-dot status-ready" /><strong>{pass.label}</strong></div><p>{pass.trigger}</p><small>{pass.rankingRule}</small><div className="constraint-tags">{pass.tools.map((id) => <span key={id}>{SITE_STRATEGY_TOOLBOX.find((tool) => tool.id === id)?.label ?? id}</span>)}</div></article>)}</div>
     </section>
 
     {data && <section className="status-strip automation-status">
