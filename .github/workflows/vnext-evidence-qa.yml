@@ -1,0 +1,50 @@
+name: LotScope vNext evidence QA
+
+on:
+  push:
+    branches:
+      - feature/vnext-solve-prove-explain
+  pull_request:
+    paths:
+      - 'packages/evidence/**'
+      - 'packages/audit/**'
+      - 'lib/evidence-adapter.ts'
+      - 'components/AssessmentResult.tsx'
+      - 'components/assessment-result.module.css'
+      - 'app/assessment/**'
+      - 'app/workbench/assessment/**'
+      - 'app/api/assessment/**'
+      - 'projects/pondy-design4/**'
+      - 'docs/VNEXT_SOLVE_PROVE_EXPLAIN.md'
+      - '.github/workflows/vnext-evidence-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Type check
+        run: npm run lint
+      - name: Production build
+        run: npm run build
+      - name: Evidence contract smoke checks
+        run: |
+          grep -q 'lotscope-assessment-evidence-v1' packages/evidence/index.ts
+          grep -q 'PROFESSIONAL_REVIEW' packages/evidence/index.ts
+          grep -q 'B-SOUTH-door' projects/pondy-design4/evidence.ts
+          grep -q '0.073' projects/pondy-design4/evidence.ts
+          grep -q 'mode="PUBLIC"' app/assessment/pondy-d4/page.tsx
+          grep -q 'mode="WORKBENCH"' app/workbench/assessment/pondy-d4/page.tsx
+          grep -q 'guidedAssessmentEvidence' app/api/assessment/guided/route.ts
