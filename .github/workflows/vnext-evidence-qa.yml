@@ -9,6 +9,7 @@ on:
       - 'packages/evidence/**'
       - 'packages/audit/**'
       - 'packages/circulation/hardened.ts'
+      - 'packages/placement/**'
       - 'lib/evidence-adapter.ts'
       - 'lib/workbench-evidence-adapter.ts'
       - 'components/AssessmentResult.tsx'
@@ -19,6 +20,7 @@ on:
       - 'app/workbench/assessment/**'
       - 'app/workbench/evidence/**'
       - 'app/api/assessment/**'
+      - 'app/api/workbench/pondy-ranked/**'
       - 'app/api/workbench/pondy-evidence/**'
       - 'projects/pondy-design4/**'
       - 'docs/VNEXT_SOLVE_PROVE_EXPLAIN.md'
@@ -54,6 +56,13 @@ jobs:
           grep -q 'pavementViolationSamples' packages/circulation/hardened.ts
           grep -q 'reverseReplayPass' packages/circulation/hardened.ts
           grep -q 'comfortableClearanceFt' packages/circulation/hardened.ts
+          grep -q 'auditCandidateMobility' packages/placement/mobility-audit.ts
+          grep -q 'CENTERLINE_CORRIDOR_V1' packages/placement/mobility-audit.ts
+          grep -q 'requireFinalParkedInGarage: true' packages/placement/mobility-audit.ts
+          grep -q 'mobilityAuditSchema' app/api/workbench/pondy-ranked/route.ts
+          grep -q 'mobilityReady' app/api/workbench/pondy-ranked/route.ts
+          grep -q 'Hardened vehicle mobility' lib/workbench-evidence-adapter.ts
+          grep -q 'CANDIDATE LIFECYCLE' components/AssessmentResult.tsx
           grep -q 'B-SOUTH-door' projects/pondy-design4/evidence.ts
           grep -q '0.073' projects/pondy-design4/evidence.ts
           grep -q 'mode="PUBLIC"' app/assessment/pondy-d4/page.tsx
