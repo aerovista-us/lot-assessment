@@ -1,5 +1,7 @@
 import { FamilySearch } from "@/packages/optimizer";
 import { PlacementCandidate } from "@/packages/placement";
+import { credibleRearGarageStack } from "@/packages/pondy/credible";
+import { adaptiveFamilies } from "@/packages/pondy/adaptive-massing";
 
 type Wing = { id: string; x: number; y: number; widthFt: number; depthFt: number };
 
@@ -16,11 +18,9 @@ const frontStreetDrive={id:"DRIVE-A",garageId:"GARAGE-A",points:[[151,18],[128,1
 function provenRearDrive(spineY:number,turnX:number,bendX:number,bendY:number,mouthX:number,mouthY:number){return{id:"DRIVE-B",garageId:"GARAGE-B",points:[[151,spineY],[turnX,spineY],[bendX,bendY],[mouthX,mouthY]] as Array<[number,number]>,movableControlPoints:[1,2],controlPointLimitFt:2};}
 
 /**
- * Diversity Run 48.
- * Keep the physically proven north/setback access corridor and vary massing.
- * Previous Run 47 failures were dominated by principal-envelope overflow,
- * <1 ft non-access clearance, and floor-plate capacity below the 8% reserve gate.
- * These families correct geometry; they do not relax promotion thresholds.
+ * Historical diversity families remain available as evidence. The active discovery
+ * pass is now led by adaptive-massing.ts, which keeps the proven Run 85 rear access
+ * geometry while allowing capacity-ready building re-proportioning and 23x22 garages.
  */
 export const compactFrontBlock:FamilySearch={
  id:"compact-front-block",
@@ -52,21 +52,12 @@ export const balancedTwinBlocks:FamilySearch={id:"balanced-twin-blocks",variable
 
 /**
  * D6 — Accessory Rear Garage Stack + Connected L Duplex.
- * Owner-selected Design #2, now in focused design development.
- *
- * Evidence sequence:
- * - Base pass proved rear-garage-stack circulation.
- * - Run 44 solved Unit B program/capacity with a 22 ft primary depth.
- * - Run 45 produced 10/10 physical + program passes with the legal 28 ft Unit A.
- * - Diagnostic tracing showed its only promotion miss (0.50 ft clearance) came from the
- *   south garage approach at the parcel's y=0 side, not from the north access spine.
- * - Run 46 proved that squaring the approach can create >1 ft clearance, but introduced
- *   artificial short-tangent failures at the last two turns.
- * - Run 47 returned to the physically proven Run 45 maneuver and moved the rear garage
- *   stack/local approach one foot north, proving a conservative 6 ft south buffer.
+ * Owner-selected Design #2, retained as historical Run 47 evidence. The active
+ * 23x22 Design #2 rebuild is credibleRearGarageStack and remains in the benchmark
+ * while we add true garage orientation/door-face search.
  */
 export const rearGarageStack:FamilySearch={
- id:"rear-garage-stack",
+ id:"rear-garage-stack-historical-20",
  variables:[
   {id:"spineY",min:37.5,max:38.5,step:.5},
   {id:"turnX",min:70,max:78,step:2},
@@ -80,7 +71,7 @@ export const rearGarageStack:FamilySearch={
   const garageW=20,garageD=20,garageSouthY=6,garageNorthY=garageSouthY+garageD+v.garageGap;
   const mouthX=v.garageX+garageW,southMouthY=garageSouthY+10,northMouthY=garageNorthY+10;
   const partyGap=.04;
-  return{id:`PONDY-RGS-${serial}`,family:"rear-garage-stack",placements:[
+  return{id:`PONDY-RGS-HIST-${serial}`,family:"rear-garage-stack-historical-20",placements:[
    {id:"HOME-B",kind:"home",x:v.duplexX,y:5,widthFt:v.partyX-v.duplexX-partyGap,depthFt:22,movable:false,integrationGroupId:"unit-B",circulationObstacle:false},
    {id:"HOME-B-NORTH-LEG",kind:"home",x:v.partyX-20-partyGap,y:27,widthFt:20,depthFt:6,movable:false,integrationGroupId:"unit-B",circulationObstacle:false},
    {id:"HOME-A",kind:"home",x:v.partyX,y:5,widthFt:128-v.partyX,depthFt:28,movable:false,integrationGroupId:"unit-A",circulationObstacle:false},
@@ -89,8 +80,8 @@ export const rearGarageStack:FamilySearch={
   ],drives:[
    {id:"DRIVE-A",garageId:"GARAGE-A",points:[[151,v.spineY],[v.turnX,v.spineY],[v.flareX,36],[mouthX+11,28],[mouthX+6,22],[mouthX,southMouthY]],movableControlPoints:[1,2,3,4],controlPointLimitFt:2.5},
    {id:"DRIVE-B",garageId:"GARAGE-B",points:[[151,v.spineY],[v.turnX,v.spineY],[v.flareX,38],[mouthX+8,northMouthY],[mouthX,northMouthY]],movableControlPoints:[1,2,3],controlPointLimitFt:2.5}
-  ],metadata:{topology:"accessory-rear-stack-connected-L-duplex",designGroup:"rear-garage-stack",designIntent:"owner-base-shape-accessory-rear-garages-L-duplex",intendedLivingA:1800,intendedLivingB:1800,garagePlacementLockedToRear:true,garageAccessoryHypothesis:true,accessoryRearSetbackFt:5,accessorySideSetbackFt:5,actualSouthGarageSetbackFt:6,minimumGarageDuplexSeparationFt:6,duplexConnected:true,duplexPartyWallIntent:true,baseShapeLocked:true,designDevelopmentPass:"run47-six-foot-side-buffer"}};
+  ],metadata:{topology:"accessory-rear-stack-connected-L-duplex",designGroup:"rear-garage-stack-historical",designIntent:"historical-run47-20x20-rear-stack",intendedLivingA:1800,intendedLivingB:1800,garageStandard:"20x20-historical",garageAccessoryHypothesis:true,accessoryRearSetbackFt:5,accessorySideSetbackFt:5,actualSouthGarageSetbackFt:6,minimumGarageDuplexSeparationFt:6,duplexConnected:true,duplexPartyWallIntent:true,baseShapeLocked:true,designDevelopmentPass:"run47-historical-evidence"}};
  }
 };
 
-export const diversityFamilies:FamilySearch[]=[compactFrontBlock,deepNarrowRear,frontLRearStandard,balancedTwinBlocks,rearGarageStack];
+export const diversityFamilies:FamilySearch[]=[...adaptiveFamilies,credibleRearGarageStack,compactFrontBlock,deepNarrowRear,frontLRearStandard,balancedTwinBlocks];
