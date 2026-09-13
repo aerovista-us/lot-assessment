@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { assessLot, LotAssessmentInput } from "@/lib/assessment";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { IrregularLotSketch, type IrregularLotSnapshot } from "@/components/IrregularLotSketch";
+import { assessLot, type LotAssessmentInput } from "@/lib/assessment";
 import { trackEvent } from "@/lib/analytics";
 import {
   assessInformationConfidence,
-  ConfidenceMap,
-  FactState,
+  type ConfidenceMap,
+  type FactState,
   initialConfidence,
   stateLabel
 } from "@/lib/confidence";
@@ -68,7 +69,7 @@ const groups: GroupDef[] = [
   {
     id: "access",
     title: "ACCESS",
-    note: "This is a width screen only; turning geometry still needs a site-plan check.",
+    note: "This public gate screens width; turning geometry still needs a site-plan check.",
     fields: [
       { key: "drivewayWidthFt", label: "Available driveway width", suffix: "ft", min: 0 },
       { key: "minimumAccessWidthFt", label: "Assumed minimum access", suffix: "ft", min: 0 }
@@ -88,6 +89,7 @@ export default function Home() {
   const [input, setInput] = useState<LotAssessmentInput>(initialInput);
   const [confidence, setConfidence] = useState<ConfidenceMap>(initialConfidence);
   const [lotMode, setLotMode] = useState<"RECTANGLE" | "CUSTOM">("RECTANGLE");
+  const [customLot, setCustomLot] = useState<IrregularLotSnapshot | null>(null);
   const [hasRun, setHasRun] = useState(false);
 
   useEffect(() => {
@@ -106,12 +108,31 @@ export default function Home() {
     setConfidence((current) => ({ ...current, [key]: state }));
   };
 
+  const syncCustomLot = useCallback((snapshot: IrregularLotSnapshot) => {
+    setCustomLot(snapshot);
+    if (!snapshot.complete) return;
+    setInput((current) => {
+      if (current.lotWidthFt === snapshot.screenWidthFt && current.lotDepthFt === snapshot.screenDepthFt) return current;
+      return {
+        ...current,
+        lotWidthFt: snapshot.screenWidthFt,
+        lotDepthFt: snapshot.screenDepthFt
+      };
+    });
+    setConfidence((current) => {
+      if (current.lotWidthFt === "USER_SUPPLIED" && current.lotDepthFt === "USER_SUPPLIED") return current;
+      return { ...current, lotWidthFt: "USER_SUPPLIED", lotDepthFt: "USER_SUPPLIED" };
+    });
+  }, []);
+
   const runAssessment = () => {
     setHasRun(true);
     trackEvent("assessment_run", {
       status: result.status,
       confidence: infoConfidence.level,
       lot_mode: lotMode,
+      custom_polygon_vertices: lotMode === "CUSTOM" ? customLot?.points.length ?? 0 : 0,
+      custom_frontage_ft: lotMode === "CUSTOM" ? customLot?.frontageLengthFt ?? 0 : 0,
       units: input.units,
       stories: input.stories,
       garage_spaces_per_unit: input.garageSpacesPerUnit,
@@ -124,13 +145,17 @@ export default function Home() {
     setInput(initialInput);
     setConfidence(initialConfidence);
     setLotMode("RECTANGLE");
+    setCustomLot(null);
     setHasRun(false);
     trackEvent("assessment_reset");
   };
 
   const share = async () => {
-    const text = `LotScope: ${result.status} (${result.score}/100 feasibility), information confidence ${infoConfidence.level} (${infoConfidence.score}/100). Early planning aid only.`;
-    trackEvent("share_assessment", { status: result.status, confidence: infoConfidence.level });
+    const shape = lotMode === "CUSTOM" && customLot?.complete
+      ? ` Irregular parcel: ${fmt(customLot.areaSqFt)} sq ft, ${customLot.frontageLengthFt} ft selected frontage.`
+      : "";
+    const text = `LotScope: ${result.status} (${result.score}/100 feasibility), information confidence ${infoConfidence.level} (${infoConfidence.score}/100).${shape} Early planning aid only.`;
+    trackEvent("share_assessment", { status: result.status, confidence: infoConfidence.level, lot_mode: lotMode });
     if (navigator.share) {
       try {
         await navigator.share({ title: "LotScope", text, url: window.location.origin });
@@ -143,6 +168,8 @@ export default function Home() {
     alert("LotScope summary copied.");
   };
 
+  const visibleGroups = lotMode === "CUSTOM" ? groups.filter((group) => group.id !== "lot") : groups;
+
   return (
     <main className="shell">
       <header className="topbar">
@@ -154,7 +181,7 @@ export default function Home() {
       </header>
 
       <section className="hero">
-        <p className="eyebrow">AEROVISTA LOCAL · GUIDED ASSESSMENT v2.0</p>
+        <p className="eyebrow">AEROVISTA LOCAL · GUIDED ASSESSMENT v2.1</p>
         <h1>Find the constraints before they become redesigns.</h1>
         <p className="lede">Describe the lot, the rules you are using, the project, and access. LotScope keeps physical feasibility separate from how confident we should be in the information behind it.</p>
         <div className="notice"><strong>Planning aid, not permit approval.</strong> LotScope uses the facts and assumptions you enter. It does not invent zoning rules or silently convert assumptions into confirmed facts.</div>
@@ -165,23 +192,25 @@ export default function Home() {
           <strong>QUICK RECTANGLE</strong><span>Use width + depth for a fast dimensional screen.</span>
         </button>
         <button className={lotMode === "CUSTOM" ? "mode-card active" : "mode-card"} onClick={() => setLotMode("CUSTOM")}>
-          <strong>CUSTOM LOT FACTS</strong><span>Use the same assessment as an approximation when the real parcel is irregular.</span>
+          <strong>CUSTOM / IRREGULAR LOT</strong><span>Draw or paste parcel corners and identify the actual street frontage.</span>
         </button>
       </section>
 
       {lotMode === "CUSTOM" && (
-        <div className="notice custom-mode-note"><strong>Custom lot mode is intentionally honest in v2.0.</strong> The Workbench already supports irregular geometry, but this public release does not add a new drawing tool. Width/depth below are treated as an approximate bounding rectangle and information confidence should reflect that.</div>
+        <div className="notice custom-mode-note"><strong>Irregular lot ingest is now public.</strong> Draw or paste the real polygon and select its frontage edge. LotScope measures the polygon area and frontage, then feeds an area-equivalent rectangle into the current public screening math. Exact polygon setback insets, building placement, and vehicle paths remain Workbench-level proof.</div>
       )}
 
       <section className="workspace">
         <article className="input-panel">
           <div className="section-heading">
             <div><p className="eyebrow">STEP 1</p><h2>Describe the site</h2></div>
-            <span className="mode-pill">{lotMode === "RECTANGLE" ? "RECTANGLE" : "CUSTOM / APPROX"}</span>
+            <span className="mode-pill">{lotMode === "RECTANGLE" ? "RECTANGLE" : "IRREGULAR / SCREENED"}</span>
           </div>
 
+          {lotMode === "CUSTOM" && <IrregularLotSketch onChange={syncCustomLot} />}
+
           <div className="input-groups">
-            {groups.map((group) => (
+            {visibleGroups.map((group) => (
               <section className="input-group" key={group.id}>
                 <div className="group-heading"><div><strong>{group.title}</strong><span>{group.note}</span></div></div>
                 <div className="field-grid">
@@ -216,17 +245,21 @@ export default function Home() {
             </select>
           </div>
 
-          <button className="primary-button full" onClick={runAssessment}>Assess this lot</button>
+          <button className="primary-button full" onClick={runAssessment} disabled={lotMode === "CUSTOM" && !customLot?.complete}>Assess this lot</button>
         </article>
 
         <aside className="preview-panel">
           <p className="eyebrow">LIVE CALCULATION</p>
-          <h2>Buildable envelope</h2>
-          <div className="envelope-visual" aria-label="Conceptual rectangular buildable envelope">
+          <h2>{lotMode === "CUSTOM" ? "Irregular lot screen" : "Buildable envelope"}</h2>
+          <div className="envelope-visual" aria-label="Conceptual public screening envelope">
             <div className="lot-box"><div className="build-box"><span>{fmt(result.buildableWidthFt)}′ × {fmt(result.buildableDepthFt)}′</span></div></div>
           </div>
           <div className="metric-list">
-            <div><span>Lot area</span><strong>{fmt(result.lotAreaSqFt)} sq ft</strong></div>
+            {lotMode === "CUSTOM" && customLot?.complete && <>
+              <div><span>Measured polygon area</span><strong>{fmt(customLot.areaSqFt)} sq ft</strong></div>
+              <div><span>Selected frontage</span><strong>{customLot.frontageLengthFt} ft · {customLot.frontageStreet}</strong></div>
+            </>}
+            <div><span>Screening lot area</span><strong>{fmt(result.lotAreaSqFt)} sq ft</strong></div>
             <div><span>Setback envelope</span><strong>{fmt(result.setbackEnvelopeSqFt)} sq ft</strong></div>
             <div><span>Coverage cap</span><strong>{fmt(result.maxCoverageAreaSqFt)} sq ft</strong></div>
             <div><span>Estimated footprint</span><strong>{fmt(result.estimatedProjectFootprintSqFt)} sq ft</strong></div>
@@ -235,7 +268,9 @@ export default function Home() {
             <span>Information confidence</span>
             <strong>{infoConfidence.level} · {infoConfidence.score}/100</strong>
           </div>
-          <p className="microcopy">{lotMode === "RECTANGLE" ? "Quick Rectangle is a dimensional screen. Irregular lines, easements, driveway turns, utilities, slope and building shape still require deeper review." : "Custom Lot Facts uses a rectangular approximation in public v2.0. Do not treat this preview as the true parcel polygon."}</p>
+          <p className="microcopy">{lotMode === "RECTANGLE"
+            ? "Quick Rectangle is a dimensional screen. Irregular lines, easements, driveway turns, utilities, slope and building shape still require deeper review."
+            : "The actual polygon is captured here, but the public result still uses an area-equivalent rectangle for coarse capacity/setback screening. Workbench remains authoritative for true irregular placement and circulation."}</p>
         </aside>
       </section>
 
@@ -266,8 +301,8 @@ export default function Home() {
             <div className="result-columns">
               <article className="verify-panel">
                 <p className="mini-label">ASSUMPTIONS TO VERIFY</p>
-                {infoConfidence.verify.length ? infoConfidence.verify.map((key) => <p className="concern" key={key}>! {fieldLabels[key] || String(key)} — {stateLabel(confidence[key])}</p>) : <p className="check">✓ No tracked input is currently marked assumed or unknown.</p>}
-                {lotMode === "CUSTOM" && <p className="concern">! Parcel shape — public v2.0 is using a bounding-rectangle approximation.</p>}
+                {infoConfidence.verify.length ? infoConfidence.verify.map((key) => <p className="concern" key={key}>! {fieldLabels[key] || String(key)} — {stateLabel(confidence[key])}</p>) : <p className="check">✓ No tracked numeric input is currently marked assumed or unknown.</p>}
+                {lotMode === "CUSTOM" && <p className="concern">! Parcel shape — polygon/frontage are captured, but exact irregular setback geometry is not yet part of the public screening verdict.</p>}
               </article>
               <article className="next-checks"><p className="mini-label">VERIFY NEXT</p><ol>{result.nextChecks.map((item) => <li key={item}>{item}</li>)}</ol></article>
             </div>
@@ -280,7 +315,7 @@ export default function Home() {
       <section className="section disclaimer-card">
         <p className="eyebrow">PUBLIC PROMOTION RULE</p>
         <h2>Proven capability first.</h2>
-        <p>LotScope Public packages capabilities already proven in the shared engine and Workbench. New geometry, circulation, placement and solver behavior is validated internally before it is promoted here.</p>
+        <p>LotScope Public packages capabilities already proven in the shared engine and Workbench. The irregular-lot sketcher records real parcel polygons and frontage, while deeper placement and turning claims stay behind the Workbench evidence gate until they are proven for the specific site.</p>
       </section>
 
       <footer>LotScope · “Can I Build That Here?” · An AeroVista Local utility</footer>
