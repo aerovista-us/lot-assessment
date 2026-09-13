@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import AeroVistaLocalBadge from "@/components/AeroVistaLocalBadge";
 import UmamiAnalytics from "@/components/UmamiAnalytics";
+import VNextPublicBanner from "@/components/VNextPublicBanner";
 import "./globals.css";
 import "./guided.css";
 
@@ -47,6 +48,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="en">
       <body>
         {children}
+        <VNextPublicBanner />
         <AeroVistaLocalBadge />
         <UmamiAnalytics />
       </body>
