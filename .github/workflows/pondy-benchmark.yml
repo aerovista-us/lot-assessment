@@ -61,9 +61,9 @@ jobs:
           set -euo pipefail
           curl -fsS http://127.0.0.1:3000/ > /tmp/public.html
           curl -fsS http://127.0.0.1:3000/workbench > /tmp/workbench.html
-          grep -q 'GUIDED ASSESSMENT v2.0' /tmp/public.html
+          grep -q 'GUIDED ASSESSMENT v2.1' /tmp/public.html
           grep -q 'QUICK RECTANGLE' /tmp/public.html
-          grep -q 'CUSTOM LOT FACTS' /tmp/public.html
+          grep -q 'CUSTOM / IRREGULAR LOT' /tmp/public.html
           grep -q 'Workbench' /tmp/workbench.html
 
       - name: Run authoritative Pondy benchmark
