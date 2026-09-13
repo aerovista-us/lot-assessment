@@ -1,4 +1,5 @@
-import type { AssessmentEvidence, EvidenceGate, EvidenceStatus } from "@/packages/evidence";
+import type { AssessmentEvidence, EvidenceGate, EvidenceStatus, LifecycleStage } from "@/packages/evidence";
+import type { CandidateMobilityAudit } from "@/packages/placement/mobility-audit";
 
 export type WorkbenchProgramUnit = {
   unitId: string;
@@ -27,6 +28,7 @@ export type WorkbenchCandidateEvidenceInput = {
   id: string;
   family: string;
   conceptGroup?: string;
+  lifecycle?: LifecycleStage;
   physicalPass: boolean;
   programPass: boolean;
   combinedPass: boolean;
@@ -36,9 +38,11 @@ export type WorkbenchCandidateEvidenceInput = {
   minimumClearanceFt: number | null;
   promotionBoundaryClearanceFt?: number | null;
   physicalIssues?: string[];
+  mobilityAudit?: CandidateMobilityAudit;
   promotionChecks?: {
     clearanceReady: boolean;
     capacityReady: boolean;
+    mobilityReady?: boolean;
     minimumClearanceFt: number;
     requiredNetLivingCapacitySqFt: number;
   };
@@ -78,16 +82,59 @@ function physicalGate(candidate: WorkbenchCandidateEvidenceInput): EvidenceGate 
     label: "Physical geometry",
     status: candidate.physicalPass ? (tight ? "PASS_TIGHT" : "PASS") : "FAIL",
     summary: candidate.physicalPass
-      ? `The candidate clears the current physical placement / circulation gates${clearance == null ? "." : ` with ${clearance.toFixed(2)} ft minimum reported clearance.`}`
+      ? `The candidate clears the current placement and hard mobility gates${clearance == null ? "." : ` with ${clearance.toFixed(2)} ft minimum legacy solver clearance.`}`
       : `The candidate still has physical issues: ${(candidate.physicalIssues ?? ["unresolved geometry"]).slice(0, 2).join("; ")}.`,
     publicSummary: candidate.physicalPass
       ? "The current concept clears the internal physical geometry screen."
       : "The current concept still has unresolved physical geometry conflicts.",
     details: candidate.physicalIssues,
     metrics: [
-      { id: "minimum-clearance", label: "Minimum clearance", value: clearance == null ? null : Number(clearance.toFixed(3)), unit: "ft" },
+      { id: "minimum-clearance", label: "Legacy solver clearance", value: clearance == null ? null : Number(clearance.toFixed(3)), unit: "ft" },
       { id: "repair-applied", label: "Bounded repair applied", value: Boolean(candidate.repaired) }
     ]
+  };
+}
+
+function mobilityGate(candidate: WorkbenchCandidateEvidenceInput): EvidenceGate {
+  const mobility = candidate.mobilityAudit;
+  if (!mobility) {
+    return {
+      id: "mobility",
+      label: "Hardened vehicle mobility",
+      status: "WATCH",
+      summary: "The hardened full-body mobility audit was not emitted for this candidate.",
+      publicSummary: "Vehicle maneuverability still needs the deeper Workbench audit."
+    };
+  }
+
+  const metrics = mobility.drives.flatMap((drive) => {
+    const result = drive.result;
+    return [
+      { id: `${drive.driveId}-garage`, label: `${drive.driveId} garage`, value: drive.targetGarage ? `${drive.targetGarage.widthFt}×${drive.targetGarage.depthFt}` : null, unit: drive.targetGarage ? "ft" : undefined },
+      { id: `${drive.driveId}-door`, label: `${drive.driveId} door margin`, value: result?.doorClearanceFt == null ? null : Number(result.doorClearanceFt.toFixed(3)), unit: "ft" },
+      { id: `${drive.driveId}-radius`, label: `${drive.driveId} min turn radius`, value: result?.minimumTurningRadiusFt == null ? null : Number(result.minimumTurningRadiusFt.toFixed(2)), unit: "ft" },
+      { id: `${drive.driveId}-obstacle`, label: `${drive.driveId} obstacle clearance`, value: result?.minimumObstacleClearanceFt == null ? null : Number(result.minimumObstacleClearanceFt.toFixed(3)), unit: "ft" },
+      { id: `${drive.driveId}-pavement`, label: `${drive.driveId} pavement violations`, value: result?.pavementViolationSamples ?? null },
+      { id: `${drive.driveId}-reverse`, label: `${drive.driveId} reverse replay`, value: result?.reverseReplayPass ?? false }
+    ];
+  });
+
+  return {
+    id: "mobility",
+    label: "Hardened vehicle mobility",
+    status: mobility.status,
+    summary: mobility.promotionReady
+      ? `All ${mobility.drives.length} modeled garage approaches clear the independent full-body promotion audit.`
+      : mobility.pass
+        ? `Vehicle geometry is hard-pass valid, but practical promotion remains open: ${mobility.warnings[0] ?? "one or more comfort thresholds remain tight"}.`
+        : `The independent full-body audit blocks promotion: ${mobility.failures[0] ?? "mobility proof failed"}.`,
+    publicSummary: mobility.promotionReady
+      ? "The modeled vehicle can enter, park, and replay the outbound path within the current maneuver envelope."
+      : mobility.pass
+        ? "The modeled vehicle path works geometrically but still has a practical-use concern."
+        : "The current vehicle-access geometry is not yet proven for full entry, enclosed parking, and outbound replay.",
+    details: [...mobility.failures, ...mobility.warnings].slice(0, 8),
+    metrics
   };
 }
 
@@ -115,20 +162,26 @@ function promotionGate(candidate: WorkbenchCandidateEvidenceInput): EvidenceGate
     return { id: "promotion", label: "Promotion readiness", status: "WATCH", summary: "Promotion checks were not emitted for this candidate." };
   }
   const pass = Boolean(candidate.promotionReady);
+  const blockers = [
+    !checks.clearanceReady ? "boundary clearance" : null,
+    !checks.capacityReady ? "residential capacity" : null,
+    checks.mobilityReady === false ? "hardened vehicle mobility" : null
+  ].filter(Boolean);
   return {
     id: "promotion",
     label: "Promotion readiness",
     status: pass ? "PASS" : "WATCH",
     summary: pass
       ? "Candidate clears the current Workbench promotion thresholds."
-      : `Candidate remains below one or more promotion thresholds${!checks.clearanceReady ? " (boundary clearance)" : ""}${!checks.capacityReady ? " (residential capacity)" : ""}.`,
+      : `Candidate remains below one or more promotion thresholds${blockers.length ? ` (${blockers.join(", ")})` : ""}.`,
     publicSummary: pass
       ? "The concept has cleared the current internal promotion thresholds."
       : "The concept is still being refined before it should be treated as a promoted option.",
     metrics: [
       { id: "promotion-clearance", label: "Boundary clearance", value: candidate.promotionBoundaryClearanceFt == null ? null : Number(candidate.promotionBoundaryClearanceFt.toFixed(3)), unit: "ft" },
       { id: "clearance-target", label: "Promotion clearance target", value: checks.minimumClearanceFt, unit: "ft" },
-      { id: "capacity-target", label: "Net living capacity target", value: checks.requiredNetLivingCapacitySqFt, unit: "sq ft" }
+      { id: "capacity-target", label: "Net living capacity target", value: checks.requiredNetLivingCapacitySqFt, unit: "sq ft" },
+      { id: "mobility-ready", label: "Hardened mobility ready", value: checks.mobilityReady ?? null }
     ]
   };
 }
@@ -169,7 +222,7 @@ function pavementGate(candidate: WorkbenchCandidateEvidenceInput): EvidenceGate 
     id: "pavement",
     label: "Pavement / site efficiency",
     status: highShare ? "WATCH" : "PASS",
-    summary: `${candidate.pavement.buildableSharePct.toFixed(0)}% of the modeled drive centerline is estimated to occupy otherwise-buildable land under the current benchmark method.`,
+    summary: `${candidate.pavement.buildableSharePct.toFixed(0)}% of the modeled drive centerline is estimated to occupy otherwise-buildable land. Hardened mobility separately verifies the full vehicle body against the modeled ${candidate.mobilityAudit?.driveWidthFt ?? 12} ft corridor.`,
     publicSummary: highShare
       ? "Vehicle access consumes a meaningful share of otherwise-buildable land and may be worth optimizing."
       : "The current access pattern avoids excessive use of the modeled buildable envelope.",
@@ -182,17 +235,17 @@ function pavementGate(candidate: WorkbenchCandidateEvidenceInput): EvidenceGate 
 }
 
 export function workbenchCandidateEvidence(candidate: WorkbenchCandidateEvidenceInput, run: WorkbenchRunContext): AssessmentEvidence {
-  const lifecycle = candidate.freeze?.freezeHash
+  const lifecycle: LifecycleStage = candidate.lifecycle ?? (candidate.freeze?.freezeHash
     ? "FROZEN"
     : candidate.promotionReady
       ? "PROMOTED"
       : candidate.combinedPass
         ? "AUDITED"
-        : "SCREENED";
+        : "SCREENED");
 
   const geometryVerdict = candidate.physicalPass ? "PASS" : "FAIL";
   const releaseVerdict = candidate.promotionReady && candidate.roomPacking?.pass ? "READY" : geometryVerdict === "FAIL" ? "BLOCKED" : "CONDITIONAL";
-  const gates = [physicalGate(candidate), programGate(candidate), promotionGate(candidate), architectureGate(candidate), pavementGate(candidate), {
+  const gates = [physicalGate(candidate), mobilityGate(candidate), programGate(candidate), promotionGate(candidate), architectureGate(candidate), pavementGate(candidate), {
     id: "professional-validation",
     label: "Professional validation",
     status: "PROFESSIONAL_REVIEW" as const,
@@ -201,6 +254,8 @@ export function workbenchCandidateEvidence(candidate: WorkbenchCandidateEvidence
   }];
 
   const findings = [
+    ...(candidate.mobilityAudit?.failures ?? []).slice(0, 4).map((issue, index) => ({ id: `mobility-fail-${index}`, title: "Mobility blocker", status: "FAIL" as const, summary: issue })),
+    ...(candidate.mobilityAudit?.warnings ?? []).slice(0, 4).map((issue, index) => ({ id: `mobility-watch-${index}`, title: "Mobility watch", status: "WATCH" as const, summary: issue })),
     ...(candidate.physicalIssues ?? []).slice(0, 4).map((issue, index) => ({ id: `physical-${index}`, title: "Physical issue", status: "WATCH" as const, summary: issue, audience: ["WORKBENCH" as const] })),
     ...(candidate.program.reasons ?? []).slice(0, 3).map((reason, index) => ({ id: `program-${index}`, title: "Program note", status: candidate.programPass ? "PASS" as const : "WATCH" as const, summary: reason }))
   ];
@@ -216,16 +271,18 @@ export function workbenchCandidateEvidence(candidate: WorkbenchCandidateEvidence
     feasibilityLabel: candidate.promotionReady ? "Promotion-ready geometry" : candidate.combinedPass ? "Technical pass · promotion tuning" : candidate.physicalPass ? "Physical pass · program tuning" : "Physical tuning required",
     informationConfidenceLabel: "Workbench modeled evidence · external approvals open",
     executiveSummary: candidate.promotionReady
-      ? "This candidate clears the current physical, program, clearance, and capacity promotion gates. Architectural packing and professional-review boundaries determine whether it should advance further."
+      ? "This candidate clears physical, hardened mobility, program, clearance, and capacity promotion gates. Architectural packing and professional-review boundaries determine whether it should advance further."
       : candidate.combinedPass
         ? "This candidate is technically feasible under the current Workbench model but has not cleared every promotion threshold."
         : candidate.physicalPass
-          ? "The physical site geometry works under the current model, but the residential program still needs tuning."
-          : "This candidate remains in physical-geometry development and should not be promoted yet.",
+          ? "The hard site and mobility geometry works under the current model, but the residential program still needs tuning."
+          : "This candidate remains in physical or mobility development and should not be promoted yet.",
     assumptions: [
       `Solver: ${run.solver}.`,
       `Scoring: ${run.scoringVersion}.`,
       `Scenario: ${run.scenario}.`,
+      candidate.mobilityAudit ? `Mobility door model: ${candidate.mobilityAudit.doorModel}; pavement model: ${candidate.mobilityAudit.pavementModel}.` : "Hardened mobility audit not attached.",
+      "Generated garage-door openings are design-development geometry, not structural door sizing approval.",
       "Modeled geometry and heuristics are design-development evidence, not zoning/code/civil/permit approval."
     ],
     gates,
