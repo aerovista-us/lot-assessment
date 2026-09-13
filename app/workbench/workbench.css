@@ -48,5 +48,44 @@
 .status-review { background:#fb923c; }
 .status-blocked { background:#fb7185; }
 .command-block { margin:16px 0 0; padding:16px; border-radius:11px; border:1px solid var(--line); background:#080b10; color:#d6dae0; overflow:auto; font-size:12px; line-height:1.65; }
-@media (max-width: 1200px) { .wb-grid { grid-template-columns:280px 1fr; } .wb-grid > aside:last-child { grid-column:1 / -1; } .candidate-list { grid-template-columns:repeat(2,1fr); } }
-@media (max-width: 820px) { .wb-grid { grid-template-columns:1fr; } .candidate-list,.pipeline-grid,.score-grid { grid-template-columns:1fr; } .site-svg { min-height:320px; } }
+
+.automation-shell { padding-bottom:72px; }
+.automation-hero { margin-top:22px; }
+.automation-toolbox { margin-top:16px; }
+.automation-tool-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; margin-top:16px; }
+.automation-tool { border:1px solid var(--line); border-radius:12px; padding:14px; background:rgba(255,255,255,.025); min-height:190px; }
+.automation-tool > div { display:flex; justify-content:space-between; gap:8px; align-items:center; }
+.automation-tool > div span,.automation-tool > div b { font-size:8px; letter-spacing:.08em; font-weight:900; }
+.automation-tool > div span { color:var(--muted); }
+.automation-tool > div b { color:#f8cf75; }
+.automation-tool h3 { margin:12px 0 7px; font-size:15px; }
+.automation-tool p { color:#c4cad2; font-size:11px; line-height:1.5; min-height:50px; }
+.automation-tool small { display:block; color:var(--muted); font-size:9px; line-height:1.45; border-top:1px solid var(--line); padding-top:9px; margin-top:9px; }
+.automation-tool.state-experimental { border-color:rgba(96,165,250,.35); }
+.automation-tool.state-planned { opacity:.72; border-style:dashed; }
+.automation-status { margin-top:16px; }
+.automation-focus-grid { display:grid; grid-template-columns:minmax(0,1.15fr) minmax(360px,.85fr); gap:14px; margin-top:16px; align-items:start; }
+.automation-decision h2 { font-size:21px; line-height:1.25; }
+.automation-metrics { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; margin-top:10px; }
+.automation-metrics span { display:flex; flex-direction:column; gap:3px; border:1px solid var(--line); border-radius:9px; padding:9px; color:var(--muted); font-size:8px; text-transform:uppercase; letter-spacing:.06em; }
+.automation-metrics b { color:var(--text); font-size:13px; }
+.strategy-state-list { display:grid; gap:8px; margin-top:14px; }
+.strategy-state { display:grid; grid-template-columns:72px 1fr; gap:10px; border:1px solid var(--line); border-radius:10px; padding:10px; align-items:start; }
+.strategy-state > span { font-size:8px; font-weight:900; letter-spacing:.08em; border-radius:999px; padding:5px 7px; text-align:center; background:rgba(255,255,255,.05); }
+.strategy-state p { margin:0; display:flex; flex-direction:column; gap:4px; }
+.strategy-state strong { font-size:11px; }
+.strategy-state small { color:var(--muted); font-size:9px; line-height:1.4; }
+.strategy-applied { border-color:rgba(74,222,128,.3); }
+.strategy-applied > span { color:#86efac; background:rgba(74,222,128,.08); }
+.strategy-next { border-color:rgba(245,158,11,.35); }
+.strategy-next > span { color:#f8cf75; background:rgba(245,158,11,.08); }
+.strategy-planned { opacity:.72; border-style:dashed; }
+.automation-candidate-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:9px; margin-top:14px; }
+.automation-candidate-grid .current-card { min-height:125px; }
+.automation-candidate-grid .current-card p { margin:8px 0 4px; color:#c3c9d1; font-size:10px; }
+.automation-candidate-grid .current-card small { color:var(--muted); font-size:9px; line-height:1.35; }
+.warn-text { color:#f8cf75 !important; }
+.report-frame { width:100%; min-height:calc(100vh - 130px); border:1px solid var(--line); border-radius:14px; background:white; }
+
+@media (max-width: 1200px) { .wb-grid { grid-template-columns:280px 1fr; } .wb-grid > aside:last-child { grid-column:1 / -1; } .candidate-list { grid-template-columns:repeat(2,1fr); } .automation-tool-grid,.automation-candidate-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } .automation-focus-grid { grid-template-columns:1fr; } }
+@media (max-width: 820px) { .wb-grid { grid-template-columns:1fr; } .candidate-list,.pipeline-grid,.score-grid,.automation-tool-grid,.automation-candidate-grid,.automation-metrics { grid-template-columns:1fr; } .site-svg { min-height:320px; } }
