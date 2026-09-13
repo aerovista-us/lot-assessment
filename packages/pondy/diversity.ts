@@ -1,5 +1,6 @@
 import { FamilySearch } from "@/packages/optimizer";
 import { PlacementCandidate } from "@/packages/placement";
+import { credibleFamilies } from "@/packages/pondy/credible";
 
 type Wing = { id: string; x: number; y: number; widthFt: number; depthFt: number };
 
@@ -93,4 +94,4 @@ export const rearGarageStack:FamilySearch={
  }
 };
 
-export const diversityFamilies:FamilySearch[]=[compactFrontBlock,deepNarrowRear,frontLRearStandard,balancedTwinBlocks,rearGarageStack];
+export const diversityFamilies:FamilySearch[]=[...credibleFamilies,compactFrontBlock,deepNarrowRear,frontLRearStandard,balancedTwinBlocks,rearGarageStack];
