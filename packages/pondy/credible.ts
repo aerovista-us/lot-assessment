@@ -33,6 +33,14 @@ const rearDrive = (spineY:number,turnX:number,bendX:number,bendY:number,mouthX:n
  * design vehicle. Each garage is 22x22. The principal masses also receive small,
  * explicit translation ranges so a good access topology is not discarded merely
  * because a house started one or two feet too close to the swept path.
+ *
+ * Movement hierarchy for this pass:
+ * 1) translate a residential mass / its matched garage inside legal envelopes,
+ * 2) translate detached rear garages and the connected duplex independently,
+ * 3) reshape only the local drive controls needed to connect them,
+ * 4) enlarge paved maneuvering area only when the measured sweep proves it necessary.
+ * Rotation remains a separate follow-on capability because the current placement
+ * primitive is axis-aligned and must not fake rotated clearance with a larger box.
  */
 export const credibleCompactFront: FamilySearch = {
   id:"credible-compact-front",
