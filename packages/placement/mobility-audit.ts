@@ -28,7 +28,8 @@ export type CandidateMobilityAudit = {
   promotionReady: boolean;
   status: "PASS" | "PASS_TIGHT" | "WATCH" | "FAIL";
   driveWidthFt: number;
-  pavementModel: "CENTERLINE_CORRIDOR_V1";
+  turningPavementWidthFt: number;
+  pavementModel: "CENTERLINE_CORRIDOR_V1" | "CURVATURE_AWARE_FLARE_V2";
   doorModel: "CENTERED_OPENING_WITH_1FT_PIERS";
   drives: CandidateDriveMobilityAudit[];
   warnings: string[];
@@ -39,6 +40,7 @@ const GENERATED_DOOR_PIER_FT = 1;
 const HARD_DOOR_CLEARANCE_FT = 0.25;
 const COMFORTABLE_DOOR_CLEARANCE_FT = 0.75;
 const PREFERRED_FIXED_CLEARANCE_FT = 1;
+const TURN_PAVEMENT_COMFORT_FT = 0.75;
 
 function homeResidualObstacles(home: AxisAlignedPlacement, garage: AxisAlignedPlacement): Obstacle[] {
   const hx1 = home.x;
@@ -139,10 +141,39 @@ function segmentCorridor(a: Point, b: Point, widthFt: number): Polygon {
   return [[a[0] + nx, a[1] + ny], [b[0] + nx, b[1] + ny], [b[0] - nx, b[1] - ny], [a[0] - nx, a[1] - ny]];
 }
 
-function pavementZones(path: readonly Point[], widthFt: number): Polygon[] {
+/**
+ * A 12 ft straight driveway does not imply a 12 ft paved envelope through a 25 ft
+ * rear-axle-radius turn. The front outside corner of the design vehicle sweeps farther
+ * from the axle path than half the vehicle width. Compute the local paved flare needed
+ * to contain that full-body sweep, then add a modest construction/driver comfort margin.
+ */
+function requiredTurningPavementWidth(vehicle: VehicleSpec, driveWidthFt: number): number {
+  const radius = vehicle.minRearAxleRadiusFt;
+  const halfWidth = vehicle.widthFt / 2;
+  const rearAxleToFront = vehicle.wheelbaseFt + vehicle.frontOverhangFt;
+  const outerFrontOffset = Math.sqrt((radius + halfWidth) ** 2 + rearAxleToFront ** 2) - radius;
+  const required = outerFrontOffset * 2 + TURN_PAVEMENT_COMFORT_FT * 2;
+  return Math.max(driveWidthFt, Math.ceil(required * 4) / 4);
+}
+
+function pavementZones(
+  poses: ReturnType<typeof filletPath>["poses"],
+  driveWidthFt: number,
+  turningWidthFt: number
+): Polygon[] {
   const zones: Polygon[] = [];
-  for (let i = 0; i < path.length - 1; i += 1) zones.push(segmentCorridor(path[i], path[i + 1], widthFt));
-  for (const [x, y] of path.slice(1, -1)) zones.push(rectangle(x - widthFt / 2, y - widthFt / 2, widthFt, widthFt));
+  for (let i = 0; i < poses.length - 1; i += 1) {
+    const a: Point = [poses[i].x, poses[i].y];
+    const b: Point = [poses[i + 1].x, poses[i + 1].y];
+    if (Math.hypot(b[0] - a[0], b[1] - a[1]) < 0.02) continue;
+    const width = poses[i].kind === "arc" || poses[i + 1].kind === "arc" ? turningWidthFt : driveWidthFt;
+    zones.push(segmentCorridor(a, b, width));
+  }
+  for (let i = 1; i < poses.length - 1; i += 1) {
+    const pose = poses[i];
+    const width = pose.kind === "arc" ? turningWidthFt : driveWidthFt;
+    zones.push(rectangle(pose.x - width / 2, pose.y - width / 2, width, width));
+  }
   return zones;
 }
 
@@ -189,12 +220,13 @@ function auditDrive(problem: PlacementProblem, candidate: PlacementCandidate, dr
   const pathIssues = pathIssueLabels(path.issues);
   if (path.issues.length) failures.push(...pathIssues);
   const poses: MotionPose[] = path.poses.map((pose) => ({ x: pose.x, y: pose.y, headingRad: pose.headingRad, gear: 1 }));
+  const turningPavementWidthFt = requiredTurningPavementWidth(vehicle, driveWidthFt);
   const result = auditMotionPath({
     parcel: problem.parcel,
     poses,
     vehicle,
     obstacles: obstaclesForDrive(candidate, garage.id),
-    pavementZones: pavementZones(drive.points, driveWidthFt),
+    pavementZones: pavementZones(path.poses, driveWidthFt, turningPavementWidthFt),
     allowedNonPavementZones: [placementPolygon(garage)],
     allowOutside: problem.allowVehicleOutside,
     garageOpening: opening,
@@ -237,6 +269,8 @@ function auditDrive(problem: PlacementProblem, candidate: PlacementCandidate, dr
 
 export function auditCandidateMobility(problem: PlacementProblem, candidate: PlacementCandidate, options?: { driveWidthFt?: number }): CandidateMobilityAudit {
   const driveWidthFt = options?.driveWidthFt ?? 12;
+  const vehicle = problem.vehicle ?? FULL_SIZE_SUV;
+  const turningPavementWidthFt = requiredTurningPavementWidth(vehicle, driveWidthFt);
   const drives = candidate.drives.map((drive) => auditDrive(problem, candidate, drive, driveWidthFt));
   const pass = drives.length > 0 && drives.every((drive) => drive.hardPass);
   const promotionReady = pass && drives.every((drive) => drive.promotionReady);
@@ -251,7 +285,8 @@ export function auditCandidateMobility(problem: PlacementProblem, candidate: Pla
     promotionReady,
     status,
     driveWidthFt,
-    pavementModel: "CENTERLINE_CORRIDOR_V1",
+    turningPavementWidthFt,
+    pavementModel: "CURVATURE_AWARE_FLARE_V2",
     doorModel: "CENTERED_OPENING_WITH_1FT_PIERS",
     drives,
     warnings: [...new Set(drives.flatMap((drive) => drive.warnings))],
