@@ -215,7 +215,7 @@ export const credibleRearGarageStack: FamilySearch = {
         {id:"DRIVE-A",garageId:"GARAGE-A",points:[[151,v.spineY],[v.turnX,v.spineY],[v.flareX,36],[mouthX+12,southMouthY+12],[mouthX+6,southMouthY+6],[mouthX,southMouthY]],movableControlPoints:[1,2,3,4],controlPointLimitFt:2.5},
         {id:"DRIVE-B",garageId:"GARAGE-B",points:[[151,v.spineY],[v.turnX,v.spineY],[v.flareX,38],[mouthX+10,northMouthY],[mouthX,northMouthY]],movableControlPoints:[1,2,3],controlPointLimitFt:2.5}
       ],
-      metadata:{topology:"accessory-rear-stack-connected-L-duplex-22",designGroup:"rear-garage-stack",designIntent:"owner-base-shape-accessory-rear-garages-L-duplex-22",intendedLivingA:1800,intendedLivingB:1800,garageStandard:"22x22",garagePlacementLockedToRear:true,garageAccessoryHypothesis:true,accessoryRearSetbackFt:5,accessorySideSetbackFt:5,minimumGarageDuplexSeparationFt:6,duplexConnected:true,duplexPartyWallIntent:true,adaptiveBuildingTranslation:true,mobilityRebuild:true,designDevelopmentPass:"hardened-22-adaptive-translation"}
+      metadata:{topology:"accessory-rear-stack-connected-L-duplex-22",designGroup:"rear-garage-stack",designIntent:"owner-base-shape-accessory-rear-garages-L-duplex-22",intendedLivingA:1800,intendedLivingB:1800,garageStandard:"22x22",garagePlacementLockedToRear:true,garageAccessoryHypothesis:true,accessoryRearSetbackFt:5,accessorySideSetbackFt:5,minimumGarageDuplexSeparationFt:6,duplexConnected:true,duplexPartyWallIntent:true,adaptiveBuildingTranslation:true,mobilityRebuild:true,designDevelopmentPass:"hardened-22-adaptive-translation",movementPolicy:"translate buildings/garages before consuming more site with pavement"}
     };
   }
 };
