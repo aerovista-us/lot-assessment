@@ -9,6 +9,7 @@ import { diversityFamilies } from "@/packages/pondy/diversity";
 import { R51E_HISTORICAL_CONTROL } from "@/packages/pondy/control";
 import { evaluateProgram } from "@/packages/program";
 import { evaluateRoomPacking } from "@/packages/room-packing";
+import { auditCandidateMobility } from "@/packages/placement/mobility-audit";
 import type { PlacementCandidate } from "@/packages/placement";
 
 export const dynamic = "force-dynamic";
@@ -38,8 +39,8 @@ const ROOM_PACKING_SPEC = {
   circulationAndWallReservePct: 0.14, daylightEdgeTargetFt: 100
 };
 const BENCHMARK_SCENARIO_ID = "baseline-no-alley-plus-detached-accessory-rear-garage";
-const SOLVER_VERSION = "lotscope-diversity-v0.9";
-const SCORING_VERSION = "pondy-site-efficiency-v5";
+const SOLVER_VERSION = "lotscope-diversity-v0.10";
+const SCORING_VERSION = "pondy-site-efficiency-v6";
 
 // Accessory-building hypothesis for detached rear-yard garages only.
 // Segment order follows PONDY_SURVEY: south side, Pennsylvania/front, irregular north side, rear.
@@ -179,32 +180,40 @@ export async function GET() {
     const program = evaluateProgram(item.candidate, PROGRAM);
     const pavement = pavementEfficiency(item.candidate);
     const accessoryGarageCandidate = item.candidate.family === "rear-garage-stack";
+    const placementProblem = accessoryGarageCandidate ? pondyAccessoryGarageProblem : pondyProblem;
+    const mobilityAudit = auditCandidateMobility(placementProblem, item.candidate, { driveWidthFt: BENCHMARK_DRIVE_WIDTH_FT });
     const principalHomeContainmentPass = !accessoryGarageCandidate || homeInsidePrincipalEnvelope(item.candidate);
-    const physicalPass = item.evaluation.pass && principalHomeContainmentPass;
+    const physicalPass = item.evaluation.pass && principalHomeContainmentPass && mobilityAudit.pass;
     const combinedPass = physicalPass && program.pass;
     const promotionBoundaryClearanceFt = nonAccessBoundaryClearance(item.candidate);
     const clearanceReady = (promotionBoundaryClearanceFt ?? 0) >= PROMOTION_CLEARANCE_FT;
     const capacityReady = targetCapacityReady(program);
-    const promotionReady = combinedPass && clearanceReady && capacityReady;
+    const mobilityReady = mobilityAudit.promotionReady;
+    const promotionReady = combinedPass && clearanceReady && capacityReady && mobilityReady;
     const physicalPenalty = Math.min(item.objective / 1000, 100);
     const buildablePavementPenalty = Math.min(pavement.estimatedBuildablePavementSqFt / 45, 35);
     const totalPavementPenalty = Math.min(pavement.estimatedTotalPavementSqFt / 220, 12);
     const livingTargetPenalty = preferredLivingPenalty(program);
     const capacityPenalty = targetCapacityPenalty(program);
-    const combinedScore = (physicalPass ? 100 : 0) + program.qualityScore - physicalPenalty - buildablePavementPenalty - totalPavementPenalty - livingTargetPenalty - capacityPenalty;
+    const mobilityPenalty = mobilityAudit.status === "PASS" ? 0 : mobilityAudit.status === "PASS_TIGHT" ? 8 : mobilityAudit.status === "WATCH" ? 18 : 40;
+    const combinedScore = (physicalPass ? 100 : 0) + program.qualityScore - physicalPenalty - buildablePavementPenalty - totalPavementPenalty - livingTargetPenalty - capacityPenalty - mobilityPenalty;
     const metadata = item.candidate.metadata ?? {};
     const physicalIssues = item.evaluation.issues.slice();
     if (!principalHomeContainmentPass) physicalIssues.push("residential mass outside principal-building envelope");
+    physicalIssues.push(...mobilityAudit.failures.slice(0, 4));
+    if (mobilityAudit.pass && !mobilityAudit.promotionReady) physicalIssues.push(...mobilityAudit.warnings.slice(0, 2));
 
     return {
       id: item.candidate.id,
       family: item.candidate.family,
       conceptGroup: conceptGroup(item.candidate.family, metadata),
+      lifecycle: promotionReady ? "PROMOTED" : combinedPass ? "AUDITED" : "SCREENED",
       combinedPass,
       promotionReady,
       promotionChecks: {
         clearanceReady,
         capacityReady,
+        mobilityReady,
         minimumClearanceFt: PROMOTION_CLEARANCE_FT,
         targetLivingSqFt: PREFERRED_LIVING_SQFT,
         targetCapacityMargin: PROMOTION_CAPACITY_MARGIN,
@@ -214,13 +223,14 @@ export async function GET() {
       programPass: program.pass,
       combinedScore,
       physicalObjective: item.objective,
-      scoring: { physicalPenalty, buildablePavementPenalty, totalPavementPenalty, livingTargetPenalty, capacityPenalty },
+      scoring: { physicalPenalty, buildablePavementPenalty, totalPavementPenalty, livingTargetPenalty, capacityPenalty, mobilityPenalty },
       pavement,
+      mobilityAudit,
       repaired: item.repaired,
       repairActions: item.repairActions,
       minimumClearanceFt: item.evaluation.minimumClearanceFt,
       promotionBoundaryClearanceFt,
-      physicalIssues: physicalIssues.slice(0, 8),
+      physicalIssues: [...new Set(physicalIssues)].slice(0, 10),
       program,
       placements: item.candidate.placements,
       drives: item.candidate.drives,
@@ -249,6 +259,7 @@ export async function GET() {
       const roomPacking = evaluateRoomPacking(freeze, ROOM_PACKING_SPEC);
       return {
         ...result,
+        lifecycle: "FROZEN" as const,
         freeze,
         roomPacking,
         architecturalScore:
@@ -281,6 +292,7 @@ export async function GET() {
     preferredLivingSqFt: PREFERRED_LIVING_SQFT,
     promotionClearanceFt: PROMOTION_CLEARANCE_FT,
     promotionTargetCapacitySqFt: PROMOTION_TARGET_CAPACITY_SQFT,
+    mobilityAuditSchema: "lotscope-candidate-mobility-v1",
     accessoryGarageEnvelope: {
       segmentSetbacksFt: ACCESSORY_SEGMENT_SETBACK,
       appliesToFamilies: ["rear-garage-stack"],
@@ -292,12 +304,16 @@ export async function GET() {
       "collapse Side Spine/Staggered/E2/G1 near-duplicates into one concept",
       "evaluate owner-selected rear-garage-stack with detached accessory 5 ft rear/side envelope",
       "keep all residential mass inside the principal-building envelope",
+      "require hardened full-body mobility audit before promotion",
+      "require enclosed final parking, generated planning door crossing, reverse replay, and 12 ft modeled pavement-corridor containment",
       "require promotion-ready status before a concept can occupy a shortlist slot",
       "retain up to 250 Compact Front candidates so architectural packing can rank beyond the top physical-only states"
     ],
     benchmarkControl: R51E_HISTORICAL_CONTROL,
     evaluatedCount: evaluated.length,
     physicalPassCount: evaluated.filter((item) => item.physicalPass).length,
+    mobilityPassCount: evaluated.filter((item) => item.mobilityAudit.pass).length,
+    mobilityPromotionReadyCount: evaluated.filter((item) => item.mobilityAudit.promotionReady).length,
     programPassCount: evaluated.filter((item) => item.programPass).length,
     combinedPassCount: evaluated.filter((item) => item.combinedPass).length,
     promotionReadyCount: evaluated.filter((item) => item.promotionReady).length,
