@@ -155,10 +155,81 @@ export const adaptiveStepped = adaptiveFamily({
   ]
 });
 
+/**
+ * Design #2 rotation spike. Keep the northern garage essentially where the vertical
+ * stack fits the accessory envelope, toe the southern garage only a few degrees toward
+ * its arriving path, and move the connected duplex east enough to preserve a real
+ * vehicle corridor. The final south-garage approach is constructed on the rotated
+ * garage longitudinal axis so the solver no longer has to invent a sharp last steering
+ * correction immediately before the door.
+ *
+ * The family intentionally retains id `rear-garage-stack` so the ranked benchmark uses
+ * the detached-accessory envelope and principal-home containment policy already applied
+ * to Design #2. `designIntent` keeps it a distinct concept for evidence comparison.
+ */
+export const rotatedRearGarageStack: FamilySearch = {
+  id: "rear-garage-stack",
+  variables: [
+    { id: "angleDeg", min: 2, max: 4, step: 2 },
+    { id: "spineY", min: 37.5, max: 38.5, step: 0.5 },
+    { id: "turnX", min: 72, max: 76, step: 2 }
+  ],
+  build: (v, serial): PlacementCandidate => {
+    const garageX = 5.8;
+    const garageSouthY = 5.8;
+    const garageNorthY = 29;
+    const garageSize = 22;
+    const angleRad = v.angleDeg * Math.PI / 180;
+    const c = Math.cos(angleRad);
+    const s = Math.sin(angleRad);
+    const southCenterX = garageX + garageSize / 2;
+    const southCenterY = garageSouthY + garageSize / 2;
+    const southDoor: [number, number] = [southCenterX + garageSize / 2 * c, southCenterY + garageSize / 2 * s];
+    const southAlign: [number, number] = [southDoor[0] + 27 * c, southDoor[1] + 27 * s];
+    const northDoor: [number, number] = [garageX + garageSize, garageNorthY + garageSize / 2];
+    const northAlign: [number, number] = [55, northDoor[1]];
+    const duplexX = 62.5;
+    const partyX = 95;
+    const partyGap = 0.04;
+
+    return {
+      id: `PONDY-RGSROT-${serial}`,
+      family: "rear-garage-stack",
+      placements: [
+        { id: "HOME-B", kind: "home", x: duplexX, y: 5, widthFt: partyX - duplexX - partyGap, depthFt: 28, movable: false, integrationGroupId: "unit-B", circulationObstacle: false },
+        { id: "HOME-A", kind: "home", x: partyX, y: 5, widthFt: 128 - partyX, depthFt: 28, movable: false, integrationGroupId: "unit-A", circulationObstacle: false },
+        { id: "GARAGE-A", kind: "garage", x: garageX, y: garageSouthY, widthFt: garageSize, depthFt: garageSize, rotationDeg: v.angleDeg, rotationLimitDeg: 5, movable: false, integrationGroupId: "unit-A", circulationObstacle: true },
+        { id: "GARAGE-B", kind: "garage", x: garageX, y: garageNorthY, widthFt: garageSize, depthFt: garageSize, movable: false, integrationGroupId: "unit-B", circulationObstacle: true }
+      ],
+      drives: [
+        { id: "DRIVE-A", garageId: "GARAGE-A", points: [[151, v.spineY], [v.turnX, v.spineY], southAlign, southDoor], movableControlPoints: [1, 2], controlPointLimitFt: 2 },
+        { id: "DRIVE-B", garageId: "GARAGE-B", points: [[151, v.spineY], [v.turnX, v.spineY], northAlign, northDoor], movableControlPoints: [1, 2], controlPointLimitFt: 2 }
+      ],
+      metadata: {
+        topology: "accessory-rear-stack-rotated-south-garage",
+        designGroup: "rear-garage-stack-rotation-spike",
+        designIntent: "owner-rear-stack-rotated-south-garage",
+        intendedLivingA: 1800,
+        intendedLivingB: 1800,
+        garageStandard: "22x22",
+        southGarageRotationDeg: v.angleDeg,
+        garageAccessoryHypothesis: true,
+        accessoryRearSetbackFt: 5,
+        accessorySideSetbackFt: 5,
+        duplexConnected: true,
+        duplexPartyWallIntent: true,
+        rotationSpike: true,
+        movementPolicy: "rotate detached garage toward arrival and translate/re-proportion residential mass to preserve the proven swept corridor"
+      }
+    };
+  }
+};
+
 export const adaptiveFamilies: FamilySearch[] = [
   adaptiveDeepNarrow,
   adaptiveFrontL,
   adaptiveBalanced,
   adaptiveCompact,
-  adaptiveStepped
+  adaptiveStepped,
+  rotatedRearGarageStack
 ];
