@@ -116,7 +116,9 @@ export function evaluateProgram(candidate: PlacementCandidate, spec: ProgramSpec
     const garageArea = garage ? garage.widthFt * garage.depthFt : null;
     const garageShortSide = garage ? Math.min(garage.widthFt, garage.depthFt) : null;
     const garageOverlap = garage ? homes.reduce((sum, home) => sum + overlapArea(home, garage), 0) : 0;
-    const netLivingCapacity = grossCapacity - garageOverlap;
+    // Capacity is planning-scale square footage. Normalize sub-millionth-SF floating
+    // noise so an exact 1,944 SF design does not fail a 1,944 SF promotion threshold.
+    const netLivingCapacity = Number((grossCapacity - garageOverlap).toFixed(6));
     const primaryShortSide = Math.min(primary.widthFt, primary.depthFt);
     const primaryLongSide = Math.max(primary.widthFt, primary.depthFt);
     const primaryAspect = primaryLongSide / Math.max(primaryShortSide, 0.01);
