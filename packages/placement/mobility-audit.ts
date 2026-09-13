@@ -1,7 +1,7 @@
 import { FULL_SIZE_SUV, filletPath, type Obstacle, type VehicleSpec } from "@/packages/circulation";
 import { auditMotionPath, type GarageOpening, type HardenedMobilityResult, type MotionPose } from "@/packages/circulation/hardened";
-import { rectangle, type Point, type Polygon } from "@/packages/geometry";
-import { placementPolygon, type AxisAlignedPlacement, type DrivePath, type PlacementCandidate, type PlacementProblem } from "@/packages/placement";
+import { rectangle, rotatePoint, type Point, type Polygon } from "@/packages/geometry";
+import { placementCenter, placementPolygon, type AxisAlignedPlacement, type DrivePath, type PlacementCandidate, type PlacementProblem } from "@/packages/placement";
 
 export type CandidateDriveMobilityAudit = {
   driveId: string;
@@ -15,7 +15,7 @@ export type CandidateDriveMobilityAudit = {
     sidePierFt: number;
     source: "GENERATED_PLANNING_GEOMETRY";
   } | null;
-  targetGarage: { widthFt: number; depthFt: number } | null;
+  targetGarage: { widthFt: number; depthFt: number; rotationDeg?: number } | null;
   pathIssues: string[];
   warnings: string[];
   failures: string[];
@@ -43,6 +43,10 @@ const PREFERRED_FIXED_CLEARANCE_FT = 1;
 const TURN_PAVEMENT_COMFORT_FT = 0.75;
 
 function homeResidualObstacles(home: AxisAlignedPlacement, garage: AxisAlignedPlacement): Obstacle[] {
+  if (Math.abs(garage.rotationDeg ?? 0) > 1e-9) {
+    return [{ id: home.id, label: home.id, polygon: placementPolygon(home) }];
+  }
+
   const hx1 = home.x;
   const hy1 = home.y;
   const hx2 = home.x + home.widthFt;
@@ -93,11 +97,21 @@ function distanceOutside(value: number, low: number, high: number) {
   return 0;
 }
 
+function garageRotationRad(garage: AxisAlignedPlacement) {
+  return ((garage.rotationDeg ?? 0) * Math.PI) / 180;
+}
+
+function worldToGarageLocal(garage: AxisAlignedPlacement, point: Point): Point {
+  const rotation = garageRotationRad(garage);
+  return Math.abs(rotation) < 1e-9 ? point : rotatePoint(point, placementCenter(garage), -rotation);
+}
+
 function inferEntryWall(garage: AxisAlignedPlacement, point: Point): GarageOpening["wall"] {
-  const west = Math.abs(point[0] - garage.x) + distanceOutside(point[1], garage.y, garage.y + garage.depthFt);
-  const east = Math.abs(point[0] - (garage.x + garage.widthFt)) + distanceOutside(point[1], garage.y, garage.y + garage.depthFt);
-  const north = Math.abs(point[1] - garage.y) + distanceOutside(point[0], garage.x, garage.x + garage.widthFt);
-  const south = Math.abs(point[1] - (garage.y + garage.depthFt)) + distanceOutside(point[0], garage.x, garage.x + garage.widthFt);
+  const local = worldToGarageLocal(garage, point);
+  const west = Math.abs(local[0] - garage.x) + distanceOutside(local[1], garage.y, garage.y + garage.depthFt);
+  const east = Math.abs(local[0] - (garage.x + garage.widthFt)) + distanceOutside(local[1], garage.y, garage.y + garage.depthFt);
+  const north = Math.abs(local[1] - garage.y) + distanceOutside(local[0], garage.x, garage.x + garage.widthFt);
+  const south = Math.abs(local[1] - (garage.y + garage.depthFt)) + distanceOutside(local[0], garage.x, garage.x + garage.widthFt);
   const choices: Array<[GarageOpening["wall"], number]> = [["west", west], ["east", east], ["north", north], ["south", south]];
   return choices.sort((a, b) => a[1] - b[1])[0][0];
 }
@@ -108,7 +122,7 @@ function generatedOpening(garage: AxisAlignedPlacement, wall: GarageOpening["wal
   if (openingWidth <= 0) return null;
   const openingStart = (wall === "east" || wall === "west" ? garage.y : garage.x) + GENERATED_DOOR_PIER_FT;
   return {
-    garage: { x: garage.x, y: garage.y, widthFt: garage.widthFt, depthFt: garage.depthFt },
+    garage: { x: garage.x, y: garage.y, widthFt: garage.widthFt, depthFt: garage.depthFt, rotationRad: garageRotationRad(garage) },
     wall,
     openingStartFt: openingStart,
     openingEndFt: openingStart + openingWidth,
@@ -126,10 +140,16 @@ function parkedRearAxlePose(garage: AxisAlignedPlacement, wall: GarageOpening["w
 
   const endClearance = Math.max(0, longResidual / 2);
   const axleInset = vehicle.rearOverhangFt + endClearance;
-  if (wall === "east") return { x: garage.x + garage.widthFt - axleInset, y: garage.y + garage.depthFt / 2, headingRad: Math.PI, gear: 1 };
-  if (wall === "west") return { x: garage.x + axleInset, y: garage.y + garage.depthFt / 2, headingRad: 0, gear: 1 };
-  if (wall === "north") return { x: garage.x + garage.widthFt / 2, y: garage.y + axleInset, headingRad: Math.PI / 2, gear: 1 };
-  return { x: garage.x + garage.widthFt / 2, y: garage.y + garage.depthFt - axleInset, headingRad: -Math.PI / 2, gear: 1 };
+  let local: MotionPose;
+  if (wall === "east") local = { x: garage.x + garage.widthFt - axleInset, y: garage.y + garage.depthFt / 2, headingRad: Math.PI, gear: 1 };
+  else if (wall === "west") local = { x: garage.x + axleInset, y: garage.y + garage.depthFt / 2, headingRad: 0, gear: 1 };
+  else if (wall === "north") local = { x: garage.x + garage.widthFt / 2, y: garage.y + axleInset, headingRad: Math.PI / 2, gear: 1 };
+  else local = { x: garage.x + garage.widthFt / 2, y: garage.y + garage.depthFt - axleInset, headingRad: -Math.PI / 2, gear: 1 };
+
+  const rotation = garageRotationRad(garage);
+  if (Math.abs(rotation) < 1e-9) return local;
+  const [x, y] = rotatePoint([local.x, local.y], placementCenter(garage), rotation);
+  return { ...local, x, y, headingRad: local.headingRad + rotation };
 }
 
 function segmentCorridor(a: Point, b: Point, widthFt: number): Polygon {
@@ -198,7 +218,7 @@ function auditDrive(problem: PlacementProblem, candidate: PlacementCandidate, dr
   if (drive.points.length < 2) {
     return {
       driveId: drive.id, garageId: garage.id, hardPass: false, promotionReady: false, status: "FAIL", generatedDoor: null,
-      targetGarage: { widthFt: garage.widthFt, depthFt: garage.depthFt }, pathIssues: [], warnings, failures: ["Drive has fewer than two control points."], result: null
+      targetGarage: { widthFt: garage.widthFt, depthFt: garage.depthFt, rotationDeg: garage.rotationDeg }, pathIssues: [], warnings, failures: ["Drive has fewer than two control points."], result: null
     };
   }
 
@@ -211,7 +231,7 @@ function auditDrive(problem: PlacementProblem, candidate: PlacementCandidate, dr
       driveId: drive.id, garageId: garage.id, hardPass: false, promotionReady: false, status: "FAIL", generatedDoor: opening ? {
         wall, openingWidthFt: opening.openingEndFt - opening.openingStartFt, sidePierFt: GENERATED_DOOR_PIER_FT, source: "GENERATED_PLANNING_GEOMETRY"
       } : null,
-      targetGarage: { widthFt: garage.widthFt, depthFt: garage.depthFt }, pathIssues: [], warnings, failures, result: null
+      targetGarage: { widthFt: garage.widthFt, depthFt: garage.depthFt, rotationDeg: garage.rotationDeg }, pathIssues: [], warnings, failures, result: null
     };
   }
 
@@ -259,7 +279,7 @@ function auditDrive(problem: PlacementProblem, candidate: PlacementCandidate, dr
       sidePierFt: GENERATED_DOOR_PIER_FT,
       source: "GENERATED_PLANNING_GEOMETRY"
     },
-    targetGarage: { widthFt: garage.widthFt, depthFt: garage.depthFt },
+    targetGarage: { widthFt: garage.widthFt, depthFt: garage.depthFt, rotationDeg: garage.rotationDeg },
     pathIssues,
     warnings: [...new Set(warnings)],
     failures: [...new Set(failures)],
