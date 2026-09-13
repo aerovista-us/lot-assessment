@@ -53,10 +53,13 @@ export const balancedTwinBlocks:FamilySearch={id:"balanced-twin-blocks",variable
 
 /**
  * D6 — Accessory Rear Garage Stack + Connected L Duplex.
- * Owner-selected Design #2, now in focused design development.
+ * Owner-selected Design #2, now retained as historical Run 47 evidence.
+ * The active benchmark uses the hardened 22x22 replacement exported through
+ * credibleFamilies so this older 20x20 geometry can be inspected without being
+ * silently rewritten or allowed to promote against the 20.5 ft design vehicle.
  *
  * Evidence sequence:
- * - Base pass proved rear-garage-stack circulation.
+ * - Base pass proved rear-garage-stack circulation under the earlier model.
  * - Run 44 solved Unit B program/capacity with a 22 ft primary depth.
  * - Run 45 produced 10/10 physical + program passes with the legal 28 ft Unit A.
  * - Diagnostic tracing showed its only promotion miss (0.50 ft clearance) came from the
@@ -67,7 +70,7 @@ export const balancedTwinBlocks:FamilySearch={id:"balanced-twin-blocks",variable
  *   stack/local approach one foot north, proving a conservative 6 ft south buffer.
  */
 export const rearGarageStack:FamilySearch={
- id:"rear-garage-stack",
+ id:"rear-garage-stack-historical-20",
  variables:[
   {id:"spineY",min:37.5,max:38.5,step:.5},
   {id:"turnX",min:70,max:78,step:2},
@@ -81,7 +84,7 @@ export const rearGarageStack:FamilySearch={
   const garageW=20,garageD=20,garageSouthY=6,garageNorthY=garageSouthY+garageD+v.garageGap;
   const mouthX=v.garageX+garageW,southMouthY=garageSouthY+10,northMouthY=garageNorthY+10;
   const partyGap=.04;
-  return{id:`PONDY-RGS-${serial}`,family:"rear-garage-stack",placements:[
+  return{id:`PONDY-RGS-HIST-${serial}`,family:"rear-garage-stack-historical-20",placements:[
    {id:"HOME-B",kind:"home",x:v.duplexX,y:5,widthFt:v.partyX-v.duplexX-partyGap,depthFt:22,movable:false,integrationGroupId:"unit-B",circulationObstacle:false},
    {id:"HOME-B-NORTH-LEG",kind:"home",x:v.partyX-20-partyGap,y:27,widthFt:20,depthFt:6,movable:false,integrationGroupId:"unit-B",circulationObstacle:false},
    {id:"HOME-A",kind:"home",x:v.partyX,y:5,widthFt:128-v.partyX,depthFt:28,movable:false,integrationGroupId:"unit-A",circulationObstacle:false},
@@ -90,8 +93,8 @@ export const rearGarageStack:FamilySearch={
   ],drives:[
    {id:"DRIVE-A",garageId:"GARAGE-A",points:[[151,v.spineY],[v.turnX,v.spineY],[v.flareX,36],[mouthX+11,28],[mouthX+6,22],[mouthX,southMouthY]],movableControlPoints:[1,2,3,4],controlPointLimitFt:2.5},
    {id:"DRIVE-B",garageId:"GARAGE-B",points:[[151,v.spineY],[v.turnX,v.spineY],[v.flareX,38],[mouthX+8,northMouthY],[mouthX,northMouthY]],movableControlPoints:[1,2,3],controlPointLimitFt:2.5}
-  ],metadata:{topology:"accessory-rear-stack-connected-L-duplex",designGroup:"rear-garage-stack",designIntent:"owner-base-shape-accessory-rear-garages-L-duplex",intendedLivingA:1800,intendedLivingB:1800,garagePlacementLockedToRear:true,garageAccessoryHypothesis:true,accessoryRearSetbackFt:5,accessorySideSetbackFt:5,actualSouthGarageSetbackFt:6,minimumGarageDuplexSeparationFt:6,duplexConnected:true,duplexPartyWallIntent:true,baseShapeLocked:true,designDevelopmentPass:"run47-six-foot-side-buffer"}};
+  ],metadata:{topology:"accessory-rear-stack-connected-L-duplex",designGroup:"rear-garage-stack-historical",designIntent:"historical-run47-20x20-rear-stack",intendedLivingA:1800,intendedLivingB:1800,garageStandard:"20x20-historical",garageAccessoryHypothesis:true,accessoryRearSetbackFt:5,accessorySideSetbackFt:5,actualSouthGarageSetbackFt:6,minimumGarageDuplexSeparationFt:6,duplexConnected:true,duplexPartyWallIntent:true,baseShapeLocked:true,designDevelopmentPass:"run47-historical-evidence"}};
  }
 };
 
-export const diversityFamilies:FamilySearch[]=[...credibleFamilies,compactFrontBlock,deepNarrowRear,frontLRearStandard,balancedTwinBlocks,rearGarageStack];
+export const diversityFamilies:FamilySearch[]=[...credibleFamilies,compactFrontBlock,deepNarrowRear,frontLRearStandard,balancedTwinBlocks];
