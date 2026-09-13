@@ -1,4 +1,4 @@
-import type { AssessmentEvidence, EvidenceGate, EvidenceStatus, LifecycleState } from "@/packages/evidence";
+import type { AssessmentEvidence, EvidenceGate, EvidenceStatus, LifecycleStage } from "@/packages/evidence";
 import type { CandidateMobilityAudit } from "@/packages/placement/mobility-audit";
 
 export type WorkbenchProgramUnit = {
@@ -28,7 +28,7 @@ export type WorkbenchCandidateEvidenceInput = {
   id: string;
   family: string;
   conceptGroup?: string;
-  lifecycle?: LifecycleState;
+  lifecycle?: LifecycleStage;
   physicalPass: boolean;
   programPass: boolean;
   combinedPass: boolean;
@@ -235,7 +235,7 @@ function pavementGate(candidate: WorkbenchCandidateEvidenceInput): EvidenceGate 
 }
 
 export function workbenchCandidateEvidence(candidate: WorkbenchCandidateEvidenceInput, run: WorkbenchRunContext): AssessmentEvidence {
-  const lifecycle: LifecycleState = candidate.lifecycle ?? (candidate.freeze?.freezeHash
+  const lifecycle: LifecycleStage = candidate.lifecycle ?? (candidate.freeze?.freezeHash
     ? "FROZEN"
     : candidate.promotionReady
       ? "PROMOTED"
