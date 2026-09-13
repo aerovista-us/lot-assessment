@@ -9,13 +9,16 @@ on:
       - 'packages/evidence/**'
       - 'packages/audit/**'
       - 'lib/evidence-adapter.ts'
+      - 'lib/workbench-evidence-adapter.ts'
       - 'components/AssessmentResult.tsx'
       - 'components/assessment-result.module.css'
       - 'app/vnext/**'
       - 'app/assessment/**'
       - 'app/workbench/vnext/**'
       - 'app/workbench/assessment/**'
+      - 'app/workbench/evidence/**'
       - 'app/api/assessment/**'
+      - 'app/api/workbench/pondy-evidence/**'
       - 'projects/pondy-design4/**'
       - 'docs/VNEXT_SOLVE_PROVE_EXPLAIN.md'
       - '.github/workflows/vnext-evidence-qa.yml'
@@ -50,5 +53,8 @@ jobs:
           grep -q 'mode="PUBLIC"' app/assessment/pondy-d4/page.tsx
           grep -q 'mode="WORKBENCH"' app/workbench/assessment/pondy-d4/page.tsx
           grep -q 'guidedAssessmentEvidence' app/api/assessment/guided/route.ts
+          grep -q 'guidedAssessmentEvidence' app/assessment/guided/page.tsx
+          grep -q 'workbenchCandidateEvidence' app/api/workbench/pondy-evidence/route.ts
+          grep -q 'Run Workbench evidence' app/workbench/evidence/page.tsx
           grep -q 'PUBLIC PREVIEW' app/vnext/page.tsx
           grep -q 'PRIVATE' app/workbench/vnext/page.tsx
