@@ -3,7 +3,7 @@ name: LotScope vNext evidence QA
 on:
   push:
     branches:
-      - feature/vnext-solve-prove-explain
+      - 'feature/vnext-*'
   pull_request:
     paths:
       - 'packages/evidence/**'
@@ -11,7 +11,9 @@ on:
       - 'lib/evidence-adapter.ts'
       - 'components/AssessmentResult.tsx'
       - 'components/assessment-result.module.css'
+      - 'app/vnext/**'
       - 'app/assessment/**'
+      - 'app/workbench/vnext/**'
       - 'app/workbench/assessment/**'
       - 'app/api/assessment/**'
       - 'projects/pondy-design4/**'
@@ -48,3 +50,5 @@ jobs:
           grep -q 'mode="PUBLIC"' app/assessment/pondy-d4/page.tsx
           grep -q 'mode="WORKBENCH"' app/workbench/assessment/pondy-d4/page.tsx
           grep -q 'guidedAssessmentEvidence' app/api/assessment/guided/route.ts
+          grep -q 'PUBLIC PREVIEW' app/vnext/page.tsx
+          grep -q 'PRIVATE' app/workbench/vnext/page.tsx
