@@ -1,6 +1,7 @@
 import { FamilySearch } from "@/packages/optimizer";
 import { PlacementCandidate } from "@/packages/placement";
-import { credibleFamilies } from "@/packages/pondy/credible";
+import { credibleRearGarageStack } from "@/packages/pondy/credible";
+import { adaptiveFamilies } from "@/packages/pondy/adaptive-massing";
 
 type Wing = { id: string; x: number; y: number; widthFt: number; depthFt: number };
 
@@ -17,11 +18,9 @@ const frontStreetDrive={id:"DRIVE-A",garageId:"GARAGE-A",points:[[151,18],[128,1
 function provenRearDrive(spineY:number,turnX:number,bendX:number,bendY:number,mouthX:number,mouthY:number){return{id:"DRIVE-B",garageId:"GARAGE-B",points:[[151,spineY],[turnX,spineY],[bendX,bendY],[mouthX,mouthY]] as Array<[number,number]>,movableControlPoints:[1,2],controlPointLimitFt:2};}
 
 /**
- * Diversity Run 48.
- * Keep the physically proven north/setback access corridor and vary massing.
- * Previous Run 47 failures were dominated by principal-envelope overflow,
- * <1 ft non-access clearance, and floor-plate capacity below the 8% reserve gate.
- * These families correct geometry; they do not relax promotion thresholds.
+ * Historical diversity families remain available as evidence. The active discovery
+ * pass is now led by adaptive-massing.ts, which keeps the proven Run 85 rear access
+ * geometry while allowing capacity-ready building re-proportioning and 23x22 garages.
  */
 export const compactFrontBlock:FamilySearch={
  id:"compact-front-block",
@@ -53,21 +52,9 @@ export const balancedTwinBlocks:FamilySearch={id:"balanced-twin-blocks",variable
 
 /**
  * D6 — Accessory Rear Garage Stack + Connected L Duplex.
- * Owner-selected Design #2, now retained as historical Run 47 evidence.
- * The active benchmark uses the hardened 22x22 replacement exported through
- * credibleFamilies so this older 20x20 geometry can be inspected without being
- * silently rewritten or allowed to promote against the 20.5 ft design vehicle.
- *
- * Evidence sequence:
- * - Base pass proved rear-garage-stack circulation under the earlier model.
- * - Run 44 solved Unit B program/capacity with a 22 ft primary depth.
- * - Run 45 produced 10/10 physical + program passes with the legal 28 ft Unit A.
- * - Diagnostic tracing showed its only promotion miss (0.50 ft clearance) came from the
- *   south garage approach at the parcel's y=0 side, not from the north access spine.
- * - Run 46 proved that squaring the approach can create >1 ft clearance, but introduced
- *   artificial short-tangent failures at the last two turns.
- * - Run 47 returned to the physically proven Run 45 maneuver and moved the rear garage
- *   stack/local approach one foot north, proving a conservative 6 ft south buffer.
+ * Owner-selected Design #2, retained as historical Run 47 evidence. The active
+ * 23x22 Design #2 rebuild is credibleRearGarageStack and remains in the benchmark
+ * while we add true garage orientation/door-face search.
  */
 export const rearGarageStack:FamilySearch={
  id:"rear-garage-stack-historical-20",
@@ -97,4 +84,4 @@ export const rearGarageStack:FamilySearch={
  }
 };
 
-export const diversityFamilies:FamilySearch[]=[...credibleFamilies,compactFrontBlock,deepNarrowRear,frontLRearStandard,balancedTwinBlocks];
+export const diversityFamilies:FamilySearch[]=[...adaptiveFamilies,credibleRearGarageStack,compactFrontBlock,deepNarrowRear,frontLRearStandard,balancedTwinBlocks];
