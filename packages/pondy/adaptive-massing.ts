@@ -39,7 +39,7 @@ function garage(unit: "A" | "B", x: number, y: number) {
 function rearUnit() {
   return [
     homePiece("B", { id: "HOME-B", x: 25, y: 5, widthFt: 29, depthFt: 32.5 }),
-    homePiece("B", { id: "HOME-B-EAST-WING", x: 54, y: 5, widthFt: 22, depthFt: 13 }),
+    homePiece("B", { id: "HOME-B-EAST-WING", x: 54, y: 5, widthFt: 24, depthFt: 12 }),
     garage("B", 31, 15)
   ];
 }
