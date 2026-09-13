@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { evidenceForAudience, summarizeEvidence, type AssessmentEvidence, type EvidenceStatus } from "@/packages/evidence";
+import { evidenceForAudience, summarizeEvidence, type AssessmentEvidence, type EvidenceStatus, type LifecycleStage } from "@/packages/evidence";
 import styles from "./assessment-result.module.css";
 
 const statusLabel: Record<EvidenceStatus, string> = {
@@ -20,6 +20,8 @@ const statusClass: Record<EvidenceStatus, string> = {
   PROFESSIONAL_REVIEW: styles.review
 };
 
+const lifecycleOrder: LifecycleStage[] = ["DISCOVERED", "SCREENED", "AUDITED", "PROMOTED", "PRESENTABLE", "FROZEN"];
+
 function metricValue(value: string | number | boolean | null, unit?: string) {
   if (value == null) return "—";
   return `${String(value)}${unit ? ` ${unit}` : ""}`;
@@ -29,6 +31,7 @@ export function AssessmentResult({ evidence, mode }: { evidence: AssessmentEvide
   const view = evidenceForAudience(evidence, mode);
   const summary = summarizeEvidence(view);
   const publicMode = mode === "PUBLIC";
+  const lifecycleIndex = lifecycleOrder.indexOf(view.lifecycle);
 
   return (
     <main className={styles.shell}>
@@ -64,6 +67,19 @@ export function AssessmentResult({ evidence, mode }: { evidence: AssessmentEvide
           <div className={styles.verdictBlock}><span>Overall</span><strong>{summary.overall.replaceAll("_", " ")}</strong></div>
         </aside>
       </section>
+
+      {!publicMode && <section className={styles.lifecycleSection}>
+        <div className={styles.sectionHead}><div><p className={styles.eyebrow}>CANDIDATE LIFECYCLE</p><h2>Promotion state</h2></div><p>Stages only advance when their evidence gates are satisfied. Professional review remains outside this automated lifecycle.</p></div>
+        <div className={styles.lifecycleRail}>
+          {lifecycleOrder.map((stage, index) => {
+            const current = stage === view.lifecycle;
+            const achieved = index <= lifecycleIndex;
+            return <div className={`${styles.lifecycleStep} ${achieved ? styles.lifecycleAchieved : ""} ${current ? styles.lifecycleCurrent : ""}`} key={stage}>
+              <span>{index + 1}</span><strong>{stage}</strong>
+            </div>;
+          })}
+        </div>
+      </section>}
 
       <section className={styles.section}>
         <div className={styles.sectionHead}><div><p className={styles.eyebrow}>PROOF MAP</p><h2>What the engine says</h2></div><p>One evidence record drives both surfaces. Public simplifies the explanation; Workbench keeps the engineering detail.</p></div>
