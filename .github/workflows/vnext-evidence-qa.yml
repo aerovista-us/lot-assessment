@@ -8,6 +8,7 @@ on:
     paths:
       - 'packages/evidence/**'
       - 'packages/audit/**'
+      - 'packages/circulation/hardened.ts'
       - 'lib/evidence-adapter.ts'
       - 'lib/workbench-evidence-adapter.ts'
       - 'components/AssessmentResult.tsx'
@@ -21,6 +22,7 @@ on:
       - 'app/api/workbench/pondy-evidence/**'
       - 'projects/pondy-design4/**'
       - 'docs/VNEXT_SOLVE_PROVE_EXPLAIN.md'
+      - 'docs/MOBILITY_AUDIT_CONTRACT.md'
       - '.github/workflows/vnext-evidence-qa.yml'
   workflow_dispatch:
 
@@ -48,6 +50,10 @@ jobs:
         run: |
           grep -q 'lotscope-assessment-evidence-v1' packages/evidence/index.ts
           grep -q 'PROFESSIONAL_REVIEW' packages/evidence/index.ts
+          grep -q 'auditMotionPath' packages/circulation/hardened.ts
+          grep -q 'pavementViolationSamples' packages/circulation/hardened.ts
+          grep -q 'reverseReplayPass' packages/circulation/hardened.ts
+          grep -q 'comfortableClearanceFt' packages/circulation/hardened.ts
           grep -q 'B-SOUTH-door' projects/pondy-design4/evidence.ts
           grep -q '0.073' projects/pondy-design4/evidence.ts
           grep -q 'mode="PUBLIC"' app/assessment/pondy-d4/page.tsx
