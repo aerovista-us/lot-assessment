@@ -204,10 +204,16 @@ function auditDrive(problem: PlacementProblem, candidate: PlacementCandidate, dr
   });
 
   failures.push(...result.failures);
+  if (result.doorClearanceFt == null) failures.push("The independent audit did not observe a garage-wall crossing, so door clearance is unproven.");
   warnings.push(...result.warnings);
+  const obstacleClearanceReady = result.minimumObstacleClearanceFt == null || result.minimumObstacleClearanceFt >= PREFERRED_FIXED_CLEARANCE_FT;
+  if (!obstacleClearanceReady) warnings.push(`Fixed-obstacle clearance ${result.minimumObstacleClearanceFt?.toFixed(2)} ft is below the ${PREFERRED_FIXED_CLEARANCE_FT.toFixed(2)} ft promotion target.`);
+  const doorComfortReady = result.doorClearanceFt != null && result.doorClearanceFt >= COMFORTABLE_DOOR_CLEARANCE_FT;
+  const gearComfortReady = result.gearChanges <= 2;
   const hardPass = failures.length === 0 && result.pass && result.finalParkedPass === true && result.reverseReplayPass;
-  const promotionReady = hardPass && result.status === "PASS";
-  const status = !hardPass ? "FAIL" : promotionReady ? "PASS" : result.status;
+  const promotionReady = hardPass && obstacleClearanceReady && doorComfortReady && gearComfortReady;
+  const nearComfort = promotionReady && ((result.minimumObstacleClearanceFt != null && result.minimumObstacleClearanceFt < PREFERRED_FIXED_CLEARANCE_FT + 0.25) || (result.doorClearanceFt != null && result.doorClearanceFt < COMFORTABLE_DOOR_CLEARANCE_FT + 0.25));
+  const status: CandidateDriveMobilityAudit["status"] = !hardPass ? "FAIL" : !promotionReady ? "WATCH" : nearComfort ? "PASS_TIGHT" : "PASS";
 
   return {
     driveId: drive.id,
@@ -236,7 +242,7 @@ export function auditCandidateMobility(problem: PlacementProblem, candidate: Pla
   const promotionReady = pass && drives.every((drive) => drive.promotionReady);
   let status: CandidateMobilityAudit["status"] = "PASS";
   if (!pass) status = "FAIL";
-  else if (drives.some((drive) => drive.status === "WATCH")) status = "WATCH";
+  else if (!promotionReady || drives.some((drive) => drive.status === "WATCH")) status = "WATCH";
   else if (drives.some((drive) => drive.status === "PASS_TIGHT")) status = "PASS_TIGHT";
 
   return {
