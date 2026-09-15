@@ -1,0 +1,552 @@
+{
+  "schema": "pondy-d4-multitool-repair-v1",
+  "generatedAt": "2026-09-13T16:17:02.958Z",
+  "sourceRevision": "D4-REAR22-v0.3",
+  "search": {
+    "algorithm": "lattice A*",
+    "stepFt": 2,
+    "maxExpandedPerGoal": 55000,
+    "outboundProof": "Independent stall-to-Pennsylvania search. Reverse replay is not promoted as outbound proof."
+  },
+  "vehicle": {
+    "id": "FS-SUV",
+    "label": "Full-size SUV / pickup",
+    "length": 20.5,
+    "width": 8,
+    "wheelbase": 13.1,
+    "frontOverhang": 3.4,
+    "rearOverhang": 4,
+    "minRearAxleRadius": 25,
+    "doorWidth": 20,
+    "apronDepth": 24
+  },
+  "policy": {
+    "selection": "Hard geometry first; compare pavement, route, building and garage interventions without pre-selecting a winner.",
+    "locked": [
+      "two 22x22 detached garages",
+      "four enclosed stalls",
+      "Pennsylvania-only access",
+      "FS-SUV vehicle gate"
+    ],
+    "rotation": {
+      "status": "EXPERIMENTAL_NEXT",
+      "note": "Rotation remains available in LotScope oriented-polygon infrastructure but is not eligible to win this D4 run until the legacy wall/door planner is rotation-aware."
+    }
+  },
+  "baselineOtherStalls": {
+    "B-NORTH": {
+      "outbound": {
+        "ok": false,
+        "expanded": 55000,
+        "gearChanges": null,
+        "doorClearanceFt": null,
+        "minClearanceFt": null,
+        "streetY": null,
+        "pavement": null,
+        "issues": []
+      }
+    },
+    "A-NORTH": {
+      "outbound": {
+        "ok": false,
+        "expanded": 55000,
+        "gearChanges": null,
+        "doorClearanceFt": null,
+        "minClearanceFt": null,
+        "streetY": null,
+        "pavement": null,
+        "issues": []
+      }
+    },
+    "A-SOUTH": {
+      "outbound": {
+        "ok": false,
+        "expanded": 195,
+        "gearChanges": null,
+        "doorClearanceFt": null,
+        "minClearanceFt": null,
+        "streetY": null,
+        "pavement": null,
+        "issues": []
+      }
+    }
+  },
+  "strategies": [
+    {
+      "id": "combined-comfort",
+      "label": "Coordinated 1 ft move + comfort-routed approach",
+      "tool": "combined-active-repair",
+      "status": "FAIL",
+      "hardPass": false,
+      "outboundOpen": true,
+      "comfortableDoor": true,
+      "pavementPass": false,
+      "bSouthWorstDoorClearanceFt": 0.837,
+      "maxGearChanges": 2,
+      "score": 188.37,
+      "changes": {
+        "garageBShiftX": 1,
+        "homeBShiftX": 1,
+        "pavementPadFt": 0,
+        "doorClearanceTarget": 0.75,
+        "streetYs": [
+          35,
+          37,
+          39
+        ]
+      },
+      "rows": {
+        "B-SOUTH": {
+          "inbound": {
+            "ok": true,
+            "expanded": 24127,
+            "gearChanges": 2,
+            "doorClearanceFt": 0.837,
+            "minClearanceFt": 1.106,
+            "streetY": 37,
+            "pavement": {
+              "pass": false,
+              "violationSamples": 20,
+              "padFt": 0
+            },
+            "issues": []
+          },
+          "outbound": {
+            "ok": false,
+            "expanded": 3,
+            "gearChanges": null,
+            "doorClearanceFt": null,
+            "minClearanceFt": null,
+            "streetY": null,
+            "pavement": null,
+            "issues": []
+          }
+        }
+      },
+      "note": "Combines bounded site translation with a route search that must meet the practical door margin."
+    },
+    {
+      "id": "route-door-comfort",
+      "label": "Reshape route for 0.75 ft door margin",
+      "tool": "reshape-drive",
+      "status": "FAIL",
+      "hardPass": false,
+      "outboundOpen": true,
+      "comfortableDoor": true,
+      "pavementPass": false,
+      "bSouthWorstDoorClearanceFt": 0.82,
+      "maxGearChanges": 2,
+      "score": 188.2,
+      "changes": {
+        "garageBShiftX": 0,
+        "homeBShiftX": 0,
+        "pavementPadFt": 0,
+        "doorClearanceTarget": 0.75,
+        "streetYs": [
+          35,
+          37,
+          39
+        ]
+      },
+      "rows": {
+        "B-SOUTH": {
+          "inbound": {
+            "ok": true,
+            "expanded": 19777,
+            "gearChanges": 2,
+            "doorClearanceFt": 0.82,
+            "minClearanceFt": 1.268,
+            "streetY": 37,
+            "pavement": {
+              "pass": false,
+              "violationSamples": 14,
+              "padFt": 0
+            },
+            "issues": []
+          },
+          "outbound": {
+            "ok": false,
+            "expanded": 3,
+            "gearChanges": null,
+            "doorClearanceFt": null,
+            "minClearanceFt": null,
+            "streetY": null,
+            "pavement": null,
+            "issues": []
+          }
+        }
+      },
+      "note": "Rejects paths below the practical B-South door target."
+    },
+    {
+      "id": "combined-east-1",
+      "label": "Move Home B + Garage B east 1 ft",
+      "tool": "combined-active-repair",
+      "status": "FAIL",
+      "hardPass": false,
+      "outboundOpen": true,
+      "comfortableDoor": false,
+      "pavementPass": false,
+      "bSouthWorstDoorClearanceFt": 0.08,
+      "maxGearChanges": 0,
+      "score": 0.8,
+      "changes": {
+        "garageBShiftX": 1,
+        "homeBShiftX": 1,
+        "pavementPadFt": 0,
+        "doorClearanceTarget": 0,
+        "streetYs": [
+          35,
+          37,
+          39
+        ]
+      },
+      "rows": {
+        "B-SOUTH": {
+          "inbound": {
+            "ok": true,
+            "expanded": 2764,
+            "gearChanges": 0,
+            "doorClearanceFt": 0.08,
+            "minClearanceFt": 1.232,
+            "streetY": 37,
+            "pavement": {
+              "pass": false,
+              "violationSamples": 16,
+              "padFt": 0
+            },
+            "issues": []
+          },
+          "outbound": {
+            "ok": false,
+            "expanded": 165000,
+            "gearChanges": null,
+            "doorClearanceFt": null,
+            "minClearanceFt": null,
+            "streetY": null,
+            "pavement": null,
+            "issues": []
+          }
+        }
+      },
+      "note": "Smaller coordinated site move."
+    },
+    {
+      "id": "home-b-east-2",
+      "label": "Move Home B east 2 ft",
+      "tool": "translate-building",
+      "status": "FAIL",
+      "hardPass": false,
+      "outboundOpen": true,
+      "comfortableDoor": false,
+      "pavementPass": false,
+      "bSouthWorstDoorClearanceFt": 0.075,
+      "maxGearChanges": 0,
+      "score": 0.75,
+      "changes": {
+        "garageBShiftX": 0,
+        "homeBShiftX": 2,
+        "pavementPadFt": 0,
+        "doorClearanceTarget": 0,
+        "streetYs": [
+          35,
+          37,
+          39
+        ]
+      },
+      "rows": {
+        "B-SOUTH": {
+          "inbound": {
+            "ok": true,
+            "expanded": 2527,
+            "gearChanges": 0,
+            "doorClearanceFt": 0.075,
+            "minClearanceFt": 1.039,
+            "streetY": 37,
+            "pavement": {
+              "pass": false,
+              "violationSamples": 16,
+              "padFt": 0
+            },
+            "issues": []
+          },
+          "outbound": {
+            "ok": false,
+            "expanded": 165000,
+            "gearChanges": null,
+            "doorClearanceFt": null,
+            "minClearanceFt": null,
+            "streetY": null,
+            "pavement": null,
+            "issues": []
+          }
+        }
+      },
+      "note": "Bounded residential mass translation to buy maneuver room."
+    },
+    {
+      "id": "baseline",
+      "label": "Current Design 4",
+      "tool": "control",
+      "status": "FAIL",
+      "hardPass": false,
+      "outboundOpen": true,
+      "comfortableDoor": false,
+      "pavementPass": false,
+      "bSouthWorstDoorClearanceFt": 0.073,
+      "maxGearChanges": 0,
+      "score": 0.73,
+      "changes": {
+        "garageBShiftX": 0,
+        "homeBShiftX": 0,
+        "pavementPadFt": 0,
+        "doorClearanceTarget": 0,
+        "streetYs": [
+          37
+        ]
+      },
+      "rows": {
+        "B-SOUTH": {
+          "inbound": {
+            "ok": true,
+            "expanded": 2274,
+            "gearChanges": 0,
+            "doorClearanceFt": 0.073,
+            "minClearanceFt": 1.044,
+            "streetY": 37,
+            "pavement": {
+              "pass": false,
+              "violationSamples": 13,
+              "padFt": 0
+            },
+            "issues": []
+          },
+          "outbound": {
+            "ok": false,
+            "expanded": 55000,
+            "gearChanges": null,
+            "doorClearanceFt": null,
+            "minClearanceFt": null,
+            "streetY": null,
+            "pavement": null,
+            "issues": []
+          }
+        }
+      },
+      "note": "Locked current geometry; explicit outbound search added."
+    },
+    {
+      "id": "pavement-plus-4",
+      "label": "Add 4 ft local pavement / apron",
+      "tool": "local-pavement-flare",
+      "status": "FAIL",
+      "hardPass": false,
+      "outboundOpen": true,
+      "comfortableDoor": false,
+      "pavementPass": false,
+      "bSouthWorstDoorClearanceFt": 0.073,
+      "maxGearChanges": 0,
+      "score": 0.73,
+      "changes": {
+        "garageBShiftX": 0,
+        "homeBShiftX": 0,
+        "pavementPadFt": 4,
+        "doorClearanceTarget": 0,
+        "streetYs": [
+          37
+        ]
+      },
+      "rows": {
+        "B-SOUTH": {
+          "inbound": {
+            "ok": true,
+            "expanded": 2274,
+            "gearChanges": 0,
+            "doorClearanceFt": 0.073,
+            "minClearanceFt": 1.044,
+            "streetY": 37,
+            "pavement": {
+              "pass": false,
+              "violationSamples": 2,
+              "padFt": 4
+            },
+            "issues": []
+          },
+          "outbound": {
+            "ok": false,
+            "expanded": 55000,
+            "gearChanges": null,
+            "doorClearanceFt": null,
+            "minClearanceFt": null,
+            "streetY": null,
+            "pavement": null,
+            "issues": []
+          }
+        }
+      },
+      "note": "Geometry unchanged; tests whether pavement containment alone is the blocker."
+    },
+    {
+      "id": "pavement-plus-6",
+      "label": "Add 6 ft local pavement / apron",
+      "tool": "local-pavement-flare",
+      "status": "FAIL",
+      "hardPass": false,
+      "outboundOpen": true,
+      "comfortableDoor": false,
+      "pavementPass": false,
+      "bSouthWorstDoorClearanceFt": 0.073,
+      "maxGearChanges": 0,
+      "score": 0.73,
+      "changes": {
+        "garageBShiftX": 0,
+        "homeBShiftX": 0,
+        "pavementPadFt": 6,
+        "doorClearanceTarget": 0,
+        "streetYs": [
+          37
+        ]
+      },
+      "rows": {
+        "B-SOUTH": {
+          "inbound": {
+            "ok": true,
+            "expanded": 2274,
+            "gearChanges": 0,
+            "doorClearanceFt": 0.073,
+            "minClearanceFt": 1.044,
+            "streetY": 37,
+            "pavement": {
+              "pass": true,
+              "violationSamples": 0,
+              "padFt": 6
+            },
+            "issues": []
+          },
+          "outbound": {
+            "ok": false,
+            "expanded": 55000,
+            "gearChanges": null,
+            "doorClearanceFt": null,
+            "minClearanceFt": null,
+            "streetY": null,
+            "pavement": null,
+            "issues": []
+          }
+        }
+      },
+      "note": "Larger pavement-only sensitivity case."
+    },
+    {
+      "id": "garage-b-east-2",
+      "label": "Move Garage B east 2 ft",
+      "tool": "translate-garage",
+      "status": "FAIL",
+      "hardPass": false,
+      "outboundOpen": true,
+      "comfortableDoor": false,
+      "pavementPass": false,
+      "bSouthWorstDoorClearanceFt": 0.033,
+      "maxGearChanges": 0,
+      "score": 0.33,
+      "changes": {
+        "garageBShiftX": 2,
+        "homeBShiftX": 0,
+        "pavementPadFt": 0,
+        "doorClearanceTarget": 0,
+        "streetYs": [
+          35,
+          37,
+          39
+        ]
+      },
+      "rows": {
+        "B-SOUTH": {
+          "inbound": {
+            "ok": true,
+            "expanded": 2772,
+            "gearChanges": 0,
+            "doorClearanceFt": 0.033,
+            "minClearanceFt": 1.108,
+            "streetY": 37,
+            "pavement": {
+              "pass": false,
+              "violationSamples": 20,
+              "padFt": 0
+            },
+            "issues": []
+          },
+          "outbound": {
+            "ok": false,
+            "expanded": 2799,
+            "gearChanges": null,
+            "doorClearanceFt": null,
+            "minClearanceFt": null,
+            "streetY": null,
+            "pavement": null,
+            "issues": []
+          }
+        }
+      },
+      "note": "Keeps the 22x22 garage plate and stall layout while shifting the accessory structure."
+    },
+    {
+      "id": "route-reshape",
+      "label": "Reshape street approach",
+      "tool": "reshape-drive",
+      "status": "FAIL",
+      "hardPass": false,
+      "outboundOpen": true,
+      "comfortableDoor": false,
+      "pavementPass": false,
+      "bSouthWorstDoorClearanceFt": null,
+      "maxGearChanges": null,
+      "score": 0,
+      "changes": {
+        "garageBShiftX": 0,
+        "homeBShiftX": 0,
+        "pavementPadFt": 0,
+        "doorClearanceTarget": 0,
+        "streetYs": [
+          35,
+          39
+        ]
+      },
+      "rows": {
+        "B-SOUTH": {
+          "inbound": {
+            "ok": false,
+            "expanded": 2,
+            "gearChanges": null,
+            "doorClearanceFt": null,
+            "minClearanceFt": null,
+            "streetY": null,
+            "pavement": null,
+            "issues": []
+          },
+          "outbound": {
+            "ok": false,
+            "expanded": 110000,
+            "gearChanges": null,
+            "doorClearanceFt": null,
+            "minClearanceFt": null,
+            "streetY": null,
+            "pavement": null,
+            "issues": []
+          }
+        }
+      },
+      "note": "Same structures; forces alternate Pennsylvania approach lines."
+    }
+  ],
+  "evidenceLeader": {
+    "id": "combined-comfort",
+    "label": "Coordinated 1 ft move + comfort-routed approach",
+    "status": "FAIL",
+    "reason": "Best measured progress in this run; not a promoted fix while outbound remains open."
+  },
+  "promotion": {
+    "status": "NONE",
+    "reason": "No tested strategy simultaneously proves outbound circulation, practical B-South door margin, and pavement containment."
+  }
+}

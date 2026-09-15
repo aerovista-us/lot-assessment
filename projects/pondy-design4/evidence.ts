@@ -7,11 +7,11 @@ export const pondyDesign4Evidence: AssessmentEvidence = {
   title: "Pondy Flats · Lot 2 · Design 4",
   subtitle: "Two 22×22 detached rear garages · four enclosed stalls · Pennsylvania-only access",
   lifecycle: "PRESENTABLE",
-  geometryVerdict: "PASS",
+  geometryVerdict: "FAIL",
   releaseVerdict: "CONDITIONAL",
-  feasibilityLabel: "Strong geometry fit",
+  feasibilityLabel: "Strong inbound fit · full circulation still iterating",
   informationConfidenceLabel: "Moderate · professional confirmation remains",
-  executiveSummary: "The current Design 4 geometry supports the locked two-garage / four-stall program under the modeled assumptions. All four exact full-size vehicle paths reach their stalls while preserving the companion parked vehicle. Two practical mobility items remain worth refinement, and zoning / building / civil items remain outside the geometry proof.",
+  executiveSummary: "Design 4 preserves the locked two-garage / four-stall program and all four authoritative inbound stall paths. It is not yet a full circulation PASS: explicit autonomous outbound searches remain open, B-South is marginal at the current 0.073 ft door crossing, and final pavement containment is still being compared against route and structure changes.",
   assumptions: [
     "Full-size design vehicle is modeled at 20.5 ft × 8.0 ft with a 25 ft minimum rear-axle turning radius.",
     "Both detached garage plates remain exactly 22 ft × 22 ft with 20 ft concept overhead openings.",
@@ -35,10 +35,10 @@ export const pondyDesign4Evidence: AssessmentEvidence = {
     }),
     gate({
       id: "vehicle-paths",
-      label: "Full-body vehicle paths",
+      label: "Inbound full-body vehicle paths",
       status: "PASS_TIGHT",
-      summary: "All four exact stall paths pass the current full-body geometry audit with a companion vehicle already parked.",
-      publicSummary: "All four modeled stalls are reachable with the full-size design vehicle, but two paths deserve refinement for everyday comfort.",
+      summary: "All four exact inbound stall-arrival paths pass the authoritative full-body geometry audit with a companion vehicle already parked. This gate does not claim outbound travel.",
+      publicSummary: "All four modeled stalls are reachable inbound with the full-size design vehicle, but full outbound circulation remains open and two inbound paths deserve everyday-use refinement.",
       metrics: [
         { id: "B-NORTH-clearance", label: "B-North minimum clearance", value: 1.042, unit: "ft" },
         { id: "B-NORTH-gears", label: "B-North gear changes", value: 4 },
@@ -46,6 +46,18 @@ export const pondyDesign4Evidence: AssessmentEvidence = {
         { id: "B-SOUTH-door", label: "B-South door margin", value: 0.073, unit: "ft", note: "Geometry-pass margin; practical-use watch item." },
         { id: "A-NORTH-clearance", label: "A-North minimum clearance", value: 1.346, unit: "ft" },
         { id: "A-SOUTH-clearance", label: "A-South minimum clearance", value: 1.118, unit: "ft" }
+      ]
+    }),
+    gate({
+      id: "outbound-circulation",
+      label: "Outbound circulation to Pennsylvania",
+      status: "FAIL",
+      summary: "Explicit autonomous stall-to-street searches remain open across the current comparison set; no repair strategy has yet demonstrated the required outbound path.",
+      publicSummary: "Inbound parking is proven, but a complete vehicle exit path back to Pennsylvania has not yet been demonstrated.",
+      metrics: [
+        { id: "compared-strategies", label: "Compared repair strategies", value: 9 },
+        { id: "outbound-passes", label: "Explicit outbound passes", value: 0 },
+        { id: "rotation-state", label: "Garage rotation", value: "EXPERIMENTAL NEXT" }
       ]
     }),
     gate({
@@ -105,9 +117,9 @@ export const pondyDesign4Evidence: AssessmentEvidence = {
     },
     {
       id: "forward-turnaround",
-      title: "No forward turnaround claim",
-      status: "PASS",
-      summary: "The evidence does not claim a full forward turnaround inside the site; the outbound logic is reverse-equivalent to the validated inbound path.",
+      title: "Explicit outbound circulation remains open",
+      status: "FAIL",
+      summary: "The new repair runner performs explicit autonomous stall-to-Pennsylvania searches. No compared strategy has yet earned an outbound PASS; reverse replay is not treated as proof of a usable outbound maneuver.",
       audience: ["WORKBENCH"]
     }
   ],
@@ -120,11 +132,8 @@ export const pondyDesign4Evidence: AssessmentEvidence = {
   ],
   trace: {
     sourceProject: "aerovista-us/PondyFlats",
-    sourceRevision: "aa126f74482bab55d4a117bebb94a6110a0c9855",
-    engineRevision: "pondy-workbench-v2 / lotscope-evidence-v1-port",
-    generatedAt: "2026-09-12T19:00:00-07:00",
-    workflowRunId: 34685165467,
-    artifactId: 10295137846,
-    artifactSha256: "3394044282bff68c1d5188c4a5970642d796916b3a49ce60de6bb71cc91ed1ba"
+    sourceRevision: "D4-REAR22-v0.3 + multi-tool repair snapshot",
+    engineRevision: "pondy-d4-multitool-repair-v1 / lotscope-evidence-v1",
+    generatedAt: "2026-09-13T16:17:02.958Z",
   }
 };
