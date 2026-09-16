@@ -1,0 +1,350 @@
+import { freezeCandidate } from "@/packages/canonical";
+import projectSpec from "@/projects/pondy-lot2/project.json";
+import { filletPath, FULL_SIZE_SUV, vehiclePolygon } from "@/packages/circulation";
+import { distance, insetPolygonBySegment, pointInPolygon, Point } from "@/packages/geometry";
+import { solveFamilies } from "@/packages/optimizer";
+import { PONDY_BUILDABLE, PONDY_SURVEY, pondyFamilies, pondyProblem } from "@/packages/pondy";
+import { diversityFamilies } from "@/packages/pondy/diversity";
+import { R51E_HISTORICAL_CONTROL } from "@/packages/pondy/control";
+import { evaluateProgram } from "@/packages/program";
+import { evaluateRoomPacking } from "@/packages/room-packing";
+import { auditCandidateMobility } from "@/packages/placement/mobility-audit";
+import type { PlacementCandidate } from "@/packages/placement";
+
+const PROGRAM = {
+  units: ["A", "B"],
+  livingRangeSqFt: [1600, 1900] as [number, number],
+  maxUnitDifferenceSqFt: 120,
+  stories: 2,
+  minimumPlateWidthFt: 22,
+  minimumPlateDepthFt: 22,
+  maximumPlateAspectRatio: 2.2,
+  garageAreaSqFt: 484
+};
+
+const PREFERRED_LIVING_SQFT = 1800;
+const PROMOTION_CAPACITY_MARGIN = 1.08;
+// Planning-scale square footage should not inherit binary floating-point noise from 1800*1.08.
+const PROMOTION_TARGET_CAPACITY_SQFT = Math.round(PREFERRED_LIVING_SQFT * PROMOTION_CAPACITY_MARGIN * 1000) / 1000;
+const PROMOTION_CLEARANCE_FT = 1;
+const PENNSYLVANIA_SEGMENT_INDEX = 1;
+const BENCHMARK_DRIVE_WIDTH_FT = 12;
+const SAMPLE_STEP_FT = 2;
+const ROOM_PACKING_SPEC = {
+  units: ["A", "B"], stories: 2, bedroomsPerUnit: 3, fullBathsPerUnit: 2,
+  minimumLivingWidthFt: 22, minimumBedroomWidthFt: 9, minimumStairWidthFt: 3,
+  stairFootprintSqFt: 90, entryFootprintSqFt: 35, mechanicalStorageSqFt: 70,
+  circulationAndWallReservePct: 0.14, daylightEdgeTargetFt: 100
+};
+const BENCHMARK_SCENARIO_ID = "baseline-no-alley-plus-detached-accessory-rear-garage";
+const SOLVER_VERSION = "lotscope-diversity-v0.10";
+const SCORING_VERSION = "pondy-site-efficiency-v6";
+
+// Accessory-building hypothesis for detached rear-yard garages only.
+// Segment order follows PONDY_SURVEY: south side, Pennsylvania/front, irregular north side, rear.
+const ACCESSORY_SEGMENT_SETBACK = [5, 20, 5, 5, 5, 5];
+const PONDY_ACCESSORY_BUILDABLE = insetPolygonBySegment(
+  PONDY_SURVEY,
+  (segmentIndex) => ACCESSORY_SEGMENT_SETBACK[segmentIndex] ?? 0
+);
+const pondyAccessoryGarageProblem = {
+  ...pondyProblem,
+  buildableEnvelope: PONDY_ACCESSORY_BUILDABLE
+};
+
+function interpolate(a: Point, b: Point, t: number): Point {
+  return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+}
+
+function pointSegmentDistance(point: Point, a: Point, b: Point) {
+  const abx = b[0] - a[0];
+  const aby = b[1] - a[1];
+  const denom = abx * abx + aby * aby || 1;
+  const t = Math.max(0, Math.min(1, ((point[0] - a[0]) * abx + (point[1] - a[1]) * aby) / denom));
+  const qx = a[0] + abx * t;
+  const qy = a[1] + aby * t;
+  return Math.hypot(point[0] - qx, point[1] - qy);
+}
+
+function homeInsidePrincipalEnvelope(candidate: PlacementCandidate) {
+  return candidate.placements.filter((item) => item.kind === "home").every((item) => {
+    const corners: Point[] = [
+      [item.x, item.y],
+      [item.x + item.widthFt, item.y],
+      [item.x + item.widthFt, item.y + item.depthFt],
+      [item.x, item.y + item.depthFt]
+    ];
+    return corners.every((corner) => pointInPolygon(corner, PONDY_BUILDABLE, 0.08));
+  });
+}
+
+function nonAccessBoundaryClearance(candidate: PlacementCandidate) {
+  let minimum = Infinity;
+  for (const drive of candidate.drives) {
+    const { poses } = filletPath(drive.points, FULL_SIZE_SUV.minRearAxleRadiusFt);
+    for (const pose of poses) {
+      const body = vehiclePolygon(FULL_SIZE_SUV, pose.x, pose.y, pose.headingRad);
+      if (!body.every((corner) => pointInPolygon(corner, PONDY_SURVEY, 0.2))) continue;
+      for (const corner of body) {
+        for (let i = 0; i < PONDY_SURVEY.length; i += 1) {
+          if (i === PENNSYLVANIA_SEGMENT_INDEX) continue;
+          minimum = Math.min(minimum, pointSegmentDistance(corner, PONDY_SURVEY[i], PONDY_SURVEY[(i + 1) % PONDY_SURVEY.length]));
+        }
+      }
+    }
+  }
+  return Number.isFinite(minimum) ? minimum : null;
+}
+
+function pavementEfficiency(candidate: PlacementCandidate) {
+  let totalCenterlineFt = 0;
+  let buildableCenterlineFt = 0;
+  for (const drive of candidate.drives) {
+    for (let i = 0; i < drive.points.length - 1; i += 1) {
+      const a = drive.points[i];
+      const b = drive.points[i + 1];
+      const segmentFt = distance(a, b);
+      totalCenterlineFt += segmentFt;
+      const steps = Math.max(1, Math.ceil(segmentFt / SAMPLE_STEP_FT));
+      const sliceFt = segmentFt / steps;
+      for (let step = 0; step < steps; step += 1) {
+        const midpoint = interpolate(a, b, (step + 0.5) / steps);
+        if (pointInPolygon(midpoint, PONDY_BUILDABLE)) buildableCenterlineFt += sliceFt;
+      }
+    }
+  }
+  return {
+    benchmarkDriveWidthFt: BENCHMARK_DRIVE_WIDTH_FT,
+    totalCenterlineFt,
+    buildableCenterlineFt,
+    estimatedTotalPavementSqFt: totalCenterlineFt * BENCHMARK_DRIVE_WIDTH_FT,
+    estimatedBuildablePavementSqFt: buildableCenterlineFt * BENCHMARK_DRIVE_WIDTH_FT,
+    buildableSharePct: totalCenterlineFt > 0 ? (buildableCenterlineFt / totalCenterlineFt) * 100 : 0
+  };
+}
+
+function preferredLivingPenalty(program: ReturnType<typeof evaluateProgram>) {
+  const intended = program.unitResults.map((unit) => unit.intendedLivingSqFt).filter((value): value is number => value != null);
+  if (!intended.length) return 20;
+  return Math.min(intended.reduce((sum, value) => sum + Math.abs(value - PREFERRED_LIVING_SQFT), 0) / 25, 20);
+}
+
+function targetCapacityPenalty(program: ReturnType<typeof evaluateProgram>) {
+  const deficit = program.unitResults.reduce((sum, unit) => sum + Math.max(0, PROMOTION_TARGET_CAPACITY_SQFT - (unit.netLivingCapacitySqFt ?? 0)), 0);
+  return Math.min(deficit / 25, 24);
+}
+
+function targetCapacityReady(program: ReturnType<typeof evaluateProgram>) {
+  return program.unitResults.every((unit) => (unit.netLivingCapacitySqFt ?? 0) >= PROMOTION_TARGET_CAPACITY_SQFT);
+}
+
+/** Collapse the already-proven Side Spine/Staggered/E2/G1 variants into one concept slot. */
+function conceptGroup(family: string, metadata: Record<string, string | number | boolean>) {
+  if (["side-spine", "staggered-spine", "e2-r", "g1-r"].includes(family)) return "edge-spine-front-rear";
+  return String(metadata.designIntent ?? metadata.topology ?? family);
+}
+
+const allFamilies = [...pondyFamilies, ...diversityFamilies];
+const searchFamilies = allFamilies.map((family) => ({
+  ...family,
+  variables: family.variables.map((variable) => {
+    if (variable.id === "rearW") return { ...variable, max: Math.max(variable.max, 37) };
+    if (variable.id === "frontX") return { ...variable, min: Math.min(variable.min, 77) };
+    return variable;
+  })
+}));
+
+const baselineFamilies = searchFamilies.filter((family) => !["rear-garage-stack", "compact-front-block"].includes(family.id));
+const architectureSearchFamilies = searchFamilies.filter((family) => family.id === "compact-front-block");
+const accessoryGarageFamilies = searchFamilies.filter((family) => family.id === "rear-garage-stack");
+const FULL_SOLVE_OPTIONS = {
+  maxEvaluations: 900,
+  diversePerFamily: 10,
+  repairNearPasses: true,
+  repairMaxStates: 360,
+  repairMaxActions: 3,
+  minimumPreferredClearanceFt: PROMOTION_CLEARANCE_FT
+};
+
+const TRIAGE_SOLVE_OPTIONS = {
+  maxEvaluations: 96,
+  diversePerFamily: 6,
+  repairNearPasses: true,
+  repairMaxStates: 72,
+  repairMaxActions: 2,
+  minimumPreferredClearanceFt: PROMOTION_CLEARANCE_FT
+};
+
+export type PondySearchProfile = "full" | "triage";
+
+export function runPondyRankedSearch(profile: PondySearchProfile = "full") {
+  const started = Date.now();
+  const solveOptions = profile === "triage" ? TRIAGE_SOLVE_OPTIONS : FULL_SOLVE_OPTIONS;
+  const architectureDiversity = profile === "triage" ? 36 : 250;
+  const solved = [
+    ...solveFamilies(pondyProblem, baselineFamilies, solveOptions),
+    ...solveFamilies(pondyProblem, architectureSearchFamilies, { ...solveOptions, diversePerFamily: architectureDiversity }),
+    ...solveFamilies(pondyAccessoryGarageProblem, accessoryGarageFamilies, solveOptions)
+  ];
+
+  const evaluated = solved.map((item) => {
+    const program = evaluateProgram(item.candidate, PROGRAM);
+    const pavement = pavementEfficiency(item.candidate);
+    const accessoryGarageCandidate = item.candidate.family === "rear-garage-stack";
+    const placementProblem = accessoryGarageCandidate ? pondyAccessoryGarageProblem : pondyProblem;
+    const mobilityAudit = auditCandidateMobility(placementProblem, item.candidate, { driveWidthFt: BENCHMARK_DRIVE_WIDTH_FT });
+    const principalHomeContainmentPass = !accessoryGarageCandidate || homeInsidePrincipalEnvelope(item.candidate);
+    const physicalPass = item.evaluation.pass && principalHomeContainmentPass && mobilityAudit.pass;
+    const combinedPass = physicalPass && program.pass;
+    const promotionBoundaryClearanceFt = nonAccessBoundaryClearance(item.candidate);
+    const clearanceReady = (promotionBoundaryClearanceFt ?? 0) >= PROMOTION_CLEARANCE_FT;
+    const capacityReady = targetCapacityReady(program);
+    const mobilityReady = mobilityAudit.promotionReady;
+    const promotionReady = combinedPass && clearanceReady && capacityReady && mobilityReady;
+    const physicalPenalty = Math.min(item.objective / 1000, 100);
+    const buildablePavementPenalty = Math.min(pavement.estimatedBuildablePavementSqFt / 45, 35);
+    const totalPavementPenalty = Math.min(pavement.estimatedTotalPavementSqFt / 220, 12);
+    const livingTargetPenalty = preferredLivingPenalty(program);
+    const capacityPenalty = targetCapacityPenalty(program);
+    const mobilityPenalty = mobilityAudit.status === "PASS" ? 0 : mobilityAudit.status === "PASS_TIGHT" ? 8 : mobilityAudit.status === "WATCH" ? 18 : 40;
+    const combinedScore = (physicalPass ? 100 : 0) + program.qualityScore - physicalPenalty - buildablePavementPenalty - totalPavementPenalty - livingTargetPenalty - capacityPenalty - mobilityPenalty;
+    const metadata = item.candidate.metadata ?? {};
+    const physicalIssues = item.evaluation.issues.slice();
+    if (!principalHomeContainmentPass) physicalIssues.push("residential mass outside principal-building envelope");
+    physicalIssues.push(...mobilityAudit.failures.slice(0, 4));
+    if (mobilityAudit.pass && !mobilityAudit.promotionReady) physicalIssues.push(...mobilityAudit.warnings.slice(0, 2));
+
+    return {
+      id: item.candidate.id,
+      family: item.candidate.family,
+      conceptGroup: conceptGroup(item.candidate.family, metadata),
+      lifecycle: promotionReady ? "PROMOTED" : combinedPass ? "AUDITED" : "SCREENED",
+      combinedPass,
+      promotionReady,
+      promotionChecks: {
+        clearanceReady,
+        capacityReady,
+        mobilityReady,
+        minimumClearanceFt: PROMOTION_CLEARANCE_FT,
+        targetLivingSqFt: PREFERRED_LIVING_SQFT,
+        targetCapacityMargin: PROMOTION_CAPACITY_MARGIN,
+        requiredNetLivingCapacitySqFt: PROMOTION_TARGET_CAPACITY_SQFT
+      },
+      physicalPass,
+      principalHomeContainmentPass,
+      placementEvaluation: {
+        containmentPass: item.evaluation.containmentPass,
+        overlapPass: item.evaluation.overlapPass,
+        separationPass: item.evaluation.separationPass,
+        circulationPass: item.evaluation.circulationPass
+      },
+      programPass: program.pass,
+      combinedScore,
+      physicalObjective: item.objective,
+      scoring: { physicalPenalty, buildablePavementPenalty, totalPavementPenalty, livingTargetPenalty, capacityPenalty, mobilityPenalty },
+      pavement,
+      mobilityAudit,
+      repaired: item.repaired,
+      repairActions: item.repairActions,
+      minimumClearanceFt: item.evaluation.minimumClearanceFt,
+      promotionBoundaryClearanceFt,
+      physicalIssues: [...new Set(physicalIssues)].slice(0, 10),
+      program,
+      placements: item.candidate.placements,
+      drives: item.candidate.drives,
+      variables: item.variables,
+      metadata
+    };
+  }).sort((a, b) => Number(b.promotionReady) - Number(a.promotionReady) || Number(b.combinedPass) - Number(a.combinedPass) || b.combinedScore - a.combinedScore);
+
+  const architecturallyEvaluated = evaluated
+    .filter((result) => result.promotionReady)
+    .map((result) => {
+      const freeze = freezeCandidate({
+        projectId: projectSpec.id,
+        projectRevision: projectSpec.revision,
+        scenarioId: BENCHMARK_SCENARIO_ID,
+        solverVersion: SOLVER_VERSION,
+        scoringVersion: SCORING_VERSION,
+        candidate: {
+          id: result.id,
+          family: result.family,
+          placements: result.placements,
+          drives: result.drives,
+          metadata: result.metadata
+        }
+      });
+      const roomPacking = evaluateRoomPacking(freeze, ROOM_PACKING_SPEC);
+      return {
+        ...result,
+        lifecycle: "FROZEN" as const,
+        freeze,
+        roomPacking,
+        architecturalScore:
+          result.combinedScore +
+          roomPacking.score * 0.35 +
+          (roomPacking.pass ? 40 : 0)
+      };
+    })
+    .sort((a, b) =>
+      Number(b.roomPacking.pass) - Number(a.roomPacking.pass) ||
+      b.architecturalScore - a.architecturalScore ||
+      b.combinedScore - a.combinedScore
+    );
+
+  const frozenShortlist = [] as typeof architecturallyEvaluated;
+  const seenConcepts = new Set<string>();
+  for (const result of architecturallyEvaluated) {
+    if (seenConcepts.has(result.conceptGroup)) continue;
+    frozenShortlist.push(result);
+    seenConcepts.add(result.conceptGroup);
+    if (frozenShortlist.length >= 5) break;
+  }
+
+  return {
+    project: "pondy-lot2",
+    scenario: BENCHMARK_SCENARIO_ID,
+    searchProfile: profile,
+    solver: SOLVER_VERSION,
+    searchMode: "material-topology-diversity-search",
+    scoringVersion: SCORING_VERSION,
+    preferredLivingSqFt: PREFERRED_LIVING_SQFT,
+    promotionClearanceFt: PROMOTION_CLEARANCE_FT,
+    promotionTargetCapacitySqFt: PROMOTION_TARGET_CAPACITY_SQFT,
+    mobilityAuditSchema: "lotscope-candidate-mobility-v1",
+    accessoryGarageEnvelope: {
+      segmentSetbacksFt: ACCESSORY_SEGMENT_SETBACK,
+      appliesToFamilies: ["rear-garage-stack"],
+      principalResidentialEnvelopeStillRequired: true
+    },
+    elapsedMs: Date.now() - started,
+    families: searchFamilies.map((family) => family.id),
+    searchAdjustments: [
+      "collapse Side Spine/Staggered/E2/G1 near-duplicates into one concept",
+      "evaluate owner-selected rear-garage-stack with detached accessory 5 ft rear/side envelope",
+      "keep all residential mass inside the principal-building envelope",
+      "require hardened full-body mobility audit before promotion",
+      "require enclosed final parking, generated planning door crossing, reverse replay, and 12 ft modeled pavement-corridor containment",
+      "require promotion-ready status before a concept can occupy a shortlist slot",
+      "retain up to 250 Compact Front candidates so architectural packing can rank beyond the top physical-only states"
+    ],
+    benchmarkControl: R51E_HISTORICAL_CONTROL,
+    evaluatedCount: evaluated.length,
+    physicalPassCount: evaluated.filter((item) => item.physicalPass).length,
+    mobilityPassCount: evaluated.filter((item) => item.mobilityAudit.pass).length,
+    mobilityPromotionReadyCount: evaluated.filter((item) => item.mobilityAudit.promotionReady).length,
+    programPassCount: evaluated.filter((item) => item.programPass).length,
+    combinedPassCount: evaluated.filter((item) => item.combinedPass).length,
+    promotionReadyCount: evaluated.filter((item) => item.promotionReady).length,
+    distinctPromotionReadyCount: frozenShortlist.length,
+    shortlist: frozenShortlist,
+    finalistFreezeCount: frozenShortlist.length,
+    finalistFreezeHashes: frozenShortlist.map((item) => item.freeze.freezeHash),
+    roomPackingPassCount: frozenShortlist.filter((item) => item.roomPacking.pass).length,
+    roomPackingSchema: "lotscope-room-pack-v1",
+    architecturallyEvaluatedCount: architecturallyEvaluated.length,
+    architecturalPassCount: architecturallyEvaluated.filter((item) => item.roomPacking.pass).length,
+    architecturalLeader: frozenShortlist[0]?.id ?? null,
+    results: evaluated
+  };
+}

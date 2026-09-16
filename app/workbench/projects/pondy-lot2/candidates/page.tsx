@@ -32,7 +32,7 @@ export default function CandidateLibraryPage() {
   const history = pondyCandidateRegistry.candidates.filter((item) => !recommended.includes(item) && !intervention.includes(item));
   return <main className="shell workbench-shell candidate-library-shell">
     <section className="staff-page-head"><p className="eyebrow">PONDY LOT 2 · CANDIDATE LIBRARY</p><h1>Review distinct options, not raw solver noise.</h1><p className="lede">The registry keeps designs, revisions, evidence and lineage separate. Staff may choose what deserves attention; machine evidence owns classification and PASS.</p>
-      <div className="hero-actions"><Link className="secondary-button" href="/workbench/projects/pondy-lot2">Lot workspace</Link><Link className="secondary-button" href="/workbench/solver">Run broad solver</Link></div></section>
+      <div className="hero-actions"><Link className="secondary-button" href="/workbench/projects/pondy-lot2">Lot workspace</Link><Link className="primary-button" href="/workbench/projects/pondy-lot2/explore">Run exploration</Link></div></section>
 
     <section className="library-section"><div className="library-section-head"><div><p className="eyebrow">RECOMMENDED</p><h2>Passing, high-value options</h2></div><span className="mode-pill">{recommended.length}</span></div>{recommended.length ? <div className="library-grid">{recommended.map((item) => <CandidateCard key={item.id} candidate={item} />)}</div> : <div className="staff-empty-state wb-panel">No candidate is currently promoted as a passing recommendation. This is intentional: Design 4 outbound remains open.</div>}</section>
 

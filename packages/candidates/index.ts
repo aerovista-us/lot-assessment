@@ -75,6 +75,7 @@ export type OpeningComponent = ComponentBase & {
 
 export type PathComponent = ComponentBase & {
   kind: "driveway" | "route";
+  garageId?: string;
   points: Point[];
   widthFt?: number;
   movableControlPoints?: number[];
