@@ -16,6 +16,7 @@ export type RankedSearchCandidate = {
   combinedPass: boolean;
   promotionReady: boolean;
   physicalPass: boolean;
+  principalHomeContainmentPass?: boolean;
   placementEvaluation?: {
     containmentPass: boolean;
     overlapPass: boolean;
@@ -117,6 +118,7 @@ function placementComponents(result: RankedSearchCandidate): CandidateComponent[
     id: drive.id,
     kind: "driveway",
     label: drive.id,
+    garageId: drive.garageId,
     points: drive.points,
     movableControlPoints: drive.movableControlPoints
   }));
@@ -129,7 +131,7 @@ function issueText(result: RankedSearchCandidate) {
 function evaluationFor(result: RankedSearchCandidate, context: TriageContext): CandidateEvaluation {
   const issues = issueText(result);
   const parcelFail = result.placements.some((item) => !polygonInside(placementPolygon(item), context.parcel, 0.08));
-  const buildableFail = result.placementEvaluation ? !result.placementEvaluation.containmentPass : issues.includes("outside buildable envelope");
+  const buildableFail = (result.placementEvaluation ? !result.placementEvaluation.containmentPass : issues.includes("outside buildable envelope")) || result.principalHomeContainmentPass === false;
   const structureFail = result.placementEvaluation ? !(result.placementEvaluation.overlapPass && result.placementEvaluation.separationPass) : (issues.includes("overlap") || issues.includes("separation"));
   const mobilityStatus = result.mobilityAudit?.status ?? (result.physicalPass ? "PASS" : "FAIL");
   const mobilityGateStatus = mobilityStatus === "PASS" ? "PASS" : mobilityStatus;

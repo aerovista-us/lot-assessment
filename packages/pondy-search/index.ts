@@ -231,6 +231,7 @@ export function runPondyRankedSearch(profile: PondySearchProfile = "full") {
         requiredNetLivingCapacitySqFt: PROMOTION_TARGET_CAPACITY_SQFT
       },
       physicalPass,
+      principalHomeContainmentPass,
       placementEvaluation: {
         containmentPass: item.evaluation.containmentPass,
         overlapPass: item.evaluation.overlapPass,
