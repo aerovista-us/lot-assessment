@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { CandidatePlan } from "@/components/workbench/CandidatePlan";
+import { InterventionEditor } from "@/components/workbench/InterventionEditor";
 import { useCandidateWorkspace } from "@/components/workbench/useCandidateWorkspace";
 import { currentEvaluation, type PathComponent, type PolygonComponent } from "@/packages/candidates";
 import { createWorkspaceExportPackage } from "@/packages/candidates/workspace";
@@ -30,6 +31,9 @@ export function CandidateWorkspaceClient({ candidateId }: { candidateId: string 
   if (!candidate) return <div className="staff-empty-state wb-panel">Candidate not found in the checked-in registry or local draft workspace. <Link href="/workbench/projects/pondy-lot2/candidates">Return to Candidate Library</Link>.</div>;
 
   const activeCandidate = candidate;
+  const localCandidate = workspace.isLocalCandidate(activeCandidate.id);
+  const editableWorkingCopy = localCandidate && (activeCandidate.source === "STAFF_INTERVENTION" || activeCandidate.source === "IMPORT");
+  const interventionEligible = ["ACCEPTABLE_FOR_INTERVENTION", "PARTIAL_FAIL", "PASS", "PROMOTION_READY"].includes(activeCandidate.status);
 
   const evaluation = currentEvaluation(candidate);
   const parent = activeCandidate.lineage.parentCandidateId ? workspace.registry.candidates.find((item) => item.id === activeCandidate.lineage.parentCandidateId) : null;
@@ -48,6 +52,12 @@ export function CandidateWorkspaceClient({ candidateId }: { candidateId: string 
 
   function branch(relation: "VARIANT" | "NEW_DESIGN") {
     const child = workspace.branchCandidate(activeCandidate.id, relation);
+    router.push(`/workbench/projects/pondy-lot2/candidates/${child.id}`);
+  }
+
+  function createIntervention() {
+    const child = workspace.branchCandidate(activeCandidate.id, "VARIANT");
+    workspace.checkpointCandidate(child.id, "Intervention baseline");
     router.push(`/workbench/projects/pondy-lot2/candidates/${child.id}`);
   }
 
@@ -76,8 +86,9 @@ export function CandidateWorkspaceClient({ candidateId }: { candidateId: string 
       <p className="lede">{activeCandidate.family} · {activeCandidate.status.replaceAll("_", " ")} · {activeCandidate.evidenceState} evidence</p>
       <div className="hero-actions">
         <Link className="secondary-button" href="/workbench/projects/pondy-lot2/candidates">Candidate Library</Link>
-        <button className="secondary-button" type="button" onClick={checkpoint}>Save checkpoint</button>
-        <button className="secondary-button" type="button" onClick={() => branch("VARIANT")}>Branch variant</button>
+        {editableWorkingCopy ? <button className="secondary-button" type="button" onClick={checkpoint}>Save checkpoint</button> : null}
+        {!editableWorkingCopy && interventionEligible ? <button className="primary-button" type="button" onClick={createIntervention}>Create Intervention</button> : null}
+        {localCandidate ? <button className="secondary-button" type="button" onClick={() => branch("VARIANT")}>Branch variant</button> : null}
         <button className="secondary-button" type="button" onClick={() => branch("NEW_DESIGN")}>New design from this</button>
         <button className="secondary-button" type="button" onClick={exportCurrent}>Export package</button>
         <Link className="secondary-button" href={`/workbench/projects/pondy-lot2/compare?left=${activeCandidate.id}`}>Compare</Link>
@@ -97,12 +108,14 @@ export function CandidateWorkspaceClient({ candidateId }: { candidateId: string 
           <div><dt>Design</dt><dd>{activeCandidate.designId}</dd></div><div><dt>Source</dt><dd>{activeCandidate.source}</dd></div>
           <div><dt>Topology</dt><dd>{activeCandidate.topologyKey}</dd></div><div><dt>Evidence</dt><dd>{activeCandidate.evidenceState}</dd></div>
           <div><dt>Parent</dt><dd>{parent?.revisionLabel ?? "Root candidate"}</dd></div><div><dt>Children</dt><dd>{children.length}</dd></div>
-          <div><dt>Checkpoints</dt><dd>{checkpoints.length}</dd></div><div><dt>Storage</dt><dd>{workspace.isLocalCandidate(activeCandidate.id) ? "Local draft" : "Checked-in registry"}</dd></div>
+          <div><dt>Checkpoints</dt><dd>{checkpoints.length}</dd></div><div><dt>Storage</dt><dd>{localCandidate ? "Local draft" : "Checked-in registry"}</dd></div>
         </dl>
         <div className="candidate-classification-box"><b>Why this status?</b><p>{activeCandidate.classificationReason}</p></div>
         <div className="candidate-warning-box"><b>Machine-owned validation</b><p>Staff may branch, checkpoint and edit future child revisions, but cannot set PASS. Imported and branched records require current pipeline evidence.</p></div>
       </aside>
     </section>
+
+    {editableWorkingCopy ? <InterventionEditor candidate={activeCandidate} repairContextCandidate={evaluation ? activeCandidate : parent} onSave={workspace.saveCandidate} onCheckpoint={(label) => workspace.checkpointCandidate(activeCandidate.id, label)} /> : interventionEligible ? <section className="wb-panel intervention-start-callout"><div><p className="eyebrow">READY FOR STAFF INTERVENTION</p><h2>Create a protected child revision before changing geometry.</h2><p>{localCandidate ? "This saved solver candidate remains intact." : "The checked-in candidate stays untouched."} The new intervention branch starts with stale evidence and an automatic baseline checkpoint, then unlocks constrained component editing.</p></div><button className="primary-button" type="button" onClick={createIntervention}>Create Intervention</button></section> : null}
 
     <section className="candidate-detail-grid">
       <article className="wb-panel"><p className="eyebrow">STRUCTURE COMPONENTS</p><h2>Homes + garages</h2><div className="component-list">{placements.map((item) => <div key={item.id}><span>{item.kind}</span><strong>{item.label}</strong><small>{"x" in item ? `${item.widthFt} x ${item.depthFt} ft · rotation ${item.rotationDeg ?? 0} deg · x ${item.x}, y ${item.y}` : ""}</small></div>)}</div></article>
