@@ -5,60 +5,72 @@
 ## Two surfaces, one engine
 
 - `/` — **Public LotScope v2 Guided Assessment**: grouped LOT / RULES / PROJECT / ACCESS facts, Quick Rectangle or honest Custom Lot Facts approximation, separate feasibility and information-confidence results, and explicit assumptions to verify.
-- `/workbench` — **LotScope Workbench**: internal solver/agent surface for ProjectSpec, topology search, legalization, FS-SUV swept paths, bounded repair, program feasibility, site-efficiency ranking and solver-derived site models.
+- `/workbench` — **LotScope Workbench**: internal solver/staff surface for ranked topology search, candidate triage, lifecycle management, constrained intervention, mobility screening, program feasibility and evidence review.
 
 **Promotion rule:** Public may package capabilities already proven in Workbench/shared code; Public is not the experimental geometry surface.
 
 ## Current Pondy benchmark capability
 
-The old seed-only description is obsolete. Pondy Lot 2 now exercises reusable packages for:
+Pondy Lot 2 now exercises reusable packages for:
 
 - exact irregular parcel + segment-specific setback envelope;
-- six parameterized topology families;
-- deterministic full-grid sampling;
+- parameterized topology generation and ranked search;
 - explicit placement containment and intentional integration groups;
-- integrated garages with residual home walls preserved as circulation obstacles;
-- compound/L-shaped home massing using declared grouped components;
+- compound/L-shaped residential massing;
 - full-size SUV swept-path validation;
-- near-pass-only bounded repair;
+- bounded geometry/access repair and site-efficiency ranking;
 - fast program feasibility with garage area removed from conditioned capacity;
-- pavement-in-buildable-land ranking;
-- historical R5.1e control with partial-comparability labeling;
-- auditable benchmark JSON / manifest / HTML comparison artifacts in GitHub Actions.
+- solver-backed candidate triage and concept deduplication;
+- persistent candidate lineage/checkpoints in the staff draft workspace;
+- constrained direct manipulation of homes, garages, openings, pavement and route hints;
+- machine screening of exact interventions and bounded Explore Around Edit alternatives;
+- auditable benchmark JSON / manifest / comparison artifacts.
+The current discovery/search stack can produce multiple distinct machine-ranked concepts. Candidate Search & Triage reduces raw solver states to representative staff options and classifies them as **Recommended**, **Acceptable for Intervention**, or **History**. Machine evidence owns PASS; staff cannot promote a candidate by judgment alone.
 
-The current discovery cycle has produced solver-backed baseline candidates that pass physical and program gates. Promotion is intentionally stricter than technical PASS and currently requires at least 1 ft clearance from non-access parcel edges plus net geometric capacity around the 1,800 SF/unit target with an 8% planning margin. Detailed room packing is still a later gate, not something the current benchmark claims to prove.
+The checked-in Design 4 / Design 4B Pondy records remain intervention candidates, not authoritative outbound circulation passes. The Intervention Editor can screen exact edited geometry, but newly edited children must still be rerun through the full authoritative mobility pipeline before PASS/PROMOTION_READY can apply.
 
-See `docs/EXECUTION_2026-08-27.md` and `docs/PONDY_CAPABILITY_ROADMAP.md`.
+See:
+
+- `docs/BUILD_STATUS.md`
+- `docs/PONDY_CAPABILITY_ROADMAP.md`
+- `docs/HANDOFF_2026-09-18_WORKBENCH_LIFECYCLE_INTERVENTION.md`
+
+## Candidate staff workflow
+
+1. Run Exploration and review machine-triaged representatives.
+2. Save a candidate that deserves continued work.
+3. Open **Create Intervention** to create a protected child revision and baseline checkpoint.
+4. Drag/move/rotate supported components or use optional precision controls.
+5. Every geometry change marks prior evidence STALE and creates a recovery checkpoint.
+6. Use **Evaluate exact edit** for local intervention screening.
+7. Use **Explore around edit** to generate bounded machine-screened neighbors.
+8. Compare parent/child/alternatives and retain the best evidence-backed revision.
+9. Rerun the authoritative mobility/circulation pipeline before treating an edited child as PASS.
+
+Lifecycle v1 draft persistence is browser-local (`localStorage`). `.lotscope.json` import/export is the portable handoff format until shared/account-backed persistence is wired.
 
 ## Public v2.0
 
 Public remains manual-facts-first: it does not invent zoning rules.
 
-Inputs are grouped into:
-- **Lot** — quick rectangle dimensions or custom-lot fact approximations;
-- **Rules** — setbacks / coverage;
-- **Project** — units, living target, stories, garages;
-- **Access** — driveway/access assumptions.
-
-Each important fact can carry an information state such as Confirmed, User supplied, Assumed or Unknown. The result intentionally separates:
-
-1. **Feasibility** — what the entered geometry appears to support; and
-2. **Information confidence** — how trustworthy the inputs supporting that conclusion are.
-
+Inputs are grouped into Lot, Rules, Project and Access facts. Each important fact can carry an information state such as Confirmed, User supplied, Assumed or Unknown. Results intentionally separate feasibility from information confidence.
 ## Product direction
 
 The user-facing promise remains **Can I Build That Here?** while `lot-assessment` is the broader product/repository concept.
 
-Planned/promotion layers:
+Current product layers:
+
 1. guided manual dimensional feasibility — **working**
 2. information-confidence / provenance states — **working**
 3. reusable irregular-lot geometry — **working in Workbench**
 4. driveway / garage / vehicle-turning analysis — **working in Workbench**
 5. topology generation, legalization, bounded repair and ranking — **working in Workbench**
-6. lightweight solver-derived site comparisons — **working in Workbench/benchmark reports**
-7. official parcel/jurisdiction/code retrieval and citations — future
-8. detailed architectural room packing — next finalist gate
-9. canonical geometry freeze and downstream documents — after finalist selection
+6. candidate search/triage and deduplication — **working**
+7. lifecycle/checkpoint/import/export/compare — **working**
+8. constrained direct-manipulation Intervention Editor — **working**
+9. authoritative revalidation of edited intervention children — **next**
+10. official parcel/jurisdiction/code retrieval and citations — future
+11. shared/account-backed staff candidate persistence — future
 
 ## Stack
 
@@ -66,26 +78,27 @@ Planned/promotion layers:
 - React 19.2.8
 - TypeScript
 - GitHub Actions benchmark validation
+- Vercel deployment
 - AeroVista Local analytics/branding pattern
 
-## Local development
+## Local validation
 
 ```bash
 npm install
-npm run dev
+npm run lint
+npm run test:canonical
+npm run test:room-packing
+npm run test:workspace
+npm run test:intervention
+npm run build
 ```
 
 Public: `http://localhost:3000/`  
 Workbench: `http://localhost:3000/workbench`
 
-```bash
-npm run lint
-npm run build
-```
-
 ## Deployment discipline
 
-Solver iteration is validated with GitHub Actions and a local production server. Vercel is reserved for coordinated release QA / production rather than every geometry experiment. The target is one production deployment for the combined Public v2 + Workbench sprint once the human candidate-review gate is satisfied.
+Solver/intervention iteration is validated locally and through repository checks before merge. Generated `tsconfig.json` / `next-env.d.ts` build noise must not be committed. Vercel is the release/deployment signal for merged Workbench/public changes.
 
 ## Safety / authority boundary
 
