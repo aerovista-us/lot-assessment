@@ -1,5 +1,5 @@
 import { evaluateSweptPath, FULL_SIZE_SUV, vehiclePolygon, type Obstacle } from "@/packages/circulation";
-import { pointInPolygon, polygonInside, rectangle, rotatePolygon, type Point, type Polygon } from "@/packages/geometry";
+import { distanceToPolygonBoundary, pointInPolygon, polygonInside, rectangle, rotatePolygon, type Point, type Polygon } from "@/packages/geometry";
 import {
   applyCandidateEvaluation,
   editOpeningComponent,
@@ -84,14 +84,37 @@ function polygonsOverlap(a: Polygon, b: Polygon) {
   return pointInPolygon(a[0], b, 0.001) || pointInPolygon(b[0], a, 0.001);
 }
 
+function properSegmentsIntersect(a: Point, b: Point, c: Point, d: Point, epsilon = 1e-9) {
+  const abC = cross(a, b, c), abD = cross(a, b, d);
+  const cdA = cross(c, d, a), cdB = cross(c, d, b);
+  if ([abC, abD, cdA, cdB].some((value) => Math.abs(value) <= epsilon)) return false;
+  return Math.sign(abC) !== Math.sign(abD) && Math.sign(cdA) !== Math.sign(cdB);
+}
+
+function strictlyInside(point: Point, polygon: Polygon, epsilon = 0.02) {
+  return distanceToPolygonBoundary(point, polygon) > epsilon && pointInPolygon(point, polygon, epsilon);
+}
+
+function polygonsInteriorOverlap(a: Polygon, b: Polygon) {
+  for (let i = 0; i < a.length; i += 1) {
+    for (let j = 0; j < b.length; j += 1) {
+      if (properSegmentsIntersect(a[i], a[(i + 1) % a.length], b[j], b[(j + 1) % b.length])) return true;
+    }
+  }
+  return a.some((point) => strictlyInside(point, b)) || b.some((point) => strictlyInside(point, a));
+}
+
 function structureOverlapGate(candidate: CandidateRecord): GateEvaluation {
   const placements = placementComponents(candidate);
   const conflicts: string[] = [];
   for (let i = 0; i < placements.length; i += 1) {
     for (let j = i + 1; j < placements.length; j += 1) {
       const a = placements[i], b = placements[j];
-      if (a.kind === "home" && b.kind === "home") continue;
-      if (polygonsOverlap(placementPolygon(a), placementPolygon(b))) conflicts.push(`${a.label} / ${b.label}`);
+      const aPolygon = placementPolygon(a), bPolygon = placementPolygon(b);
+      const overlaps = a.kind === "home" && b.kind === "home"
+        ? polygonsInteriorOverlap(aPolygon, bPolygon)
+        : polygonsOverlap(aPolygon, bPolygon);
+      if (overlaps) conflicts.push(`${a.label} / ${b.label}`);
     }
   }
   return {

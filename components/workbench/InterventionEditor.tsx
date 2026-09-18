@@ -223,7 +223,7 @@ export function InterventionEditor({ candidate, repairContextCandidate, onSave, 
         </div>}
 
         <div className="intervention-actions">
-          <button className="secondary-button" type="button" disabled={!selectedEditable} onClick={applyGeometry}>Save edit</button>
+          <button className="secondary-button" type="button" disabled={!selectedEditable || running !== null} onClick={applyGeometry}>Save edit</button>
           <button className="primary-button" type="button" disabled={running !== null || draftDirty} title={draftDirty ? "Save the geometry edit first." : undefined} onClick={evaluateExact}>{running === "evaluate" ? "Evaluating…" : "Evaluate exact edit"}</button>
           <button className="secondary-button" type="button" disabled={!selectedEditable || running !== null || draftDirty} title={draftDirty ? "Save the geometry edit first." : undefined} onClick={exploreAround}>{running === "explore" ? "Exploring…" : "Explore around edit"}</button>
         </div>

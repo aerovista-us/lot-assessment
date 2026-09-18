@@ -18,6 +18,10 @@ for (const candidate of [d4, d4b]) {
   assert(routeGate?.metrics && "offPavementPoseCount" in routeGate.metrics, "route screening must report pavement coverage");
   assert.notEqual(screen.evaluation.status, "PASS");
 }
+const overlappingHomes = editPlacementComponent(d4, "home-a", { x: 60 }, "2026-09-18T12:00:30.000Z");
+const overlapScreen = evaluateInterventionCandidate(overlappingHomes, rules, "2026-09-18T12:00:31.000Z");
+assert.equal(overlapScreen.evaluation.gates.find((gate) => gate.id === "intervention-structure")?.status, "FAIL", "edited homes must not overlap internally");
+
 const originalStall = d4.components.find((component) => component.id === "b-south");
 assert(originalStall && originalStall.kind === "stall");
 const edited = editPlacementComponent(d4, "garage-b", { x: 7, rotationDeg: 10 }, "2026-09-18T12:01:00.000Z");
