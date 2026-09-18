@@ -13,6 +13,22 @@ When the project reaches a defensible solution, extract each reusable lesson int
 4. a fixture/test case,
 5. a confidence/source note where code interpretation is involved.
 
+## Implementation checkpoint — 2026-09-18
+
+Several roadmap capabilities are now implemented in the reusable Workbench rather than remaining future concepts:
+
+- real irregular parcel and buildable-envelope geometry;
+- multiple topology families and ranked search;
+- full-size vehicle swept-path screening;
+- bounded repair across placement, garage orientation, route and pavement;
+- Candidate Search & Triage with deduplicated representatives;
+- machine-owned Recommended / Acceptable for Intervention / History classification;
+- candidate lineage, checkpoints, import/export and comparison;
+- constrained direct-manipulation Intervention Editor for homes, garages, openings, pavement and route control points;
+- exact-edit screening and bounded Explore Around Edit suggestions.
+
+The key remaining Pondy proof gap is **authoritative revalidation of an edited intervention child**. Intervention screening does not yet replace the full independent stall-to-Pennsylvania outbound mobility proof.
+
 ## Capability buckets to capture
 
 ### 1. Real lot geometry

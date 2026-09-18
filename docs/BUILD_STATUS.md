@@ -1,20 +1,32 @@
 # LotScope — Build Status
 
-Updated: 2026-09-08
+Updated: 2026-09-18
 
 ## Status
 
-**ACTIVE BUILD · PUBLIC V2 SHIPPED · WORKBENCH DIVERSITY PROVEN · FINALIST REFINEMENT NEXT**
+**ACTIVE BUILD · PUBLIC V2 LIVE · CANDIDATE SEARCH/LIFECYCLE SHIPPED · INTERVENTION EDITOR SHIPPED · AUTHORITATIVE INTERVENTION REVALIDATION NEXT**
 
 ## Canonical surfaces
 
 - Public: `https://lotscope.aerovista.us`
 - Vercel fallback: `https://lotscope.vercel.app`
-- Workbench route: `/workbench`
+- Internal Workbench: `/workbench`
+- Pondy project workspace: `/workbench/projects/pondy-lot2`
+- Candidate exploration: `/workbench/projects/pondy-lot2/explore`
+- Candidate library: `/workbench/projects/pondy-lot2/candidates`
+- Candidate compare: `/workbench/projects/pondy-lot2/compare`
 - Proven public examples: `/proven-patterns`
 - GitHub source of truth: `aerovista-us/lot-assessment`
-- Durable solver evidence: `benchmark-results` branch
+- Durable benchmark evidence: `benchmark-results` branch
 
+## Current source baseline
+
+- `main`: `507a9be9cef487dc1e9b72c32c8ab09b28cecd96`
+- Current tree: `b394c1700bcfbc7a13b397216b27ef7150b999d6`
+- PR #30: candidate lifecycle workspace — merged
+- PR #31: constrained intervention editor — merged
+- PR #32: direct intervention manipulation — merged
+- Vercel status on current `main`: SUCCESS
 ## Working now
 
 ### Public LotScope v2
@@ -27,75 +39,103 @@ Updated: 2026-09-08
 - Explicit assumptions and next-verification guidance
 - Public-safe authority boundary: no invented zoning/legal certainty
 
-### Workbench / shared engine
+### Workbench solver + candidate search
 
-- Exact irregular parcel + segment-specific setback handling
-- Parameterized topology generation
-- Placement containment and intentional integration groups
-- Compound / L-shaped residential massing
-- Full-size SUV swept-path validation
-- Near-pass-only bounded repair
-- Fast program-feasibility and net living-capacity checks
-- Pavement / buildable-land efficiency ranking
-- Promotion gate requiring physical PASS + program PASS + 1,800 SF target with 8% capacity reserve + >=1 ft non-access boundary clearance
-- Solver-derived SVG/comparison evidence
-- GitHub Actions benchmark artifacts and durable benchmark-results history
+- Exact irregular parcel and segment-specific setback handling
+- Parameterized topology generation and ranked search
+- Placement containment and compound/L-shaped residential massing
+- Full-size SUV swept-path validation and bounded repair
+- Program/capacity and site-efficiency screening
+- Candidate Search & Triage converts ranked solver output into distinct staff-facing representatives
+- Concept deduplication prevents raw solver-state noise from becoming staff workload
+- Machine triage separates Recommended, Acceptable for Intervention, and History
+- Staff cannot manually set PASS or PROMOTION_READY
 
-## Pondy proof — current result
+### Candidate lifecycle
 
-The original Workbench proof objective is now achieved without one-off Pondy logic replacing the general engine.
+- Save solver/exploration candidates into a browser-local draft workspace
+- Automatic lineage across parent, variant, new-design, and import-copy relationships
+- Recoverable checkpoints and checkpoint restore
+- Branch Variant and New Design From This
+- `.lotscope.json` export/import round-trip
+- Import modes: copy, variant, or new design
+- Imported/restored/branched geometry requires revalidation before promotion
+- Side-by-side candidate comparison with component and gate deltas
+### Intervention Editor
 
-Diversity Run 48 / strict regression gate:
+- **Create Intervention** protects the source candidate and creates a child variant with a baseline checkpoint
+- Direct manipulation for movable homes and garages
+- Garage rotation handle with modeled stall movement preserved
+- Drag-editable driveway/route control points
+- Drag-editable pavement vertices
+- Drag-editable garage-opening position
+- Optional precision controls for exact dimensions/coordinates
+- Every geometry edit creates a recovery checkpoint and marks previous evidence STALE
+- **Evaluate exact edit** runs intervention screening on the exact edited geometry
+- **Explore around edit** generates bounded nearby alternatives around the selected component
+- Screening includes parcel, structure, parking, route curvature/body sweep and pavement checks
+- No editor action can manufacture PASS while authoritative outbound proof remains open
 
-- 11 search families
-- 110 retained/evaluated candidates
-- 89 physical passes
-- 86 combined physical + program passes
-- 49 promotion-ready candidates
-- **5 materially distinct promotion-ready concept groups**
+## Pondy candidate truth
 
-Current promotion-ready concept groups:
+The checked-in Design 4 and Design 4B records remain **ACCEPTABLE_FOR_INTERVENTION**, not circulation PASS.
 
-1. Compact Front Block
-2. Front L / Rear Standard
-3. Balanced Twin Blocks
-4. Edge / Staggered Spine control family
-5. Deep Narrow Rear
+- Design 4: four inbound stall paths are demonstrated; independent outbound remains open; B-South is tight.
+- Design 4B: rotated Garage B materially improves local clearance; independent outbound remains open; rotated accessory setback still requires recertification/professional review.
+- Intervention screening is intentionally narrower than the authoritative mobility pipeline.
+- A favorable intervention screen is evidence for further testing, not permit/buildability approval and not an authoritative circulation PASS.
 
-The owner-selected **Accessory Rear Garage Stack / connected L-duplex** remains a separately proven active refinement family. Diversity ranking is evidence; it does not silently override the selected design direction.
+## Persistence boundary
 
-## Current design boundary
+Lifecycle v1 uses browser `localStorage` for staff draft candidates/checkpoints. Checked-in registry records remain protected. `.lotscope.json` is the portable handoff format until shared/account-backed persistence is connected.
 
-What the Workbench proves today:
+## Validation baseline
 
-- site-fit geometry
-- selected setback-envelope containment under labeled assumptions
-- vehicle access / circulation against the benchmark design vehicle
-- coarse program capacity
-- comparable candidate scoring and promotion readiness
+Current `main` passed:
 
-What it does **not** yet prove:
-
-- permit approval
-- verified final zoning interpretation
-- detailed room-by-room floor-plan quality
-- structural / civil / architectural construction feasibility
-- final legal status of alternate access or accessory-building assumptions
+- TypeScript/lint
+- canonical regression
+- room-packing regression
+- candidate lifecycle regression
+- intervention regression
+- production Next build
+- `git diff --check`
+- Candidate Library / D4 / D4B / Compare / Explore / Registry / export smoke checks
+- intervention evaluate API smoke
+- intervention explore API smoke with five bounded suggestions
+- headless direct-manipulation interaction QA on the merged editor work
 
 ## Next implementation milestone
 
-### Finalist refinement + canonical freeze
+### Authoritative intervention revalidation
 
-1. Extend program feasibility into room-level packing and architectural-quality checks (issue #3).
-2. Select/freeze finalist geometry instead of continuing uncontrolled topology movement.
-3. Implement canonical candidate schema + stable geometry IDs + ProjectSpec/candidate/solver freeze hash (issue #9).
-4. Derive plans, elevations, sections and customer packages from frozen geometry only.
-5. Complete open-source strategy/licensing documentation before importing any third-party implementation code (issue #6).
+Connect an edited intervention child back into the full machine-owned mobility/circulation pipeline so **Evaluate authoritative** can prove or reject the complete stall-to-Pennsylvania path for that exact revision.
+Required next work:
 
-## Later product layer
+1. Adapt lifecycle child geometry into the authoritative mobility input model without weakening hard gates.
+2. Run independent outbound proof from every modeled stall to Pennsylvania for the exact intervention revision.
+3. Persist the resulting authoritative evaluation against that revision and refresh machine classification.
+4. Only allow PASS/PROMOTION_READY when the authoritative pipeline actually earns it.
+5. Add an explicit UI distinction between **Screening evaluation** and **Authoritative evaluation**.
+6. After this gate is stable, consider shared/account-backed candidate persistence so staff drafts are not browser-specific.
 
-Parcel/jurisdiction/code retrieval remains future work. When added, every automatic rule must preserve source URL, jurisdiction, effective/verification date and explicit uncertainty/conflict handling. Manual override mode remains required.
+## Product / authority boundary
 
-## Product rule
+What Workbench can prove today:
 
-If an authoritative rule is unavailable, stale, ambiguous or conflicts with another source, output **Needs Verification** and show the conflict. Never silently select the most convenient zoning interpretation.
+- site-fit geometry under the modeled parcel/rule assumptions
+- selected setback-envelope containment where that envelope is authoritative enough to model
+- full-body vehicle screening and ranked access concepts
+- program/capacity screening
+- candidate lineage, intervention history and reproducible geometry changes
+- intervention-local screening against hard geometric checks
+
+What it still does **not** by itself prove:
+
+- permit approval
+- final zoning/AHJ interpretation
+- construction feasibility or engineering adequacy
+- final detailed architectural quality
+- authoritative outbound circulation for a newly edited intervention until the full mobility pipeline is rerun
+
+If an authoritative rule is unavailable, stale, ambiguous or conflicting, output **Needs Verification** rather than silently choosing a convenient interpretation.
