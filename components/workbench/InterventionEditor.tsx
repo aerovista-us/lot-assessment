@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { CandidatePlan } from "@/components/workbench/CandidatePlan";
+import { DirectManipulationPlan, type DirectManipulation } from "@/components/workbench/DirectManipulationPlan";
 import type { CandidateComponent, CandidateRecord } from "@/packages/candidates";
 import {
   applyCandidateEvaluation,
@@ -84,6 +85,40 @@ export function InterventionEditor({ candidate, repairContextCandidate, onSave, 
   }, [selectedId, candidate.updatedAt]);
 
   const setField = (key: string, value: string) => setDraft((current) => ({ ...current, [key]: value }));
+
+  function commitDirectManipulation(change: DirectManipulation) {
+    if (running !== null) return;
+    try {
+      let next = candidate;
+      let label = "direct manipulation";
+      const component = candidate.components.find((item) => item.id === change.componentId);
+      if (!component) throw new Error("Selected component no longer exists.");
+      if (change.kind === "move-placement") {
+        next = editPlacementComponent(candidate, change.componentId, { x: change.x, y: change.y });
+        label = `moving ${component.label}`;
+      } else if (change.kind === "rotate-placement") {
+        next = editPlacementComponent(candidate, change.componentId, { rotationDeg: change.rotationDeg });
+        label = `rotating ${component.label}`;
+      } else if (change.kind === "move-path-point") {
+        next = editPathPoint(candidate, change.componentId, change.pointIndex, change.point);
+        label = `reshaping ${component.label}`;
+      } else if (change.kind === "move-pavement-vertex") {
+        next = editPavementVertex(candidate, change.componentId, change.vertexIndex, change.point);
+        label = `reshaping ${component.label}`;
+      } else if (change.kind === "move-opening") {
+        next = editOpeningComponent(candidate, change.componentId, { offsetFt: change.offsetFt });
+        label = `moving ${component.label}`;
+      }
+      if (JSON.stringify(next.components) === JSON.stringify(candidate.components)) return;
+      onCheckpoint(`Before ${label}`);
+      onSave(next);
+      setSelectedId(change.componentId);
+      setSuggestions([]);
+      setMessage(`${component.label} updated by drag/drop. Prior machine evidence is now stale until this exact geometry is evaluated.`);
+    } catch (cause) {
+      setMessage(cause instanceof Error ? cause.message : "Unable to apply direct manipulation.");
+    }
+  }
   function applyGeometry() {
     if (!selected || !isInterventionEditable(selected)) return;
     try {
@@ -183,22 +218,30 @@ export function InterventionEditor({ candidate, repairContextCandidate, onSave, 
   const selectedEditable = selected && isInterventionEditable(selected) ? selected : null;
   return <section className="wb-panel intervention-editor-panel">
     <div className="section-heading intervention-editor-head">
-      <div><p className="eyebrow">INTERVENTION EDITOR V1</p><h2>Change a bounded component, then make the machine re-check it.</h2></div>
+      <div><p className="eyebrow">INTERVENTION EDITOR V2</p><h2>Drag the plan directly, then make the machine re-check it.</h2></div>
       <span className="mode-pill">{candidate.evidenceState} EVIDENCE</span>
     </div>
     <div className="candidate-warning-box intervention-truth-boundary"><b>Screening boundary</b><p>This editor can test static geometry, enclosed parking and route-hint sweeps. It cannot close the authoritative independent stall-to-Pennsylvania outbound gate. A screen result is never a manual PASS.</p></div>
     {repairClasses.length > 0 && <div className="candidate-chip-row intervention-repairs">{repairClasses.map((repair) => <span key={repair}>{repair}</span>)}</div>}
     <div className="intervention-grid">
       <div className="intervention-plan-wrap">
-        <CandidatePlan candidate={candidate} selectedComponentId={selectedId} onSelectComponent={(id) => {
-          const component = candidate.components.find((item) => item.id === id);
-          if (component && isInterventionEditable(component)) setSelectedId(id);
-          else setMessage(component?.locked ? `${component.label} is protected.` : "That component is not editable in Intervention Editor v1.");
-        }} />
-        <p className="microcopy">Click an editable component in the plan or choose it from the selector. Parcel and derived envelope geometry stay protected.</p>
+        <DirectManipulationPlan candidate={candidate} selectedComponentId={selectedId} disabled={running !== null}
+          onSelectComponent={(id) => {
+            const component = candidate.components.find((item) => item.id === id);
+            if (component && isInterventionEditable(component)) setSelectedId(id);
+            else setMessage(component?.locked ? `${component.label} is protected.` : "That component is not editable in Intervention Editor.");
+          }} onCommit={commitDirectManipulation} />
+        <div className="direct-manipulation-help">
+          <span><b>Move</b> drag a home or garage</span><span><b>Rotate</b> drag the round handle above a selected building</span>
+          <span><b>Driveway</b> drag the round route points</span><span><b>Pavement</b> select it, then drag a corner</span>
+        </div>
+        <p className="microcopy">Drag/drop saves the geometry immediately with a recovery checkpoint. Parcel and derived envelope geometry stay protected.</p>
       </div>
       <div className="intervention-controls">
         <label className="intervention-select-label">Edit component<select value={selectedId} onChange={(event) => setSelectedId(event.target.value)}>{editable.map((component) => <option key={component.id} value={component.id}>{component.kind} · {component.label}</option>)}</select></label>
+        <details className="intervention-precision">
+          <summary>Precision controls <span>optional</span></summary>
+          <div className="intervention-precision-body">
         {selectedEditable && (selectedEditable.kind === "home" || selectedEditable.kind === "garage") && <div className="intervention-field-grid">
           <Field label="X" value={draft.x ?? ""} onChange={(value) => setField("x", value)} />
           <Field label="Y" value={draft.y ?? ""} onChange={(value) => setField("y", value)} />
@@ -221,13 +264,15 @@ export function InterventionEditor({ candidate, repairContextCandidate, onSave, 
         {selectedEditable?.kind === "pavement" && <div className="intervention-point-list">
           {selectedEditable.polygon.map((point, index) => <div key={index}><b>Vertex {index + 1}</b><div className="intervention-field-grid"><Field label="X" value={draft[fieldKey("vertex", index, "x")] ?? String(point[0])} onChange={(value) => setField(fieldKey("vertex", index, "x"), value)} /><Field label="Y" value={draft[fieldKey("vertex", index, "y")] ?? String(point[1])} onChange={(value) => setField(fieldKey("vertex", index, "y"), value)} /></div></div>)}
         </div>}
+          </div>
+        </details>
 
         <div className="intervention-actions">
           <button className="secondary-button" type="button" disabled={!selectedEditable || running !== null} onClick={applyGeometry}>Save edit</button>
           <button className="primary-button" type="button" disabled={running !== null || draftDirty} title={draftDirty ? "Save the geometry edit first." : undefined} onClick={evaluateExact}>{running === "evaluate" ? "Evaluating…" : "Evaluate exact edit"}</button>
           <button className="secondary-button" type="button" disabled={!selectedEditable || running !== null || draftDirty} title={draftDirty ? "Save the geometry edit first." : undefined} onClick={exploreAround}>{running === "explore" ? "Exploring…" : "Explore around edit"}</button>
         </div>
-        <p className="microcopy">Save edit creates a recovery checkpoint and makes old evidence STALE. Evaluate exact edit and Explore around edit are enabled only after the current fields are saved.</p>
+        <p className="microcopy">Drag/drop changes save immediately with a recovery checkpoint. Use Precision controls only when you want exact dimensions or coordinates; then click Save edit before evaluating.</p>
         {message && <p className="intervention-message">{message}</p>}
       </div>
     </div>
