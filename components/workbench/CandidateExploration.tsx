@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import { CandidatePlan } from "@/components/workbench/CandidatePlan";
+import { useCandidateWorkspace } from "@/components/workbench/useCandidateWorkspace";
 import { currentEvaluation, type CandidateRecord } from "@/packages/candidates";
 import type { CandidateTriageResult, TriageBucket, TriagedCandidate } from "@/packages/candidates/triage";
+import { pondyCandidateRegistry } from "@/projects/pondy-lot2/candidate-registry";
 
 const labels: Record<TriageBucket, string> = {
   RECOMMENDED: "Recommended",
@@ -26,7 +28,7 @@ function downloadCandidate(candidate: CandidateRecord) {
   anchor.click();
   URL.revokeObjectURL(href);
 }
-function ExplorationCard({ item }: { item: TriagedCandidate }) {
+function ExplorationCard({ item, saved, onSave }: { item: TriagedCandidate; saved: boolean; onSave: (candidate: CandidateRecord) => void }) {
   const candidate = item.candidate;
   const evaluation = currentEvaluation(candidate);
   const failed = evaluation?.gates.filter((gate) => gate.status === "FAIL") ?? [];
@@ -39,19 +41,20 @@ function ExplorationCard({ item }: { item: TriagedCandidate }) {
       <p>{candidate.classificationReason}</p>
       <div className="candidate-chip-row"><span>{candidate.family}</span><span>{failed.length} hard blockers</span><span>{watch.length} watch/review</span><span>{evaluation?.score?.toFixed(1) ?? "—"} score</span></div>
       {failed[0] && <div className="candidate-blocker"><b>Primary blocker</b><span>{failed[0].label}: {failed[0].summary}</span></div>}
-      <div className="candidate-card-actions"><button className="secondary-button" type="button" onClick={() => downloadCandidate(candidate)}>Download candidate JSON</button></div>
+      <div className="candidate-card-actions"><button className="primary-button" type="button" disabled={saved} onClick={() => onSave(candidate)}>{saved ? "Saved to workspace" : "Save candidate"}</button><button className="secondary-button" type="button" onClick={() => downloadCandidate(candidate)}>Download candidate JSON</button></div>
     </div>
   </article>;
 }
 
-function BucketSection({ bucket, result }: { bucket: TriageBucket; result: CandidateTriageResult }) {
+function BucketSection({ bucket, result, isSaved, onSave }: { bucket: TriageBucket; result: CandidateTriageResult; isSaved: (id: string) => boolean; onSave: (candidate: CandidateRecord) => void }) {
   const items = result.representatives.filter((item) => item.bucket === bucket);
   return <section className="library-section">
     <div className="library-section-head"><div><p className="eyebrow">{labels[bucket].toUpperCase()}</p><h2>{bucket === "RECOMMENDED" ? "Passing representatives" : bucket === "INTERVENTION" ? "Promising repair targets" : "Preserved lower-ranked concepts"}</h2></div><span className="mode-pill">{items.length}</span></div>
-    {items.length ? <div className="library-grid">{items.map((item) => <ExplorationCard key={item.candidate.id} item={item} />)}</div> : <div className="staff-empty-state wb-panel">No representatives landed in this bucket during the current run.</div>}
+    {items.length ? <div className="library-grid">{items.map((item) => <ExplorationCard key={item.candidate.id} item={item} saved={isSaved(item.candidate.id)} onSave={onSave} />)}</div> : <div className="staff-empty-state wb-panel">No representatives landed in this bucket during the current run.</div>}
   </section>;
 }
 export function CandidateExploration() {
+  const workspace = useCandidateWorkspace(pondyCandidateRegistry);
   const [result, setResult] = useState<CandidateTriageResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -83,10 +86,10 @@ export function CandidateExploration() {
         <article className="wb-panel"><span>Recommended</span><strong>{result.counts.RECOMMENDED}</strong><small>Passing/high-value machine results.</small></article>
         <article className="wb-panel"><span>Intervention</span><strong>{result.counts.INTERVENTION}</strong><small>Repairable options worth staff time.</small></article>
       </section>
-      <p className="microcopy exploration-note">This v1 search session emits full candidate records and downloadable JSON. The checked-in registry remains the durable record until branch/save persistence is added; session results never overwrite Design 4 or Design 4B automatically.</p>
-      <BucketSection bucket="RECOMMENDED" result={result} />
-      <BucketSection bucket="INTERVENTION" result={result} />
-      <BucketSection bucket="HISTORY" result={result} />
+      <p className="microcopy exploration-note">Exploration emits full candidate records. Save a representative into the browser-local draft workspace or download it as JSON. Checked-in Design 4 / Design 4B records remain protected and exploration never overwrites saved drafts automatically.</p>
+      <BucketSection bucket="RECOMMENDED" result={result} isSaved={workspace.isLocalCandidate} onSave={workspace.saveCandidate} />
+      <BucketSection bucket="INTERVENTION" result={result} isSaved={workspace.isLocalCandidate} onSave={workspace.saveCandidate} />
+      <BucketSection bucket="HISTORY" result={result} isSaved={workspace.isLocalCandidate} onSave={workspace.saveCandidate} />
     </>}
   </>;
 }

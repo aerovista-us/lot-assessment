@@ -6,7 +6,8 @@ const staffNav = [
   ["PROJECTS", "/workbench/projects"],
   ["PONDY LOT 2", "/workbench/projects/pondy-lot2"],
   ["EXPLORE", "/workbench/projects/pondy-lot2/explore"],
-  ["CANDIDATES", "/workbench/projects/pondy-lot2/candidates"]
+  ["CANDIDATES", "/workbench/projects/pondy-lot2/candidates"],
+  ["COMPARE", "/workbench/projects/pondy-lot2/compare"]
 ] as const;
 
 const engineeringNav = [
