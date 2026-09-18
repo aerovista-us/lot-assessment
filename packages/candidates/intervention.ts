@@ -58,7 +58,7 @@ export function editPlacementComponent(candidate: CandidateRecord, componentId: 
   const nextRotation = round(Math.max(-rotationLimit, Math.min(rotationLimit, edit.rotationDeg ?? target.rotationDeg ?? 0)));
   if (nextWidth <= 0 || nextDepth <= 0) throw new Error("Placement dimensions must be positive.");
   if (!target.resizable && (nextWidth !== target.widthFt || nextDepth !== target.depthFt)) throw new Error("This component is size-locked.");
-  if (!target.movable && (nextX !== target.x || nextY !== target.y)) throw new Error("This component is position-locked.");
+  if (target.movable === false && (nextX !== target.x || nextY !== target.y)) throw new Error("This component is position-locked.");
 
   const oldCenter: Point = [target.x + target.widthFt / 2, target.y + target.depthFt / 2];
   const newCenter: Point = [nextX + nextWidth / 2, nextY + nextDepth / 2];

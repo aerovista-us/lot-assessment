@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { pondyCandidateRegistry } from "../projects/pondy-lot2/candidate-registry.ts";
-import { editPlacementComponent, applyCandidateEvaluation } from "../packages/candidates/intervention.ts";
+import { editPlacementComponent, editPathPoint, editPavementVertex, editOpeningComponent, applyCandidateEvaluation } from "../packages/candidates/intervention.ts";
 import { evaluateInterventionCandidate, exploreInterventionNeighborhood } from "../packages/candidates/intervention-evaluation.ts";
 
 const rules = pondyCandidateRegistry.lots[0].rulesVersion;
@@ -32,6 +32,16 @@ assert.notEqual(editedStall.headingDeg, originalStall.headingDeg);
 assert.equal(edited.evidenceState, "STALE");
 assert.equal(edited.currentEvaluationId, null);
 
+const implicitMovable = { ...d4, components: d4.components.map((component) => component.id === "garage-b" && component.kind === "garage" ? { ...component, movable: undefined } : component) };
+const implicitlyMoved = editPlacementComponent(implicitMovable, "garage-b", { x: 8 }, "2026-09-18T12:01:10.000Z");
+assert.equal(implicitlyMoved.components.find((component) => component.id === "garage-b")?.x, 8, "intervention placements are movable unless explicitly locked");
+const routeMoved = editPathPoint(d4, "shared-drive-route", 1, [56, 39], "2026-09-18T12:01:20.000Z");
+assert.deepEqual(routeMoved.components.find((component) => component.id === "shared-drive-route")?.points[1], [56, 39]);
+const pavementMoved = editPavementVertex(d4, "west-maneuver-apron", 0, [26, 5], "2026-09-18T12:01:30.000Z");
+assert.deepEqual(pavementMoved.components.find((component) => component.id === "west-maneuver-apron")?.polygon[0], [26, 5]);
+const openingMoved = editOpeningComponent(d4, "garage-b-opening", { offsetFt: 0.5 }, "2026-09-18T12:01:40.000Z");
+assert.equal(openingMoved.components.find((component) => component.id === "garage-b-opening")?.offsetFt, 0.5);
+
 const screen = evaluateInterventionCandidate(edited, rules, "2026-09-18T12:02:00.001Z");
 const sameSecondScreen = evaluateInterventionCandidate(edited, rules, "2026-09-18T12:02:00.002Z");
 assert.notEqual(screen.evaluation.id, sameSecondScreen.evaluation.id, "intervention evaluation IDs must retain sub-second uniqueness");
@@ -49,6 +59,7 @@ console.log(JSON.stringify({
   d4Screen: evaluateInterventionCandidate(d4, rules, "2026-09-18T12:04:00.000Z").screeningScore,
   d4bScreen: evaluateInterventionCandidate(d4b, rules, "2026-09-18T12:04:00.000Z").screeningScore,
   stallMovesWithGarage: true,
+  directEditPrimitives: true,
   exploreSuggestions: suggestions.length,
   authoritativeOutboundAlwaysOpen: true
 }, null, 2));
