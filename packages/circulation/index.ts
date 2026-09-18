@@ -1,9 +1,9 @@
 import {
-  Point,
-  Polygon,
   distance,
   pointInPolygon,
-  polygonsIntersect
+  polygonsIntersect,
+  type Point,
+  type Polygon
 } from "@/packages/geometry";
 
 export type VehicleSpec = {

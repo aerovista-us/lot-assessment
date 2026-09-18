@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { CandidatePlan } from "@/components/workbench/CandidatePlan";
+import { InterventionEditor } from "@/components/workbench/InterventionEditor";
 import { useCandidateWorkspace } from "@/components/workbench/useCandidateWorkspace";
 import { currentEvaluation, type PathComponent, type PolygonComponent } from "@/packages/candidates";
 import { createWorkspaceExportPackage } from "@/packages/candidates/workspace";
@@ -51,6 +52,12 @@ export function CandidateWorkspaceClient({ candidateId }: { candidateId: string 
     router.push(`/workbench/projects/pondy-lot2/candidates/${child.id}`);
   }
 
+  function createIntervention() {
+    const child = workspace.branchCandidate(activeCandidate.id, "VARIANT");
+    workspace.checkpointCandidate(child.id, "Intervention baseline");
+    router.push(`/workbench/projects/pondy-lot2/candidates/${child.id}`);
+  }
+
   function restore(checkpointId: string) {
     try {
       workspace.restoreCheckpoint(activeCandidate.id, checkpointId);
@@ -76,8 +83,9 @@ export function CandidateWorkspaceClient({ candidateId }: { candidateId: string 
       <p className="lede">{activeCandidate.family} · {activeCandidate.status.replaceAll("_", " ")} · {activeCandidate.evidenceState} evidence</p>
       <div className="hero-actions">
         <Link className="secondary-button" href="/workbench/projects/pondy-lot2/candidates">Candidate Library</Link>
-        <button className="secondary-button" type="button" onClick={checkpoint}>Save checkpoint</button>
-        <button className="secondary-button" type="button" onClick={() => branch("VARIANT")}>Branch variant</button>
+        {workspace.isLocalCandidate(activeCandidate.id) ? <button className="secondary-button" type="button" onClick={checkpoint}>Save checkpoint</button> : null}
+        {!workspace.isLocalCandidate(activeCandidate.id) && activeCandidate.status === "ACCEPTABLE_FOR_INTERVENTION" ? <button className="primary-button" type="button" onClick={createIntervention}>Create Intervention</button> : null}
+        {workspace.isLocalCandidate(activeCandidate.id) ? <button className="secondary-button" type="button" onClick={() => branch("VARIANT")}>Branch variant</button> : null}
         <button className="secondary-button" type="button" onClick={() => branch("NEW_DESIGN")}>New design from this</button>
         <button className="secondary-button" type="button" onClick={exportCurrent}>Export package</button>
         <Link className="secondary-button" href={`/workbench/projects/pondy-lot2/compare?left=${activeCandidate.id}`}>Compare</Link>
@@ -103,6 +111,8 @@ export function CandidateWorkspaceClient({ candidateId }: { candidateId: string 
         <div className="candidate-warning-box"><b>Machine-owned validation</b><p>Staff may branch, checkpoint and edit future child revisions, but cannot set PASS. Imported and branched records require current pipeline evidence.</p></div>
       </aside>
     </section>
+
+    {workspace.isLocalCandidate(activeCandidate.id) ? <InterventionEditor candidate={activeCandidate} repairContextCandidate={evaluation ? activeCandidate : parent} onSave={workspace.saveCandidate} onCheckpoint={(label) => workspace.checkpointCandidate(activeCandidate.id, label)} /> : activeCandidate.status === "ACCEPTABLE_FOR_INTERVENTION" ? <section className="wb-panel intervention-start-callout"><div><p className="eyebrow">READY FOR STAFF INTERVENTION</p><h2>Create a protected child revision before changing geometry.</h2><p>The checked-in candidate stays untouched. The new intervention branch starts with stale evidence and an automatic baseline checkpoint, then unlocks constrained component editing.</p></div><button className="primary-button" type="button" onClick={createIntervention}>Create Intervention</button></section> : null}
 
     <section className="candidate-detail-grid">
       <article className="wb-panel"><p className="eyebrow">STRUCTURE COMPONENTS</p><h2>Homes + garages</h2><div className="component-list">{placements.map((item) => <div key={item.id}><span>{item.kind}</span><strong>{item.label}</strong><small>{"x" in item ? `${item.widthFt} x ${item.depthFt} ft · rotation ${item.rotationDeg ?? 0} deg · x ${item.x}, y ${item.y}` : ""}</small></div>)}</div></article>
