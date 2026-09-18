@@ -59,11 +59,20 @@ function cross(a: Point, b: Point, c: Point) {
   return (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
 }
 
+function onSegment(point: Point, a: Point, b: Point, epsilon = 1e-9) {
+  return point[0] >= Math.min(a[0], b[0]) - epsilon && point[0] <= Math.max(a[0], b[0]) + epsilon &&
+    point[1] >= Math.min(a[1], b[1]) - epsilon && point[1] <= Math.max(a[1], b[1]) + epsilon;
+}
+
 function segmentsIntersect(a: Point, b: Point, c: Point, d: Point) {
+  const epsilon = 1e-9;
   const abC = cross(a, b, c), abD = cross(a, b, d);
   const cdA = cross(c, d, a), cdB = cross(c, d, b);
-  return ((abC === 0 || abD === 0 || Math.sign(abC) !== Math.sign(abD)) &&
-    (cdA === 0 || cdB === 0 || Math.sign(cdA) !== Math.sign(cdB)));
+  if (Math.abs(abC) <= epsilon && onSegment(c, a, b, epsilon)) return true;
+  if (Math.abs(abD) <= epsilon && onSegment(d, a, b, epsilon)) return true;
+  if (Math.abs(cdA) <= epsilon && onSegment(a, c, d, epsilon)) return true;
+  if (Math.abs(cdB) <= epsilon && onSegment(b, c, d, epsilon)) return true;
+  return Math.sign(abC) !== Math.sign(abD) && Math.sign(cdA) !== Math.sign(cdB);
 }
 
 function polygonsOverlap(a: Polygon, b: Polygon) {
