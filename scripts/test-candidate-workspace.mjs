@@ -75,6 +75,10 @@ assert.equal(imported.candidate.evidenceState, "REVALIDATION_REQUIRED");
 assert.equal(imported.candidate.currentEvaluationId, null);
 assert(imported.candidate.evaluationHistory.length >= restored.candidate.evaluationHistory.length);
 
+const sameSecondA = createWorkspaceCheckpoint(branched.candidate, "same-second A", "2026-09-18T10:07:00.001Z");
+const sameSecondB = createWorkspaceCheckpoint(branched.candidate, "same-second B", "2026-09-18T10:07:00.002Z");
+assert.notEqual(sameSecondA.id, sameSecondB.id, "checkpoint IDs must retain sub-second uniqueness");
+
 const diff = compareCandidateComponents(parent, edited);
 assert(diff.changed.includes("garage-b"));
 console.log(JSON.stringify({

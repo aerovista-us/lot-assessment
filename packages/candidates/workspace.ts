@@ -71,7 +71,7 @@ export function upsertWorkspaceCandidate(
 }
 
 function compactToken(iso: string) {
-  return iso.replace(/[-:.TZ]/g, "").slice(0, 14);
+  return iso.replace(/[-:.TZ]/g, "").slice(0, 17);
 }
 
 function uniqueId(baseId: string, registry: CandidateRegistry) {

@@ -21,9 +21,9 @@ const CHANGE_EVENT = "lotscope-candidate-workspace-change";
 
 function readWorkspace(): CandidateWorkspaceState {
   if (typeof window === "undefined") return emptyCandidateWorkspace();
-  const raw = window.localStorage.getItem(STORAGE_KEY);
-  if (!raw) return emptyCandidateWorkspace();
   try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) return emptyCandidateWorkspace();
     const parsed = JSON.parse(raw) as CandidateWorkspaceState;
     if (parsed.schemaVersion !== WORKSPACE_SCHEMA_VERSION) return emptyCandidateWorkspace();
     if (!Array.isArray(parsed.candidates) || !Array.isArray(parsed.checkpoints)) return emptyCandidateWorkspace();
@@ -34,8 +34,13 @@ function readWorkspace(): CandidateWorkspaceState {
 }
 
 function persistWorkspace(state: CandidateWorkspaceState) {
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  window.dispatchEvent(new CustomEvent(CHANGE_EVENT));
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    window.dispatchEvent(new CustomEvent(CHANGE_EVENT));
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function useCandidateWorkspace(base: CandidateRegistry) {
