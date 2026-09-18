@@ -19,14 +19,18 @@ Updated: 2026-09-18
 - GitHub source of truth: `aerovista-us/lot-assessment`
 - Durable benchmark evidence: `benchmark-results` branch
 
-## Current source baseline
+## Runtime implementation baseline
 
-- `main`: `507a9be9cef487dc1e9b72c32c8ab09b28cecd96`
-- Current tree: `b394c1700bcfbc7a13b397216b27ef7150b999d6`
+The runtime implementation baseline completed before the documentation-only handoff is:
+
+- runtime merge: `507a9be9cef487dc1e9b72c32c8ab09b28cecd96`
+- runtime tree: `b394c1700bcfbc7a13b397216b27ef7150b999d6`
 - PR #30: candidate lifecycle workspace — merged
 - PR #31: constrained intervention editor — merged
 - PR #32: direct intervention manipulation — merged
-- Vercel status on current `main`: SUCCESS
+- PR #33: lifecycle/intervention documentation handoff — merged
+
+Use the repository's current `main` ref for the latest docs-only merge SHA; the runtime tree above is the code baseline described by this status.
 ## Working now
 
 ### Public LotScope v2

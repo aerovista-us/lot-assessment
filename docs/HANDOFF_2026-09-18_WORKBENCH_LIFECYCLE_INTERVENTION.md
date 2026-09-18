@@ -181,4 +181,4 @@ Before changing lifecycle/intervention behavior:
 
 ## Deployment notes
 
-The merged implementation is on `main` and Vercel reported SUCCESS before this documentation handoff was prepared. Documentation updates should be merged through the normal protected-branch flow and their resulting Vercel status rechecked even though they do not change runtime behavior.
+The merged runtime implementation is on `main` and Vercel reported SUCCESS before this handoff was prepared. The documentation handoff was merged through PR #33 (`7c0b54d51bf4726e5aa084b060a38ce1ca56a1b5`). Documentation-only merges still trigger the normal Vercel flow and should be checked like any other protected-branch change.
