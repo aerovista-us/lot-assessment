@@ -252,7 +252,7 @@ export function evaluateInterventionCandidate(candidate: CandidateRecord, rulesV
   const watchCount = gates.filter((gate) => gate.status === "WATCH" || gate.status === "PROFESSIONAL_REVIEW").length;
   const fundamentalFail = gates.some((gate) => gate.status === "FAIL" && (gate.blockerClass === "parcel" || gate.blockerClass === "program"));
   const screeningScore = Math.max(0, 100 - hardLocalFailures * 25 - watchCount * 4);
-  const token = createdAt.replace(/[-:.TZ]/g, "").slice(0, 14);
+  const token = createdAt.replace(/[-:.TZ]/g, "").slice(0, 17);
   const evaluation: CandidateEvaluation = {
     id: `eval-${candidate.id}-intervention-${token}-${suffix}`,
     candidateId: candidate.id,

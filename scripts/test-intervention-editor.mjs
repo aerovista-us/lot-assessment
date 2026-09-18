@@ -26,8 +26,10 @@ assert.notEqual(editedStall.headingDeg, originalStall.headingDeg);
 assert.equal(edited.evidenceState, "STALE");
 assert.equal(edited.currentEvaluationId, null);
 
-const screen = evaluateInterventionCandidate(edited, rules, "2026-09-18T12:02:00.000Z");
-const evaluated = applyCandidateEvaluation(edited, screen.evaluation, "2026-09-18T12:02:00.000Z");
+const screen = evaluateInterventionCandidate(edited, rules, "2026-09-18T12:02:00.001Z");
+const sameSecondScreen = evaluateInterventionCandidate(edited, rules, "2026-09-18T12:02:00.002Z");
+assert.notEqual(screen.evaluation.id, sameSecondScreen.evaluation.id, "intervention evaluation IDs must retain sub-second uniqueness");
+const evaluated = applyCandidateEvaluation(edited, screen.evaluation, "2026-09-18T12:02:00.001Z");
 assert.equal(evaluated.evidenceState, "CURRENT");
 assert.notEqual(evaluated.status, "PASS");
 assert.equal(evaluated.currentEvaluationId, screen.evaluation.id);
