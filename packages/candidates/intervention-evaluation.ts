@@ -187,11 +187,14 @@ function openingGate(candidate: CandidateRecord): GateEvaluation {
 function routeGate(candidate: CandidateRecord): GateEvaluation {
   const parcel = parcelPolygon(candidate);
   const paths = candidate.components.filter((item): item is PathComponent => item.kind === "driveway" || item.kind === "route");
+  const pavement = candidate.components.filter((item): item is PolygonComponent => item.kind === "pavement").map((item) => item.polygon);
   if (!parcel || !paths.length) return { id: "intervention-route-screen", label: "Route-hint sweep", status: "WATCH", summary: "No editable route hint is available for the screening sweep.", blockerClass: "circulation", repairClasses: ["reshape-drive"] };
   const issues: string[] = [];
   let targetedFailure = false;
-  let untargetedWatch = false;
+  let untargetedWatch = pavement.length === 0;
   let minClearance: number | null = null;
+  let offPavementPoseCount = 0;
+  if (!pavement.length) issues.push("No modeled pavement polygons are available for swept-body coverage screening.");
   for (const path of paths) {
     const result = evaluateSweptPath({
       parcel,
@@ -201,11 +204,21 @@ function routeGate(candidate: CandidateRecord): GateEvaluation {
       allowOutside: ([x]) => x >= 147.8
     });
     if (result.minimumBoundaryClearanceFt != null) minClearance = minClearance == null ? result.minimumBoundaryClearanceFt : Math.min(minClearance, result.minimumBoundaryClearanceFt);
-    if (!result.pass) {
+    let pathOffPavement = 0;
+    if (pavement.length) {
+      for (const pose of result.poses) {
+        const body = vehiclePolygon(FULL_SIZE_SUV, pose.x, pose.y, pose.headingRad);
+        const uncovered = body.some((corner) => corner[0] < 147.8 && !pavement.some((polygon) => pointInPolygon(corner, polygon, 0.18)));
+        if (uncovered) pathOffPavement += 1;
+      }
+      offPavementPoseCount += pathOffPavement;
+    }
+    if (!result.pass || pathOffPavement > 0) {
       const detail = [
         result.offParcelCount ? `${result.offParcelCount} off-parcel body samples` : null,
         result.collisions.length ? `collisions: ${result.collisions.join(", ")}` : null,
-        result.pathIssues.length ? `${result.pathIssues.length} path issue(s)` : null
+        result.pathIssues.length ? `${result.pathIssues.length} path issue(s)` : null,
+        pathOffPavement ? `${pathOffPavement} swept poses leave modeled pavement` : null
       ].filter(Boolean).join("; ");
       issues.push(`${path.label}: ${detail || "screening sweep failed"}`);
       if (path.garageId) targetedFailure = true;
@@ -220,7 +233,7 @@ function routeGate(candidate: CandidateRecord): GateEvaluation {
     summary: issues.length ? `${issues.join(" ")} Untargeted route hints remain screening evidence only.` : "Current route hints clear the generic full-body parcel/obstacle/25-ft-radius screening pass.",
     blockerClass: "circulation",
     repairClasses: status === "PASS" ? undefined : ["reshape-drive", "local-pavement-flare", "translate-garage", "rotate-garage"],
-    metrics: { minimumBoundaryClearanceFt: minClearance }
+    metrics: { minimumBoundaryClearanceFt: minClearance, offPavementPoseCount }
   };
 }
 export function evaluateInterventionCandidate(candidate: CandidateRecord, rulesVersion: string, createdAt = new Date().toISOString(), suffix = "exact"): InterventionScreenResult {

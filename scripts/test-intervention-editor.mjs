@@ -14,6 +14,8 @@ for (const candidate of [d4, d4b]) {
   assert.equal(screen.evaluation.gates.find((gate) => gate.id === "authoritative-outbound")?.status, "FAIL");
   assert.equal(screen.evaluation.gates.find((gate) => gate.id === "program")?.status, "WATCH");
   assert.equal(screen.evaluation.gates.find((gate) => gate.id === "intervention-structure")?.status, "PASS");
+  const routeGate = screen.evaluation.gates.find((gate) => gate.id === "intervention-route-screen");
+  assert(routeGate?.metrics && "offPavementPoseCount" in routeGate.metrics, "route screening must report pavement coverage");
   assert.notEqual(screen.evaluation.status, "PASS");
 }
 const originalStall = d4.components.find((component) => component.id === "b-south");
