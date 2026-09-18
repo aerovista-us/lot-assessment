@@ -231,7 +231,7 @@ export function branchCandidate(args: {
   createdAt?: string;
 }): CandidateRecord {
   const createdAt = args.createdAt ?? new Date().toISOString();
-  const sameDesign = args.relation === "VARIANT";
+  const sameDesign = args.relation !== "NEW_DESIGN";
   return {
     ...args.parent,
     id: args.id,
