@@ -1,0 +1,10 @@
+# Keep Vercel's build context focused on the Next.js application/runtime.
+# These paths are repository evidence, documentation, or duplicate source assets
+# and are not required by `next build`.
+.github/
+docs/
+skills/
+README.md
+
+# Legacy/source image tree. `public/` contains the identical deployable asset tree.
+img/
