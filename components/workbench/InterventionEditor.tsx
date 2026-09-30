@@ -298,10 +298,10 @@ export function InterventionEditor({ candidate, repairContextCandidate, onSave, 
           </div>
           <div className="shape-editor-tools">
             <b>Shape tools</b>
-            <div className="shape-editor-actions">
+            {selectedEditable.kind === "home" && <div className="shape-editor-actions">
               <button type="button" className="secondary-button" onClick={() => mirrorSelected("horizontal")}>Mirror left ↔ right</button>
               <button type="button" className="secondary-button" onClick={() => mirrorSelected("vertical")}>Mirror top ↔ bottom</button>
-            </div>
+            </div>}
             {selectedEditable.resizable && <div className="shape-wall-list">
               {(selectedEditable.polygon ?? [
                 [selectedEditable.x, selectedEditable.y],
