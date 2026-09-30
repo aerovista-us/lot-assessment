@@ -18,7 +18,9 @@ export type DirectManipulation =
   | { kind: "move-pavement-vertex"; componentId: string; vertexIndex: number; point: readonly [number, number] }
   | { kind: "move-opening"; componentId: string; offsetFt: number }
   | { kind: "move-building-vertex"; componentId: string; vertexIndex: number; point: readonly [number, number] }
-  | { kind: "resize-building-wall"; componentId: string; wallIndex: number; lengthDeltaFt: number };
+  | { kind: "resize-building-wall"; componentId: string; wallIndex: number; lengthDeltaFt: number }
+  | { kind: "insert-building-vertex"; componentId: string; wallIndex: number; point: readonly [number, number] }
+  | { kind: "remove-building-vertex"; componentId: string; vertexIndex: number };
 type Point = readonly [number, number];
 type DragState =
   | { kind: "placement"; pointerId: number; componentId: string; start: Point; startX: number; startY: number }
@@ -264,10 +266,11 @@ export function DirectManipulationPlan({ candidate, selectedComponentId, disable
         return <g key={`${rawItem.id}-wall-${wallIndex}`} className="direct-building-wall-control">
           <line x1={a[0]} y1={a[1]} x2={b[0]} y2={b[1]} />
           <circle cx={mid[0]} cy={mid[1]} r="1.15" onPointerDown={(event) => begin(event,{kind:"building-wall",pointerId:event.pointerId,componentId:rawItem.id,wallIndex,start:svgPoint(event.clientX,event.clientY),startLength:length,unit},rawItem.id)} />
+          <circle cx={mid[0]} cy={mid[1]} r=".55" className="building-add-point-handle" onDoubleClick={(event) => { event.stopPropagation(); onCommit({kind:"insert-building-vertex",componentId:rawItem.id,wallIndex,point:mid}); }} />
           <text x={mid[0]} y={mid[1]-1.8}>{shownLength.toFixed(1)}′</text>
         </g>;
       });
-      const vertexControls = polygon.map((point, vertexIndex) => <circle key={`${rawItem.id}-vertex-${vertexIndex}`} cx={point[0]} cy={point[1]} r="1.05" className="direct-control-handle building-vertex-handle" onPointerDown={(event) => begin(event,{kind:"building-vertex",pointerId:event.pointerId,componentId:rawItem.id,vertexIndex},rawItem.id)} />);
+      const vertexControls = polygon.map((point, vertexIndex) => <g key={`${rawItem.id}-vertex-${vertexIndex}`}><circle cx={point[0]} cy={point[1]} r="1.05" className="direct-control-handle building-vertex-handle" onPointerDown={(event) => begin(event,{kind:"building-vertex",pointerId:event.pointerId,componentId:rawItem.id,vertexIndex},rawItem.id)} onDoubleClick={(event) => { event.stopPropagation(); if(polygon.length>4) onCommit({kind:"remove-building-vertex",componentId:rawItem.id,vertexIndex}); }} /><title>{polygon.length>4?"Drag corner · double-click to remove point":"Drag corner"}</title></g>);
       return [...wallControls,...vertexControls];
     })}
     {placements.map((rawItem) => {
