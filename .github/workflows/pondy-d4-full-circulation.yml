@@ -1,5 +1,9 @@
 name: Pondy D4 full circulation closure
 on:
+  push:
+    paths:
+      - 'scripts/pondy-d4-full-circulation.js'
+      - '.github/workflows/pondy-d4-full-circulation.yml'
   pull_request:
     paths:
       - 'scripts/pondy-d4-full-circulation.js'
