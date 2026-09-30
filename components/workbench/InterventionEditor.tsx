@@ -184,16 +184,20 @@ export function InterventionEditor({ candidate, repairContextCandidate, onSave, 
       setMessage(cause instanceof Error ? cause.message : "Unable to apply geometry edit.");
     }
   }
+  function mirrorById(componentId: string, axis: "horizontal" | "vertical") {
+    const component=candidate.components.find((item)=>item.id===componentId);
+    if (!component || (component.kind !== "home" && component.kind !== "garage")) return;
+    try {
+      onCheckpoint(`Before mirroring ${component.label}`);
+      onSave(mirrorPlacementComponent(candidate, component.id, axis));
+      setSuggestions([]);
+      setMessage(`${component.label} mirrored ${axis}. Prior machine evidence is stale until this exact geometry is evaluated.`);
+    } catch (cause) { setMessage(cause instanceof Error ? cause.message : "Unable to mirror building."); }
+  }
+
   function mirrorSelected(axis: "horizontal" | "vertical") {
     if (!selected || (selected.kind !== "home" && selected.kind !== "garage")) return;
-    try {
-      onCheckpoint(`Before mirroring ${selected.label}`);
-      onSave(mirrorPlacementComponent(candidate, selected.id, axis));
-      setSuggestions([]);
-      setMessage(`${selected.label} mirrored ${axis}. Prior machine evidence is stale until this exact geometry is evaluated.`);
-    } catch (cause) {
-      setMessage(cause instanceof Error ? cause.message : "Unable to mirror building.");
-    }
+    mirrorById(selected.id, axis);
   }
 
   function changeWallLength(wallIndex: number, delta: number) {
