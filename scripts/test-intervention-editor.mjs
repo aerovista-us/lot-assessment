@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { pondyCandidateRegistry } from "../projects/pondy-lot2/candidate-registry.ts";
-import { editPlacementComponent, editPathPoint, editPavementVertex, editOpeningComponent, editPlacementVertex, editPlacementWallLength, mirrorPlacementComponent, applyCandidateEvaluation } from "../packages/candidates/intervention.ts";
+import { editPlacementComponent, editPathPoint, editPavementVertex, editOpeningComponent, editPlacementVertex, editPlacementWallLength, mirrorPlacementComponent, insertPlacementVertex, removePlacementVertex, applyCandidateEvaluation } from "../packages/candidates/intervention.ts";
 import { evaluateInterventionCandidate, exploreInterventionNeighborhood } from "../packages/candidates/intervention-evaluation.ts";
 
 const rules = pondyCandidateRegistry.lots[0].rulesVersion;
@@ -55,6 +55,13 @@ const wallEdited = editPlacementWallLength(d4, "home-b", 0, 2, "2026-09-18T12:01
 const wallHome = wallEdited.components.find((component) => component.id === "home-b");
 assert(wallHome && wallHome.kind === "home" && wallHome.polygon);
 assert(Math.abs(Math.hypot(wallHome.polygon[1][0]-wallHome.polygon[0][0], wallHome.polygon[1][1]-wallHome.polygon[0][1]) - 42.5) < .01);
+const deflectedHome = insertPlacementVertex(d4, "home-b", 0, undefined, "2026-09-18T12:01:52.500Z");
+const deflected = deflectedHome.components.find((component) => component.id === "home-b");
+assert(deflected && deflected.kind === "home" && deflected.polygon);
+assert.equal(deflected.polygon.length, homeB.polygon.length + 1, "adding a deflection point must add one authoritative polygon vertex");
+const restoredHome = removePlacementVertex(deflectedHome, "home-b", 1, "2026-09-18T12:01:52.750Z");
+assert.equal(restoredHome.components.find((component) => component.id === "home-b")?.polygon?.length, homeB.polygon.length, "removing the inserted deflection point must restore vertex count");
+
 const vertexEdited = editPlacementVertex(d4, "home-b", 5, [53, 22], "2026-09-18T12:01:53.000Z");
 assert.deepEqual(vertexEdited.components.find((component) => component.id === "home-b")?.polygon?.[5], [53, 22]);
 
@@ -77,6 +84,7 @@ console.log(JSON.stringify({
   stallMovesWithGarage: true,
   directEditPrimitives: true,
   homeShapeTransforms: true,
+  deflectionPointEditing: true,
   exploreSuggestions: suggestions.length,
   authoritativeOutboundAlwaysOpen: true
 }, null, 2));
