@@ -81,7 +81,8 @@ export function editPlacementComponent(candidate: CandidateRecord, componentId: 
     storedRotation = 0;
   }
 
-  components[index] = { ...target, x: nextX, y: nextY, widthFt: nextWidth, depthFt: nextDepth, rotationDeg: storedRotation, polygon };
+  const placementBounds = polygon && deltaRotation ? polygonBounds(polygon) : { x: nextX, y: nextY, widthFt: nextWidth, depthFt: nextDepth };
+  components[index] = { ...target, ...placementBounds, rotationDeg: storedRotation, polygon };
   if (target.kind === "garage") {
     const radians = deltaRotation * Math.PI / 180;
     for (let i = 0; i < components.length; i += 1) {
