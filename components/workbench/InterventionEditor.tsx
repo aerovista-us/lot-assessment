@@ -202,7 +202,7 @@ export function InterventionEditor({ candidate, repairContextCandidate, onSave, 
     ] as const;
     const point = polygon[vertexIndex];
     if (!point) return;
-    const next = axis === "x" ? [numberValue(value, point[0]), point[1]] : [point[0], numberValue(value, point[1])];
+    const next: readonly [number, number] = axis === "x" ? [numberValue(value, point[0]), point[1]] : [point[0], numberValue(value, point[1])];
     try {
       onCheckpoint(`Before reshaping ${selected.label}`);
       onSave(editPlacementVertex(candidate, selected.id, vertexIndex, next));
