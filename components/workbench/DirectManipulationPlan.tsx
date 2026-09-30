@@ -68,11 +68,12 @@ function stallPolygon(component: Extract<CandidateComponent, { kind: "stall" }>)
   return [[cx + hx*hl + wx*hw, cy + hy*hl + wy*hw], [cx + hx*hl - wx*hw, cy + hy*hl - wy*hw],
     [cx - hx*hl - wx*hw, cy - hy*hl - wy*hw], [cx - hx*hl + wx*hw, cy - hy*hl + wy*hw]] as Point[];
 }
-export function DirectManipulationPlan({ candidate, selectedComponentId, disabled = false, onSelectComponent, onCommit }: {
+export function DirectManipulationPlan({ candidate, selectedComponentId, disabled = false, onSelectComponent, onMirrorPlacement, onCommit }: {
   candidate: CandidateRecord;
   selectedComponentId?: string | null;
   disabled?: boolean;
   onSelectComponent?: (componentId: string) => void;
+  onMirrorPlacement?: (componentId: string, axis: "horizontal" | "vertical") => void;
   onCommit: (change: DirectManipulation) => void;
 }) {
   const svgRef = useRef<SVGSVGElement>(null);
@@ -346,7 +347,7 @@ export function DirectManipulationPlan({ candidate, selectedComponentId, disable
         <div className="direct-context-menu" onContextMenu={(event)=>event.preventDefault()}>
           {item && contextMenu.wallIndex !== undefined && <button onClick={()=>runContext({kind:"insert-building-vertex",componentId:item.id,wallIndex:contextMenu.wallIndex!,point:[contextMenu.svgX,contextMenu.svgY]})}>Add deflection point</button>}
           {item && contextMenu.vertexIndex !== undefined && polygon.length>4 && <button className="danger" onClick={()=>runContext({kind:"remove-building-vertex",componentId:item.id,vertexIndex:contextMenu.vertexIndex!})}>Remove point</button>}
-          {item && item.kind==="home" && <><button onClick={()=>{ onSelectComponent?.(item.id); setContextMenu(null); }}>Edit dimensions</button><button onClick={()=>{ setContextMenu(null); window.dispatchEvent(new CustomEvent("workbench:mirror",{detail:{componentId:item.id,axis:"horizontal"}})); }}>Mirror left ↔ right</button><button onClick={()=>{ setContextMenu(null); window.dispatchEvent(new CustomEvent("workbench:mirror",{detail:{componentId:item.id,axis:"vertical"}})); }}>Mirror top ↔ bottom</button></>}
+          {item && item.kind==="home" && <><button onClick={()=>{ onSelectComponent?.(item.id); setContextMenu(null); }}>Edit dimensions</button><button onClick={()=>{ onMirrorPlacement?.(item.id,"horizontal"); setContextMenu(null); }}>Mirror left ↔ right</button><button onClick={()=>{ onMirrorPlacement?.(item.id,"vertical"); setContextMenu(null); }}>Mirror top ↔ bottom</button></>}
           {item && <button onClick={()=>{onSelectComponent?.(item.id);setContextMenu(null);}}>Select building</button>}
           {!item && <button onClick={()=>setContextMenu(null)}>Close menu</button>}
         </div>
