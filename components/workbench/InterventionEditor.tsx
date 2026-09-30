@@ -111,6 +111,12 @@ export function InterventionEditor({ candidate, repairContextCandidate, onSave, 
       } else if (change.kind === "move-opening") {
         next = editOpeningComponent(candidate, change.componentId, { offsetFt: change.offsetFt });
         label = `moving ${component.label}`;
+      } else if (change.kind === "move-building-vertex") {
+        next = editPlacementVertex(candidate, change.componentId, change.vertexIndex, change.point);
+        label = `reshaping ${component.label} corner ${change.vertexIndex + 1}`;
+      } else if (change.kind === "resize-building-wall") {
+        next = editPlacementWallLength(candidate, change.componentId, change.wallIndex, change.lengthDeltaFt);
+        label = `resizing ${component.label} wall ${change.wallIndex + 1}`;
       }
       if (JSON.stringify(next.components) === JSON.stringify(candidate.components)) return;
       onCheckpoint(`Before ${label}`);
@@ -279,7 +285,7 @@ export function InterventionEditor({ candidate, repairContextCandidate, onSave, 
           }} onCommit={commitDirectManipulation} />
         <div className="direct-manipulation-help">
           <span><b>Move</b> drag a home or garage</span><span><b>Rotate</b> drag the round handle above any selected building</span>
-          <span><b>Driveway</b> drag the round route points</span><span><b>Pavement</b> select it, then drag a corner</span>
+          <span><b>Shape</b> select a resizable building, then drag wall-midpoint or corner handles</span><span><b>Driveway</b> drag the round route points</span><span><b>Pavement</b> select it, then drag a corner</span>
         </div>
         <p className="microcopy">Drag/drop saves the geometry immediately with a recovery checkpoint. Parcel and derived envelope geometry stay protected.</p>
       </div>
