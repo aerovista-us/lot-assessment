@@ -16,14 +16,18 @@ export type DirectManipulation =
   | { kind: "rotate-placement"; componentId: string; rotationDeg: number }
   | { kind: "move-path-point"; componentId: string; pointIndex: number; point: readonly [number, number] }
   | { kind: "move-pavement-vertex"; componentId: string; vertexIndex: number; point: readonly [number, number] }
-  | { kind: "move-opening"; componentId: string; offsetFt: number };
+  | { kind: "move-opening"; componentId: string; offsetFt: number }
+  | { kind: "move-building-vertex"; componentId: string; vertexIndex: number; point: readonly [number, number] }
+  | { kind: "resize-building-wall"; componentId: string; wallIndex: number; lengthDeltaFt: number };
 type Point = readonly [number, number];
 type DragState =
   | { kind: "placement"; pointerId: number; componentId: string; start: Point; startX: number; startY: number }
   | { kind: "rotation"; pointerId: number; componentId: string; center: Point; limit: number }
   | { kind: "path-point"; pointerId: number; componentId: string; pointIndex: number }
   | { kind: "pavement-vertex"; pointerId: number; componentId: string; vertexIndex: number }
-  | { kind: "opening"; pointerId: number; componentId: string; ownerId: string };
+  | { kind: "opening"; pointerId: number; componentId: string; ownerId: string }
+  | { kind: "building-vertex"; pointerId: number; componentId: string; vertexIndex: number }
+  | { kind: "building-wall"; pointerId: number; componentId: string; wallIndex: number; start: Point; startLength: number; unit: Point };
 
 type Preview =
   | { kind: "placement"; componentId: string; x: number; y: number }
@@ -31,6 +35,8 @@ type Preview =
   | { kind: "path-point"; componentId: string; pointIndex: number; point: Point }
   | { kind: "pavement-vertex"; componentId: string; vertexIndex: number; point: Point }
   | { kind: "opening"; componentId: string; offsetFt: number }
+  | { kind: "building-vertex"; componentId: string; vertexIndex: number; point: Point }
+  | { kind: "building-wall"; componentId: string; wallIndex: number; lengthDeltaFt: number; lengthFt: number }
   | null;
 
 const pointString = (polygon: ReadonlyArray<Point>) => polygon.map(([x, y]) => `${x},${y}`).join(" ");
@@ -100,6 +106,24 @@ export function DirectManipulationPlan({ candidate, selectedComponentId, disable
     return item;
   }
 
+  function placementPolygonPoints(item: PlacementComponent): Point[] {
+    const base = item.polygon ?? [
+      [item.x, item.y], [item.x + item.widthFt, item.y],
+      [item.x + item.widthFt, item.y + item.depthFt], [item.x, item.y + item.depthFt]
+    ] as Point[];
+    if (!preview || preview.componentId !== item.id) return base;
+    if (preview.kind === "building-vertex") return base.map((point, index) => index === preview.vertexIndex ? preview.point : point);
+    if (preview.kind === "building-wall") {
+      const aIndex = preview.wallIndex, bIndex = (aIndex + 1) % base.length;
+      const half = preview.lengthDeltaFt / 2, [ux, uy] = [
+        (base[bIndex][0] - base[aIndex][0]) / Math.max(.001, Math.hypot(base[bIndex][0] - base[aIndex][0], base[bIndex][1] - base[aIndex][1])),
+        (base[bIndex][1] - base[aIndex][1]) / Math.max(.001, Math.hypot(base[bIndex][0] - base[aIndex][0], base[bIndex][1] - base[aIndex][1]))
+      ];
+      return base.map((point, index) => index === aIndex ? [point[0] - ux * half, point[1] - uy * half] : index === bIndex ? [point[0] + ux * half, point[1] + uy * half] : point);
+    }
+    return base;
+  }
+
   function displayPath(item: PathComponent) {
     if (preview?.kind !== "path-point" || preview.componentId !== item.id) return item.points;
     return item.points.map((point, index) => index === preview.pointIndex ? preview.point : point);
@@ -151,6 +175,17 @@ export function DirectManipulationPlan({ candidate, selectedComponentId, disable
       updatePreview({ kind: "rotation", componentId: active.componentId, rotationDeg });
       return;
     }
+    if (active.kind === "building-vertex") {
+      updatePreview({ kind: "building-vertex", componentId: active.componentId, vertexIndex: active.vertexIndex, point: [roundQuarter(point[0]), roundQuarter(point[1])] });
+      return;
+    }
+    if (active.kind === "building-wall") {
+      const dx = point[0] - active.start[0], dy = point[1] - active.start[1];
+      const projected = dx * active.unit[0] + dy * active.unit[1];
+      const delta = roundQuarter(projected * 2);
+      updatePreview({ kind: "building-wall", componentId: active.componentId, wallIndex: active.wallIndex, lengthDeltaFt: delta, lengthFt: Math.max(2, roundQuarter(active.startLength + delta)) });
+      return;
+    }
     if (active.kind === "path-point") {
       updatePreview({ kind: "path-point", componentId: active.componentId, pointIndex: active.pointIndex, point: [roundQuarter(point[0]), roundQuarter(point[1])] });
       return;
@@ -178,6 +213,8 @@ export function DirectManipulationPlan({ candidate, selectedComponentId, disable
       if (committed.kind === "path-point") onCommit({ kind: "move-path-point", componentId: committed.componentId, pointIndex: committed.pointIndex, point: committed.point });
       if (committed.kind === "pavement-vertex") onCommit({ kind: "move-pavement-vertex", componentId: committed.componentId, vertexIndex: committed.vertexIndex, point: committed.point });
       if (committed.kind === "opening") onCommit({ kind: "move-opening", componentId: committed.componentId, offsetFt: committed.offsetFt });
+      if (committed.kind === "building-vertex") onCommit({ kind: "move-building-vertex", componentId: committed.componentId, vertexIndex: committed.vertexIndex, point: committed.point });
+      if (committed.kind === "building-wall") onCommit({ kind: "resize-building-wall", componentId: committed.componentId, wallIndex: committed.wallIndex, lengthDeltaFt: committed.lengthDeltaFt });
     }
     try { svgRef.current?.releasePointerCapture(event.pointerId); } catch { /* pointer may already be released */ }
     dragRef.current = null; previewRef.current = null; setDrag(null); setPreview(null);
@@ -216,6 +253,22 @@ export function DirectManipulationPlan({ candidate, selectedComponentId, disable
         {item.polygon ? <polygon points={pointString(item.polygon)} /> : <rect x={item.x} y={item.y} width={item.widthFt} height={item.depthFt} rx=".5" />}
         <text x={item.x + item.widthFt / 2} y={item.y + item.depthFt / 2}>{item.label}</text>
       </g>;
+    })}
+    {placements.flatMap((rawItem) => {
+      if (selectedComponentId !== rawItem.id || rawItem.locked || !rawItem.resizable) return [];
+      const item = displayPlacement(rawItem), polygon = placementPolygonPoints(item);
+      const wallControls = polygon.map((a, wallIndex) => {
+        const b = polygon[(wallIndex + 1) % polygon.length], mid: Point = [(a[0]+b[0])/2,(a[1]+b[1])/2];
+        const length = Math.hypot(b[0]-a[0],b[1]-a[1]), unit: Point = [(b[0]-a[0])/Math.max(.001,length),(b[1]-a[1])/Math.max(.001,length)];
+        const shownLength = preview?.kind === "building-wall" && preview.componentId === rawItem.id && preview.wallIndex === wallIndex ? preview.lengthFt : length;
+        return <g key={`${rawItem.id}-wall-${wallIndex}`} className="direct-building-wall-control">
+          <line x1={a[0]} y1={a[1]} x2={b[0]} y2={b[1]} />
+          <circle cx={mid[0]} cy={mid[1]} r="1.15" onPointerDown={(event) => begin(event,{kind:"building-wall",pointerId:event.pointerId,componentId:rawItem.id,wallIndex,start:svgPoint(event.clientX,event.clientY),startLength:length,unit},rawItem.id)} />
+          <text x={mid[0]} y={mid[1]-1.8}>{shownLength.toFixed(1)}′</text>
+        </g>;
+      });
+      const vertexControls = polygon.map((point, vertexIndex) => <circle key={`${rawItem.id}-vertex-${vertexIndex}`} cx={point[0]} cy={point[1]} r="1.05" className="direct-control-handle building-vertex-handle" onPointerDown={(event) => begin(event,{kind:"building-vertex",pointerId:event.pointerId,componentId:rawItem.id,vertexIndex},rawItem.id)} />);
+      return [...wallControls,...vertexControls];
     })}
     {placements.map((rawItem) => {
       const item = displayPlacement(rawItem);
