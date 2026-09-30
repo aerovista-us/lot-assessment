@@ -14,6 +14,8 @@ import {
   editPlacementVertex,
   editPlacementWallLength,
   mirrorPlacementComponent,
+  insertPlacementVertex,
+  removePlacementVertex,
   isInterventionEditable,
   suggestedEditableComponent
 } from "@/packages/candidates/intervention";
@@ -117,6 +119,12 @@ export function InterventionEditor({ candidate, repairContextCandidate, onSave, 
       } else if (change.kind === "resize-building-wall") {
         next = editPlacementWallLength(candidate, change.componentId, change.wallIndex, change.lengthDeltaFt);
         label = `resizing ${component.label} wall ${change.wallIndex + 1}`;
+      } else if (change.kind === "insert-building-vertex") {
+        next = insertPlacementVertex(candidate, change.componentId, change.wallIndex, change.point);
+        label = `adding a deflection point to ${component.label}`;
+      } else if (change.kind === "remove-building-vertex") {
+        next = removePlacementVertex(candidate, change.componentId, change.vertexIndex);
+        label = `removing a deflection point from ${component.label}`;
       }
       if (JSON.stringify(next.components) === JSON.stringify(candidate.components)) return;
       onCheckpoint(`Before ${label}`);
@@ -285,7 +293,7 @@ export function InterventionEditor({ candidate, repairContextCandidate, onSave, 
           }} onCommit={commitDirectManipulation} />
         <div className="direct-manipulation-help">
           <span><b>Move</b> drag a home or garage</span><span><b>Rotate</b> drag the round handle above any selected building</span>
-          <span><b>Shape</b> select a resizable building, then drag wall-midpoint or corner handles</span><span><b>Driveway</b> drag the round route points</span><span><b>Pavement</b> select it, then drag a corner</span>
+          <span><b>Shape</b> drag wall/corner handles · double-click a wall midpoint to add a point · double-click an extra corner to remove it</span><span><b>Driveway</b> drag the round route points</span><span><b>Pavement</b> select it, then drag a corner</span>
         </div>
         <p className="microcopy">Drag/drop saves the geometry immediately with a recovery checkpoint. Parcel and derived envelope geometry stay protected.</p>
       </div>
