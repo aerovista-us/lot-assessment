@@ -412,9 +412,10 @@
 
 .building-add-point-handle{fill:#0f766e;stroke:#fff;stroke-width:.25;cursor:copy;pointer-events:all}
 
-.direct-context-foreign{overflow:visible;pointer-events:none}
-.direct-context-menu{pointer-events:auto;display:grid;min-width:190px;padding:5px;border:1px solid rgba(245,158,11,.45);border-radius:9px;background:#101720;box-shadow:0 12px 28px rgba(0,0,0,.48);font:10px/1.25 system-ui,sans-serif}
-.direct-context-menu button{border:0;border-radius:6px;background:transparent;color:#e5e7eb;text-align:left;padding:7px 8px;cursor:pointer;font:inherit}
+.direct-manipulation-wrap{position:relative;min-width:0}
+.direct-manipulation-wrap>.candidate-plan-svg{display:block}
+.direct-context-menu{position:absolute;z-index:20;pointer-events:auto;display:grid;width:188px;max-width:calc(100% - 16px);padding:4px;border:1px solid rgba(245,158,11,.45);border-radius:8px;background:#101720;box-shadow:0 10px 24px rgba(0,0,0,.48);font:12px/1.2 system-ui,sans-serif}
+.direct-context-menu button{border:0;border-radius:6px;background:transparent;color:#e5e7eb;text-align:left;padding:7px 8px;min-height:30px;cursor:pointer;font:inherit}
 .direct-context-menu button:hover{background:rgba(245,158,11,.12);color:#f8cf75}
 .direct-context-menu button.danger{color:#fda4af}
 .direct-context-menu button.danger:hover{background:rgba(251,113,133,.1)}
