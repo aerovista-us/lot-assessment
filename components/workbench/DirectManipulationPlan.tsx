@@ -219,7 +219,7 @@ export function DirectManipulationPlan({ candidate, selectedComponentId, disable
     })}
     {placements.map((rawItem) => {
       const item = displayPlacement(rawItem);
-      const canRotate = !rawItem.locked && (rawItem.kind === "garage" || !rawItem.polygon);
+      const canRotate = !rawItem.locked && rawItem.movable !== false;
       if (!canRotate || selectedComponentId !== rawItem.id) return null;
       const center: Point = [item.x + item.widthFt / 2, item.y + item.depthFt / 2];
       const top: Point = rotatePoint([center[0], item.y], center, item.rotationDeg ?? 0);
