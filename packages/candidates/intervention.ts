@@ -65,12 +65,24 @@ export function editPlacementComponent(candidate: CandidateRecord, componentId: 
   const deltaRotation = nextRotation - (target.rotationDeg ?? 0);
   const sx = nextWidth / target.widthFt;
   const sy = nextDepth / target.depthFt;
-  const polygon = target.polygon?.map(([x, y]) => [
+  let polygon = target.polygon?.map(([x, y]) => [
     round(nextX + (x - target.x) * sx),
     round(nextY + (y - target.y) * sy)
   ] as Point);
+  let storedRotation = nextRotation;
+  // Polygon placements carry their authored footprint directly. Bake rotation into
+  // those vertices so every downstream geometry engine sees the same shape.
+  if (polygon && deltaRotation) {
+    const radians = deltaRotation * Math.PI / 180;
+    polygon = polygon.map((point) => {
+      const rotated = rotatePoint(point, newCenter, radians);
+      return [round(rotated[0]), round(rotated[1])] as Point;
+    });
+    storedRotation = 0;
+  }
 
-  components[index] = { ...target, x: nextX, y: nextY, widthFt: nextWidth, depthFt: nextDepth, rotationDeg: nextRotation, polygon };
+  const placementBounds = polygon && deltaRotation ? polygonBounds(polygon) : { x: nextX, y: nextY, widthFt: nextWidth, depthFt: nextDepth };
+  components[index] = { ...target, ...placementBounds, rotationDeg: storedRotation, polygon };
   if (target.kind === "garage") {
     const radians = deltaRotation * Math.PI / 180;
     for (let i = 0; i < components.length; i += 1) {
@@ -87,6 +99,122 @@ export function editPlacementComponent(candidate: CandidateRecord, componentId: 
       } satisfies StallComponent;
     }
   }
+  return staleCandidate(candidate, components, updatedAt);
+}
+
+function polygonBounds(polygon: Point[]) {
+  const xs = polygon.map(([x]) => x), ys = polygon.map(([, y]) => y);
+  return { x: Math.min(...xs), y: Math.min(...ys), widthFt: Math.max(...xs) - Math.min(...xs), depthFt: Math.max(...ys) - Math.min(...ys) };
+}
+
+export function mirrorPlacementComponent(candidate: CandidateRecord, componentId: string, axis: "horizontal" | "vertical", updatedAt = new Date().toISOString()) {
+  const components = cloneCandidateComponents(candidate.components);
+  const index = components.findIndex((item) => item.id === componentId);
+  const target = assertEditable(components[index]);
+  if (target.kind !== "home" && target.kind !== "garage") throw new Error("Selected component is not a placement.");
+  const center: Point = [target.x + target.widthFt / 2, target.y + target.depthFt / 2];
+  const base = target.polygon ?? [
+    [target.x, target.y], [target.x + target.widthFt, target.y],
+    [target.x + target.widthFt, target.y + target.depthFt], [target.x, target.y + target.depthFt]
+  ] as Point[];
+  const polygon = base.map(([x, y]) => [
+    round(axis === "horizontal" ? center[0] * 2 - x : x),
+    round(axis === "vertical" ? center[1] * 2 - y : y)
+  ] as Point).reverse();
+  const bounds = polygonBounds(polygon);
+  components[index] = { ...target, ...bounds, polygon, rotationDeg: 0 };
+  return staleCandidate(candidate, components, updatedAt);
+}
+
+export function editPlacementWallLength(candidate: CandidateRecord, componentId: string, wallIndex: number, lengthDeltaFt: number, updatedAt = new Date().toISOString()) {
+  const components = cloneCandidateComponents(candidate.components);
+  const index = components.findIndex((item) => item.id === componentId);
+  const target = assertEditable(components[index]);
+  if (target.kind !== "home" && target.kind !== "garage") throw new Error("Selected component is not a placement.");
+  if (!target.resizable) throw new Error("This building is shape-locked.");
+  const polygon = (target.polygon ?? [
+    [target.x, target.y], [target.x + target.widthFt, target.y],
+    [target.x + target.widthFt, target.y + target.depthFt], [target.x, target.y + target.depthFt]
+  ] as Point[]).map(([x,y]) => [x,y] as Point);
+  if (wallIndex < 0 || wallIndex >= polygon.length) throw new Error("Wall index is out of range.");
+  const a = polygon[wallIndex], bIndex = (wallIndex + 1) % polygon.length, b = polygon[bIndex];
+  const dx = b[0] - a[0], dy = b[1] - a[1], length = Math.hypot(dx, dy);
+  const nextLength = length + lengthDeltaFt;
+  if (length < 0.01 || nextLength < 2) throw new Error("Wall length must remain at least 2 ft.");
+  const ux = dx / length, uy = dy / length, half = lengthDeltaFt / 2;
+  polygon[wallIndex] = [round(a[0] - ux * half), round(a[1] - uy * half)];
+  polygon[bIndex] = [round(b[0] + ux * half), round(b[1] + uy * half)];
+  const bounds = polygonBounds(polygon);
+  components[index] = { ...target, ...bounds, polygon, rotationDeg: 0 };
+  return staleCandidate(candidate, components, updatedAt);
+}
+
+function placementPolygon(target: PlacementComponent): Point[] {
+  return (target.polygon ?? [
+    [target.x, target.y], [target.x + target.widthFt, target.y],
+    [target.x + target.widthFt, target.y + target.depthFt], [target.x, target.y + target.depthFt]
+  ] as Point[]).map(([x,y]) => [x,y] as Point);
+}
+
+function orientation(a: Point, b: Point, c: Point) {
+  return (b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0]);
+}
+function segmentsCross(a: Point,b: Point,c: Point,d: Point) {
+  const o1=orientation(a,b,c),o2=orientation(a,b,d),o3=orientation(c,d,a),o4=orientation(c,d,b);
+  return ((o1>0&&o2<0)||(o1<0&&o2>0))&&((o3>0&&o4<0)||(o3<0&&o4>0));
+}
+function assertSimplePolygon(polygon: Point[]) {
+  if (polygon.length < 4) throw new Error("Building footprint must retain at least four corners.");
+  for(let i=0;i<polygon.length;i++){
+    const a=polygon[i],b=polygon[(i+1)%polygon.length];
+    if(Math.hypot(b[0]-a[0],b[1]-a[1])<.5) throw new Error("Building walls must remain at least 0.5 ft long.");
+    for(let j=i+1;j<polygon.length;j++){
+      if(j===i || j===(i+1)%polygon.length || i===(j+1)%polygon.length) continue;
+      const c=polygon[j],d=polygon[(j+1)%polygon.length];
+      if(segmentsCross(a,b,c,d)) throw new Error("Building footprint cannot self-intersect.");
+    }
+  }
+}
+
+export function insertPlacementVertex(candidate: CandidateRecord, componentId: string, wallIndex: number, point?: Point, updatedAt = new Date().toISOString()) {
+  const components=cloneCandidateComponents(candidate.components),index=components.findIndex((item)=>item.id===componentId),target=assertEditable(components[index]);
+  if(target.kind!=="home"&&target.kind!=="garage") throw new Error("Selected component is not a placement.");
+  if(!target.resizable) throw new Error("This building is shape-locked.");
+  const polygon=placementPolygon(target);
+  if(wallIndex<0||wallIndex>=polygon.length) throw new Error("Wall index is out of range.");
+  const a=polygon[wallIndex],b=polygon[(wallIndex+1)%polygon.length];
+  const inserted:Point=point ? [round(point[0]),round(point[1])] : [round((a[0]+b[0])/2),round((a[1]+b[1])/2)];
+  polygon.splice(wallIndex+1,0,inserted);
+  assertSimplePolygon(polygon);
+  components[index]={...target,...polygonBounds(polygon),polygon,rotationDeg:0};
+  return staleCandidate(candidate,components,updatedAt);
+}
+
+export function removePlacementVertex(candidate: CandidateRecord, componentId: string, vertexIndex: number, updatedAt = new Date().toISOString()) {
+  const components=cloneCandidateComponents(candidate.components),index=components.findIndex((item)=>item.id===componentId),target=assertEditable(components[index]);
+  if(target.kind!=="home"&&target.kind!=="garage") throw new Error("Selected component is not a placement.");
+  if(!target.resizable) throw new Error("This building is shape-locked.");
+  const polygon=placementPolygon(target);
+  if(vertexIndex<0||vertexIndex>=polygon.length) throw new Error("Building vertex is out of range.");
+  polygon.splice(vertexIndex,1);
+  assertSimplePolygon(polygon);
+  components[index]={...target,...polygonBounds(polygon),polygon,rotationDeg:0};
+  return staleCandidate(candidate,components,updatedAt);
+}
+
+export function editPlacementVertex(candidate: CandidateRecord, componentId: string, vertexIndex: number, point: Point, updatedAt = new Date().toISOString()) {
+  const components = cloneCandidateComponents(candidate.components);
+  const index = components.findIndex((item) => item.id === componentId);
+  const target = assertEditable(components[index]);
+  if (target.kind !== "home" && target.kind !== "garage") throw new Error("Selected component is not a placement.");
+  if (!target.resizable) throw new Error("This building is shape-locked.");
+  const polygon = (target.polygon ?? [
+    [target.x, target.y], [target.x + target.widthFt, target.y],
+    [target.x + target.widthFt, target.y + target.depthFt], [target.x, target.y + target.depthFt]
+  ] as Point[]).map(([x,y], i) => i === vertexIndex ? [round(point[0]), round(point[1])] as Point : [x,y] as Point);
+  if (vertexIndex < 0 || vertexIndex >= polygon.length) throw new Error("Building vertex is out of range.");
+  const bounds = polygonBounds(polygon);
+  components[index] = { ...target, ...bounds, polygon, rotationDeg: 0 };
   return staleCandidate(candidate, components, updatedAt);
 }
 

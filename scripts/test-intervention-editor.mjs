@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { pondyCandidateRegistry } from "../projects/pondy-lot2/candidate-registry.ts";
-import { editPlacementComponent, editPathPoint, editPavementVertex, editOpeningComponent, applyCandidateEvaluation } from "../packages/candidates/intervention.ts";
+import { editPlacementComponent, editPathPoint, editPavementVertex, editOpeningComponent, editPlacementVertex, editPlacementWallLength, mirrorPlacementComponent, insertPlacementVertex, removePlacementVertex, applyCandidateEvaluation } from "../packages/candidates/intervention.ts";
 import { evaluateInterventionCandidate, exploreInterventionNeighborhood } from "../packages/candidates/intervention-evaluation.ts";
 
 const rules = pondyCandidateRegistry.lots[0].rulesVersion;
@@ -42,6 +42,29 @@ assert.deepEqual(pavementMoved.components.find((component) => component.id === "
 const openingMoved = editOpeningComponent(d4, "garage-b-opening", { offsetFt: 0.5 }, "2026-09-18T12:01:40.000Z");
 assert.equal(openingMoved.components.find((component) => component.id === "garage-b-opening")?.offsetFt, 0.5);
 
+const homeB = d4.components.find((component) => component.id === "home-b");
+assert(homeB && homeB.kind === "home" && homeB.polygon);
+const rotatedHome = editPlacementComponent(d4, "home-b", { rotationDeg: 8 }, "2026-09-18T12:01:50.000Z");
+const rotatedHomeB = rotatedHome.components.find((component) => component.id === "home-b");
+assert(rotatedHomeB && rotatedHomeB.kind === "home" && rotatedHomeB.polygon);
+assert.equal(rotatedHomeB.rotationDeg, 0, "polygon home rotation must be baked into footprint vertices");
+assert.notDeepEqual(rotatedHomeB.polygon, homeB.polygon, "home rotation must change authoritative polygon geometry");
+const mirroredHome = mirrorPlacementComponent(d4, "home-b", "horizontal", "2026-09-18T12:01:51.000Z");
+assert.notDeepEqual(mirroredHome.components.find((component) => component.id === "home-b")?.polygon, homeB.polygon, "irregular home mirror must change footprint");
+const wallEdited = editPlacementWallLength(d4, "home-b", 0, 2, "2026-09-18T12:01:52.000Z");
+const wallHome = wallEdited.components.find((component) => component.id === "home-b");
+assert(wallHome && wallHome.kind === "home" && wallHome.polygon);
+assert(Math.abs(Math.hypot(wallHome.polygon[1][0]-wallHome.polygon[0][0], wallHome.polygon[1][1]-wallHome.polygon[0][1]) - 42.5) < .01);
+const deflectedHome = insertPlacementVertex(d4, "home-b", 0, undefined, "2026-09-18T12:01:52.500Z");
+const deflected = deflectedHome.components.find((component) => component.id === "home-b");
+assert(deflected && deflected.kind === "home" && deflected.polygon);
+assert.equal(deflected.polygon.length, homeB.polygon.length + 1, "adding a deflection point must add one authoritative polygon vertex");
+const restoredHome = removePlacementVertex(deflectedHome, "home-b", 1, "2026-09-18T12:01:52.750Z");
+assert.equal(restoredHome.components.find((component) => component.id === "home-b")?.polygon?.length, homeB.polygon.length, "removing the inserted deflection point must restore vertex count");
+
+const vertexEdited = editPlacementVertex(d4, "home-b", 5, [53, 22], "2026-09-18T12:01:53.000Z");
+assert.deepEqual(vertexEdited.components.find((component) => component.id === "home-b")?.polygon?.[5], [53, 22]);
+
 const screen = evaluateInterventionCandidate(edited, rules, "2026-09-18T12:02:00.001Z");
 const sameSecondScreen = evaluateInterventionCandidate(edited, rules, "2026-09-18T12:02:00.002Z");
 assert.notEqual(screen.evaluation.id, sameSecondScreen.evaluation.id, "intervention evaluation IDs must retain sub-second uniqueness");
@@ -60,6 +83,8 @@ console.log(JSON.stringify({
   d4bScreen: evaluateInterventionCandidate(d4b, rules, "2026-09-18T12:04:00.000Z").screeningScore,
   stallMovesWithGarage: true,
   directEditPrimitives: true,
+  homeShapeTransforms: true,
+  deflectionPointEditing: true,
   exploreSuggestions: suggestions.length,
   authoritativeOutboundAlwaysOpen: true
 }, null, 2));

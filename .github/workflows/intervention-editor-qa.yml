@@ -1,0 +1,33 @@
+name: Workbench intervention editor QA
+
+on:
+  pull_request:
+    paths:
+      - 'components/workbench/InterventionEditor.tsx'
+      - 'components/workbench/DirectManipulationPlan.tsx'
+      - 'packages/candidates/**'
+      - 'scripts/test-intervention-editor.mjs'
+      - 'app/workbench/workbench.css'
+      - '.github/workflows/intervention-editor-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Type check
+        run: npm run lint
+      - name: Intervention geometry tests
+        run: npm run test:intervention
+      - name: Production build
+        run: npm run build
