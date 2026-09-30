@@ -1,0 +1,29 @@
+name: Pondy D4 full circulation closure
+on:
+  pull_request:
+    paths:
+      - 'scripts/pondy-d4-full-circulation.js'
+      - '.github/workflows/pondy-d4-full-circulation.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  closure:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check
+        run: node --check scripts/pondy-d4-full-circulation.js
+      - name: Run exact four-stall inbound/outbound closure
+        run: node scripts/pondy-d4-full-circulation.js
+      - name: Upload closure evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pondy-d4-full-circulation-${{ github.sha }}
+          path: qa-artifacts/pondy-d4-full-circulation/result.json
+          retention-days: 90
