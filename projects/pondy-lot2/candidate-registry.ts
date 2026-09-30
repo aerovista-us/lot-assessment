@@ -124,13 +124,12 @@ const d4Candidate: CandidateRecord = {
   status: d4Classification.status,
   evidenceState: "CURRENT",
   classificationReason: d4Classification.reason,
-  provenance: { repository: "aerovista-us/PondyFlats", sourceCommit: "881d539710d9711761042133de86388d680926f1", sourceEvidenceBlobSha: "fb4f879435a1ec9fab8c7f1c0392893fc30d675d", reconciledAt: "2026-09-29" },
   components: d4SiteComponents(),
   evaluationHistory: [d4Evaluation],
   currentEvaluationId: d4Evaluation.id,
   lineage: { parentCandidateId: null, rootCandidateId: "pondy-d4", relation: "ROOT" },
   tags: ["design-4", "shared-drive", "detached-garages", "outbound-open"],
-  staffNotes: ["Machine status remains authoritative; this candidate is intervention-worthy but not a circulation PASS."],
+  staffNotes: ["Machine status remains authoritative; this candidate is intervention-worthy but not a circulation PASS.", "2026-09-29 source reconciliation: PondyFlats main 881d539710d9711761042133de86388d680926f1; merged D4 evidence blob fb4f879435a1ec9fab8c7f1c0392893fc30d675d. Geometry metrics match; independent outbound remains open."],
   createdAt: "2026-09-13T16:17:02.958Z",
   updatedAt: "2026-09-29T00:00:00.000Z"
 };
