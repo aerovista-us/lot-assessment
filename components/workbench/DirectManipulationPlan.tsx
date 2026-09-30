@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type MouseEvent as ReactMouseEvent } from "react";
 import type {
   CandidateComponent,
   CandidateRecord,
@@ -79,6 +79,9 @@ export function DirectManipulationPlan({ candidate, selectedComponentId, disable
   const [drag, setDrag] = useState<DragState | null>(null);
   const dragRef = useRef<DragState | null>(null);
   const [preview, setPreview] = useState<Preview>(null);
+  const [contextMenu, setContextMenu] = useState<null | {
+    clientX:number; clientY:number; svgX:number; svgY:number; componentId?:string; wallIndex?:number; vertexIndex?:number;
+  }>(null);
   const previewRef = useRef<Preview>(null);
   const placements = useMemo(() => candidate.components.filter((item): item is PlacementComponent => item.kind === "home" || item.kind === "garage"), [candidate.components]);
   const placementById = useMemo(() => new Map(placements.map((item) => [item.id, item])), [placements]);
@@ -155,6 +158,16 @@ export function DirectManipulationPlan({ candidate, selectedComponentId, disable
 
   const updatePreview = (next: Preview) => { previewRef.current = next; setPreview(next); };
 
+  function openContextMenu(event: ReactMouseEvent<SVGElement>, target: {componentId?:string;wallIndex?:number;vertexIndex?:number} = {}) {
+    if (disabled) return;
+    event.preventDefault(); event.stopPropagation();
+    const point=svgPoint(event.clientX,event.clientY);
+    if(target.componentId) onSelectComponent?.(target.componentId);
+    setContextMenu({clientX:event.clientX,clientY:event.clientY,svgX:roundQuarter(point[0]),svgY:roundQuarter(point[1]),...target});
+  }
+  function runContext(action: DirectManipulation) { onCommit(action); setContextMenu(null); }
+
+
   function begin(event: ReactPointerEvent<SVGElement>, state: DragState, componentId: string) {
     if (disabled) return;
     event.preventDefault(); event.stopPropagation();
@@ -229,6 +242,8 @@ export function DirectManipulationPlan({ candidate, selectedComponentId, disable
 
   return <svg ref={svgRef} className={`candidate-plan-svg direct-manipulation-plan${drag ? " is-dragging" : ""}`} viewBox="-4 -4 166 66"
     role="img" aria-label={`${candidate.label} direct manipulation plan`}
+    onContextMenu={(event)=>openContextMenu(event)}
+    onPointerDown={(event)=>{ if(event.button===0 && event.target===event.currentTarget) setContextMenu(null); }}
     onPointerMove={handleMove} onPointerUp={finish} onPointerCancel={finish}>
     <rect x="-4" y="-4" width="166" height="66" className="candidate-plan-bg" />
     {parcels.map((item) => <polygon key={item.id} points={pointString(item.polygon)} className="candidate-plan-parcel" />)}
@@ -250,6 +265,7 @@ export function DirectManipulationPlan({ candidate, selectedComponentId, disable
       const movable = !rawItem.locked && rawItem.movable !== false;
       return <g key={item.id} data-component-id={item.id} transform={placementTransform(item)}
         className={selectableClass(rawItem, `candidate-plan-component component-${item.kind}${movable ? " direct-draggable-placement" : ""}`)}
+        onContextMenu={(event)=>openContextMenu(event,{componentId:rawItem.id})}
         onPointerDown={movable ? (event) => begin(event, { kind: "placement", pointerId: event.pointerId, componentId: rawItem.id,
           start: svgPoint(event.clientX, event.clientY), startX: rawItem.x, startY: rawItem.y }, rawItem.id) : click(rawItem)}>
         {item.polygon ? <polygon points={pointString(item.polygon)} /> : <rect x={item.x} y={item.y} width={item.widthFt} height={item.depthFt} rx=".5" />}
@@ -263,14 +279,14 @@ export function DirectManipulationPlan({ candidate, selectedComponentId, disable
         const b = polygon[(wallIndex + 1) % polygon.length], mid: Point = [(a[0]+b[0])/2,(a[1]+b[1])/2];
         const length = Math.hypot(b[0]-a[0],b[1]-a[1]), unit: Point = [(b[0]-a[0])/Math.max(.001,length),(b[1]-a[1])/Math.max(.001,length)];
         const shownLength = preview?.kind === "building-wall" && preview.componentId === rawItem.id && preview.wallIndex === wallIndex ? preview.lengthFt : length;
-        return <g key={`${rawItem.id}-wall-${wallIndex}`} className="direct-building-wall-control">
+        return <g key={`${rawItem.id}-wall-${wallIndex}`} className="direct-building-wall-control" onContextMenu={(event)=>openContextMenu(event,{componentId:rawItem.id,wallIndex})}>
           <line x1={a[0]} y1={a[1]} x2={b[0]} y2={b[1]} />
           <circle cx={mid[0]} cy={mid[1]} r="1.15" onPointerDown={(event) => begin(event,{kind:"building-wall",pointerId:event.pointerId,componentId:rawItem.id,wallIndex,start:svgPoint(event.clientX,event.clientY),startLength:length,unit},rawItem.id)} />
           <circle cx={mid[0]} cy={mid[1]} r=".55" className="building-add-point-handle" onDoubleClick={(event) => { event.stopPropagation(); onCommit({kind:"insert-building-vertex",componentId:rawItem.id,wallIndex,point:mid}); }} />
           <text x={mid[0]} y={mid[1]-1.8}>{shownLength.toFixed(1)}′</text>
         </g>;
       });
-      const vertexControls = polygon.map((point, vertexIndex) => <g key={`${rawItem.id}-vertex-${vertexIndex}`}><circle cx={point[0]} cy={point[1]} r="1.05" className="direct-control-handle building-vertex-handle" onPointerDown={(event) => begin(event,{kind:"building-vertex",pointerId:event.pointerId,componentId:rawItem.id,vertexIndex},rawItem.id)} onDoubleClick={(event) => { event.stopPropagation(); if(polygon.length>4) onCommit({kind:"remove-building-vertex",componentId:rawItem.id,vertexIndex}); }} /><title>{polygon.length>4?"Drag corner · double-click to remove point":"Drag corner"}</title></g>);
+      const vertexControls = polygon.map((point, vertexIndex) => <g key={`${rawItem.id}-vertex-${vertexIndex}`} onContextMenu={(event)=>openContextMenu(event,{componentId:rawItem.id,vertexIndex})}><circle cx={point[0]} cy={point[1]} r="1.05" className="direct-control-handle building-vertex-handle" onPointerDown={(event) => begin(event,{kind:"building-vertex",pointerId:event.pointerId,componentId:rawItem.id,vertexIndex},rawItem.id)} onDoubleClick={(event) => { event.stopPropagation(); if(polygon.length>4) onCommit({kind:"remove-building-vertex",componentId:rawItem.id,vertexIndex}); }} /><title>{polygon.length>4?"Drag corner · double-click to remove point":"Drag corner"}</title></g>);
       return [...wallControls,...vertexControls];
     })}
     {placements.map((rawItem) => {
@@ -323,5 +339,18 @@ export function DirectManipulationPlan({ candidate, selectedComponentId, disable
     })}
     <line x1="148" y1="0" x2="148" y2="50" className="candidate-plan-street" />
     <text x="153" y="25" transform="rotate(90 153 25)" className="candidate-plan-street-label">PENNSYLVANIA</text>
+  {contextMenu && (()=> {
+      const item=contextMenu.componentId ? placementById.get(contextMenu.componentId) : undefined;
+      const polygon=item ? placementPolygonPoints(item) : [];
+      return <foreignObject x={Math.min(contextMenu.svgX,128)} y={Math.min(contextMenu.svgY,43)} width="34" height="24" className="direct-context-foreign">
+        <div className="direct-context-menu" onContextMenu={(event)=>event.preventDefault()}>
+          {item && contextMenu.wallIndex !== undefined && <button onClick={()=>runContext({kind:"insert-building-vertex",componentId:item.id,wallIndex:contextMenu.wallIndex!,point:[contextMenu.svgX,contextMenu.svgY]})}>Add deflection point</button>}
+          {item && contextMenu.vertexIndex !== undefined && polygon.length>4 && <button className="danger" onClick={()=>runContext({kind:"remove-building-vertex",componentId:item.id,vertexIndex:contextMenu.vertexIndex!})}>Remove point</button>}
+          {item && item.kind==="home" && <><button onClick={()=>{ onSelectComponent?.(item.id); setContextMenu(null); }}>Edit dimensions</button><button onClick={()=>{ setContextMenu(null); window.dispatchEvent(new CustomEvent("workbench:mirror",{detail:{componentId:item.id,axis:"horizontal"}})); }}>Mirror left ↔ right</button><button onClick={()=>{ setContextMenu(null); window.dispatchEvent(new CustomEvent("workbench:mirror",{detail:{componentId:item.id,axis:"vertical"}})); }}>Mirror top ↔ bottom</button></>}
+          {item && <button onClick={()=>{onSelectComponent?.(item.id);setContextMenu(null);}}>Select building</button>}
+          {!item && <button onClick={()=>setContextMenu(null)}>Close menu</button>}
+        </div>
+      </foreignObject>;
+    })()}
   </svg>;
 }
