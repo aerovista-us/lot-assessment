@@ -73,7 +73,8 @@ export function InterventionEditor({ candidate, repairContextCandidate, onSave, 
   const selected = candidate.components.find((component) => component.id === selectedId) ?? null;
   const [draft, setDraft] = useState<Record<string, string>>(() => initialDraft(selected));
   const [message, setMessage] = useState<string | null>(null);
-  const [running, setRunning] = useState<"evaluate" | "explore" | null>(null);
+  const [running, setRunning] = useState<"evaluate" | "explore" | "authoritative" | null>(null);
+  const [authoritativeDepth, setAuthoritativeDepth] = useState<20000 | 80000 | 180000>(80000);
   const [suggestions, setSuggestions] = useState<InterventionSuggestion[]>([]);
   const repairClasses = currentRepairClasses(repairContext);
   const draftDirty = selected ? JSON.stringify(draft) !== JSON.stringify(initialDraft(selected)) : false;
@@ -250,6 +251,34 @@ export function InterventionEditor({ candidate, repairContextCandidate, onSave, 
     }
   }
 
+  async function evaluateAuthoritative() {
+    setRunning("authoritative"); setMessage(null);
+    try {
+      const response = await fetch("/api/workbench/pondy-authoritative-circulation", {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ candidate, maxExpandedStates: authoritativeDepth })
+      });
+      const payload = await response.json() as {
+        error?: string;
+        evaluation?: import("@/packages/candidates").CandidateEvaluation;
+        hardGeometryPass?: boolean;
+        maxExpandedStates?: number;
+        circulation?: { summary?: { stallCount:number; inboundPass:number; outboundPass:number; fullCirculationPass:number } };
+      };
+      if (!response.ok || !payload.evaluation || !payload.circulation?.summary) throw new Error(payload.error ?? `Authoritative evaluation failed (${response.status})`);
+      const evaluated = applyCandidateEvaluation(candidate, payload.evaluation);
+      onSave(evaluated);
+      const summary = payload.circulation.summary;
+      setMessage(payload.hardGeometryPass
+        ? `Authoritative circulation PASS for all ${summary.stallCount} modeled stalls. Professional/AHJ and promotion-policy gates remain separate.`
+        : `Authoritative search recorded ${summary.inboundPass}/${summary.stallCount} inbound and ${summary.outboundPass}/${summary.stallCount} outbound proofs at the ${payload.maxExpandedStates ?? authoritativeDepth}-state cap. Open results mean not proven at this search cap, not impossible.`);
+    } catch (cause) {
+      setMessage(cause instanceof Error ? cause.message : "Authoritative circulation evaluation failed.");
+    } finally {
+      setRunning(null);
+    }
+  }
+
   async function exploreAround() {
     if (!selected) return;
     setRunning("explore"); setMessage(null);
@@ -285,7 +314,7 @@ export function InterventionEditor({ candidate, repairContextCandidate, onSave, 
       <div><p className="eyebrow">INTERVENTION EDITOR V3</p><h2>Drag the plan directly, then make the machine re-check it.</h2></div>
       <span className="mode-pill">{candidate.evidenceState} EVIDENCE</span>
     </div>
-    <div className="candidate-warning-box intervention-truth-boundary"><b>Screening boundary</b><p>This editor can test static geometry, enclosed parking and route-hint sweeps. It cannot close the authoritative independent stall-to-Pennsylvania outbound gate. A screen result is never a manual PASS.</p></div>
+    <div className="candidate-warning-box intervention-truth-boundary"><b>Evidence boundary</b><p>Evaluate exact edit is a fast screening pass and never creates authoritative circulation proof. Run authoritative circulation invokes the independent full-body planner for this exact geometry; even a circulation PASS does not close professional/AHJ or promotion-policy gates.</p></div>
     {repairClasses.length > 0 && <div className="candidate-chip-row intervention-repairs">{repairClasses.map((repair) => <span key={repair}>{repair}</span>)}</div>}
     <div className="intervention-grid">
       <div className="intervention-plan-wrap">
@@ -372,7 +401,11 @@ export function InterventionEditor({ candidate, repairContextCandidate, onSave, 
           <button className="primary-button" type="button" disabled={running !== null || draftDirty} title={draftDirty ? "Save the geometry edit first." : undefined} onClick={evaluateExact}>{running === "evaluate" ? "Evaluating…" : "Evaluate exact edit"}</button>
           <button className="secondary-button" type="button" disabled={!selectedEditable || running !== null || draftDirty} title={draftDirty ? "Save the geometry edit first." : undefined} onClick={exploreAround}>{running === "explore" ? "Exploring…" : "Explore around edit"}</button>
         </div>
-        <p className="microcopy">Drag/drop changes save immediately with a recovery checkpoint. Use Precision controls only when you want exact dimensions or coordinates; then click Save edit before evaluating.</p>
+        <div className="authoritative-action-row">
+          <label>Authoritative search<select value={authoritativeDepth} disabled={running !== null} onChange={(event) => setAuthoritativeDepth(Number(event.target.value) as 20000 | 80000 | 180000)}><option value={20000}>Quick · 20k states</option><option value={80000}>Standard · 80k states</option><option value={180000}>Deep · 180k states</option></select></label>
+          <button className="primary-button" type="button" disabled={running !== null || draftDirty} title={draftDirty ? "Save the geometry edit first." : "Runs independent inbound and street-egress planning for every modeled stall."} onClick={evaluateAuthoritative}>{running === "authoritative" ? "Running authoritative…" : "Run authoritative circulation"}</button>
+        </div>
+        <p className="microcopy">Drag/drop changes save immediately with a recovery checkpoint. Screening is fast; authoritative search is intentionally heavier and a capped search that finds no path is recorded as open, not impossible.</p>
         {message && <p className="intervention-message">{message}</p>}
       </div>
     </div>
