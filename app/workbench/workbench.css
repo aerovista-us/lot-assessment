@@ -419,3 +419,9 @@
 .direct-context-menu button:hover{background:rgba(245,158,11,.12);color:#f8cf75}
 .direct-context-menu button.danger{color:#fda4af}
 .direct-context-menu button.danger:hover{background:rgba(251,113,133,.1)}
+.direct-plan-toolbar{position:absolute;z-index:12;top:8px;left:8px;display:flex;align-items:center;gap:4px;padding:4px;border:1px solid var(--line);border-radius:9px;background:rgba(12,18,27,.92);box-shadow:0 8px 20px rgba(0,0,0,.28)}
+.direct-plan-toolbar button{border:1px solid transparent;border-radius:6px;background:transparent;color:#d6dde6;padding:5px 7px;font:inherit;font-size:9px;cursor:pointer}
+.direct-plan-toolbar button:hover,.direct-plan-toolbar button.active{border-color:rgba(245,158,11,.38);background:rgba(245,158,11,.1);color:#f8cf75}
+.direct-plan-toolbar button:disabled{opacity:.4;cursor:not-allowed}.direct-plan-toolbar span{padding:0 3px;color:var(--muted);font-size:8px;text-transform:uppercase;font-weight:900}
+.direct-context-menu button{display:flex;justify-content:space-between;align-items:center;gap:12px}.direct-context-menu kbd{color:#8997a8;font:9px/1.1 ui-monospace,SFMono-Regular,Menlo,monospace}
+.candidate-plan-component.direct-preview-invalid rect,.candidate-plan-component.direct-preview-invalid polygon{stroke:#fb7185!important;stroke-width:1.25!important;fill:rgba(251,113,133,.13)!important}

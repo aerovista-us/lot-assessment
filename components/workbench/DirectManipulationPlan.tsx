@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type MouseEvent as ReactMouseEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type MouseEvent as ReactMouseEvent, type WheelEvent as ReactWheelEvent } from "react";
 import type {
   CandidateComponent,
   CandidateRecord,
@@ -10,6 +10,7 @@ import type {
   PolygonComponent
 } from "@/packages/candidates";
 import { isInterventionEditable } from "@/packages/candidates/intervention";
+import { assertPolygonIntegrity, polygonWinding } from "@/packages/candidates/geometry-integrity";
 
 export type DirectManipulation =
   | { kind: "move-placement"; componentId: string; x: number; y: number }
@@ -42,6 +43,8 @@ type Preview =
   | null;
 
 const pointString = (polygon: ReadonlyArray<Point>) => polygon.map(([x, y]) => `${x},${y}`).join(" ");
+const snapTo = (value: number, step: number) => step > 0 ? Math.round(value / step) * step : value;
+const DEFAULT_VIEW = { x: -4, y: -4, width: 166, height: 66 };
 const roundQuarter = (value: number) => Math.round(value * 4) / 4;
 const roundDegree = (value: number) => Math.round(value);
 function rotatePoint(point: Point, origin: Point, degrees: number): Point {
@@ -81,6 +84,8 @@ export function DirectManipulationPlan({ candidate, selectedComponentId, disable
   const [drag, setDrag] = useState<DragState | null>(null);
   const dragRef = useRef<DragState | null>(null);
   const [preview, setPreview] = useState<Preview>(null);
+  const [snapFt, setSnapFt] = useState(.25);
+  const [viewBox, setViewBox] = useState(DEFAULT_VIEW);
   const [contextMenu, setContextMenu] = useState<null | {
     left:number; top:number; svgX:number; svgY:number; componentId?:string; wallIndex?:number; vertexIndex?:number;
   }>(null);
@@ -160,6 +165,49 @@ export function DirectManipulationPlan({ candidate, selectedComponentId, disable
 
   const updatePreview = (next: Preview) => { previewRef.current = next; setPreview(next); };
 
+  function fitSelection() {
+    const item = selectedComponentId ? placementById.get(selectedComponentId) : undefined;
+    if (!item) { setViewBox(DEFAULT_VIEW); return; }
+    const polygon = placementPolygonPoints(item);
+    const xs = polygon.map(([x]) => x), ys = polygon.map(([, y]) => y);
+    const minX=Math.min(...xs), maxX=Math.max(...xs), minY=Math.min(...ys), maxY=Math.max(...ys);
+    const pad=Math.max(6, Math.max(maxX-minX,maxY-minY)*.35);
+    setViewBox({x:minX-pad,y:minY-pad,width:Math.max(24,maxX-minX+pad*2),height:Math.max(18,maxY-minY+pad*2)});
+  }
+  function zoomAt(factor: number, point?: Point) {
+    const anchor=point ?? [viewBox.x+viewBox.width/2, viewBox.y+viewBox.height/2] as Point;
+    const width=Math.max(18,Math.min(220,viewBox.width*factor));
+    const ratio=width/viewBox.width, height=viewBox.height*ratio;
+    setViewBox({x:anchor[0]-(anchor[0]-viewBox.x)*ratio,y:anchor[1]-(anchor[1]-viewBox.y)*ratio,width,height});
+  }
+  function handleWheel(event: ReactWheelEvent<SVGSVGElement>) {
+    event.preventDefault();
+    zoomAt(event.deltaY < 0 ? .86 : 1.16, svgPoint(event.clientX,event.clientY));
+  }
+  function previewIntegrity(item: PlacementComponent) {
+    if (!preview || preview.componentId !== item.id || (preview.kind !== "building-vertex" && preview.kind !== "building-wall")) return true;
+    try {
+      const original=item.polygon ?? [[item.x,item.y],[item.x+item.widthFt,item.y],[item.x+item.widthFt,item.y+item.depthFt],[item.x,item.y+item.depthFt]] as Point[];
+      assertPolygonIntegrity(placementPolygonPoints(item),{label:"Building footprint",minVertices:4,minEdgeFt:.5,minAreaSqFt:4,expectedWinding:polygonWinding(original)});
+      return true;
+    } catch { return false; }
+  }
+
+  useEffect(() => {
+    const onKeyDown=(event:KeyboardEvent)=>{
+      if(event.key==="Escape"){
+        setContextMenu(null); dragRef.current=null; previewRef.current=null; setDrag(null); setPreview(null);
+      }
+      if((event.key==="Delete"||event.key==="Backspace") && contextMenu?.componentId && contextMenu.vertexIndex!==undefined){
+        const item=placementById.get(contextMenu.componentId);
+        const count=item ? placementPolygonPoints(item).length : 0;
+        if(item && count>4){ event.preventDefault(); runContext({kind:"remove-building-vertex",componentId:item.id,vertexIndex:contextMenu.vertexIndex}); }
+      }
+    };
+    window.addEventListener("keydown",onKeyDown);
+    return ()=>window.removeEventListener("keydown",onKeyDown);
+  },[contextMenu,candidate.updatedAt]);
+
   function openContextMenu(event: ReactMouseEvent<SVGElement>, target: {componentId?:string;wallIndex?:number;vertexIndex?:number} = {}) {
     if (disabled) return;
     event.preventDefault(); event.stopPropagation();
@@ -169,7 +217,7 @@ export function DirectManipulationPlan({ candidate, selectedComponentId, disable
     const menuWidth=196, menuHeight=190, inset=8;
     const left=bounds ? Math.max(inset,Math.min(event.clientX-bounds.left,bounds.width-menuWidth-inset)) : event.clientX;
     const top=bounds ? Math.max(inset,Math.min(event.clientY-bounds.top,bounds.height-menuHeight-inset)) : event.clientY;
-    setContextMenu({left,top,svgX:roundQuarter(point[0]),svgY:roundQuarter(point[1]),...target});
+    setContextMenu({left,top,svgX:snapTo(point[0],snapFt),svgY:snapTo(point[1],snapFt),...target});
   }
   function runContext(action: DirectManipulation) { onCommit(action); setContextMenu(null); }
 
@@ -186,8 +234,8 @@ export function DirectManipulationPlan({ candidate, selectedComponentId, disable
     const point = svgPoint(event.clientX, event.clientY);
     if (active.kind === "placement") {
       updatePreview({ kind: "placement", componentId: active.componentId,
-        x: roundQuarter(active.startX + point[0] - active.start[0]),
-        y: roundQuarter(active.startY + point[1] - active.start[1]) });
+        x: snapTo(active.startX + point[0] - active.start[0], snapFt),
+        y: snapTo(active.startY + point[1] - active.start[1], snapFt) });
       return;
     }
     if (active.kind === "rotation") {
@@ -197,22 +245,22 @@ export function DirectManipulationPlan({ candidate, selectedComponentId, disable
       return;
     }
     if (active.kind === "building-vertex") {
-      updatePreview({ kind: "building-vertex", componentId: active.componentId, vertexIndex: active.vertexIndex, point: [roundQuarter(point[0]), roundQuarter(point[1])] });
+      updatePreview({ kind: "building-vertex", componentId: active.componentId, vertexIndex: active.vertexIndex, point: [snapTo(point[0],snapFt), snapTo(point[1],snapFt)] });
       return;
     }
     if (active.kind === "building-wall") {
       const dx = point[0] - active.start[0], dy = point[1] - active.start[1];
       const projected = dx * active.unit[0] + dy * active.unit[1];
-      const delta = roundQuarter(projected * 2);
-      updatePreview({ kind: "building-wall", componentId: active.componentId, wallIndex: active.wallIndex, lengthDeltaFt: delta, lengthFt: Math.max(2, roundQuarter(active.startLength + delta)) });
+      const delta = snapTo(projected * 2, snapFt);
+      updatePreview({ kind: "building-wall", componentId: active.componentId, wallIndex: active.wallIndex, lengthDeltaFt: delta, lengthFt: Math.max(2, snapTo(active.startLength + delta,snapFt)) });
       return;
     }
     if (active.kind === "path-point") {
-      updatePreview({ kind: "path-point", componentId: active.componentId, pointIndex: active.pointIndex, point: [roundQuarter(point[0]), roundQuarter(point[1])] });
+      updatePreview({ kind: "path-point", componentId: active.componentId, pointIndex: active.pointIndex, point: [snapTo(point[0],snapFt), snapTo(point[1],snapFt)] });
       return;
     }
     if (active.kind === "pavement-vertex") {
-      updatePreview({ kind: "pavement-vertex", componentId: active.componentId, vertexIndex: active.vertexIndex, point: [roundQuarter(point[0]), roundQuarter(point[1])] });
+      updatePreview({ kind: "pavement-vertex", componentId: active.componentId, vertexIndex: active.vertexIndex, point: [snapTo(point[0],snapFt), snapTo(point[1],snapFt)] });
       return;
     }
     const opening = openings.find((item) => item.id === active.componentId);
@@ -222,7 +270,7 @@ export function DirectManipulationPlan({ candidate, selectedComponentId, disable
     const local = rotatePoint(point, center, -(owner.rotationDeg ?? 0));
     const wallLength = opening.wall === "east" || opening.wall === "west" ? owner.depthFt : owner.widthFt;
     const coordinate = opening.wall === "east" || opening.wall === "west" ? local[1] - owner.y : local[0] - owner.x;
-    const offsetFt = Math.max(0, Math.min(wallLength - opening.openingWidthFt, roundQuarter(coordinate - opening.openingWidthFt / 2)));
+    const offsetFt = Math.max(0, Math.min(wallLength - opening.openingWidthFt, snapTo(coordinate - opening.openingWidthFt / 2,snapFt)));
     updatePreview({ kind: "opening", componentId: opening.id, offsetFt });
   }
   function finish(event: ReactPointerEvent<SVGSVGElement>) {
@@ -246,11 +294,11 @@ export function DirectManipulationPlan({ candidate, selectedComponentId, disable
     event.stopPropagation(); onSelectComponent?.(item.id);
   };
 
-  return <div ref={planRef} className="direct-manipulation-wrap"><svg ref={svgRef} className={`candidate-plan-svg direct-manipulation-plan${drag ? " is-dragging" : ""}`} viewBox="-4 -4 166 66"
+  return <div ref={planRef} className="direct-manipulation-wrap" onPointerDownCapture={(event)=>{ const target=event.target as Element; if(contextMenu && !target.closest(".direct-context-menu")) setContextMenu(null); }}><div className="direct-plan-toolbar"><button type="button" onClick={()=>zoomAt(.82)}>+</button><button type="button" onClick={()=>zoomAt(1.22)}>−</button><button type="button" onClick={()=>setViewBox(DEFAULT_VIEW)}>Fit all</button><button type="button" onClick={fitSelection} disabled={!selectedComponentId}>Fit selection</button><span>Snap</span>{([1,.5,.25,0] as const).map((step)=><button type="button" key={step} className={snapFt===step?"active":""} onClick={()=>setSnapFt(step)}>{step===1?"1′":step===.5?"6\"":step===.25?"3\"":"Free"}</button>)}</div><svg ref={svgRef} className={`candidate-plan-svg direct-manipulation-plan${drag ? " is-dragging" : ""}`} viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.width} ${viewBox.height}`}
     role="img" aria-label={`${candidate.label} direct manipulation plan`}
     onContextMenu={(event)=>openContextMenu(event)}
     onPointerDown={(event)=>{ if(event.button===0 && event.target===event.currentTarget) setContextMenu(null); }}
-    onPointerMove={handleMove} onPointerUp={finish} onPointerCancel={finish}>
+    onWheel={handleWheel} onPointerMove={handleMove} onPointerUp={finish} onPointerCancel={finish}>
     <rect x="-4" y="-4" width="166" height="66" className="candidate-plan-bg" />
     {parcels.map((item) => <polygon key={item.id} points={pointString(item.polygon)} className="candidate-plan-parcel" />)}
     {envelopes.map((item) => <polygon key={item.id} points={pointString(item.polygon)} className="candidate-plan-envelope" />)}
@@ -269,12 +317,14 @@ export function DirectManipulationPlan({ candidate, selectedComponentId, disable
     {placements.map((rawItem) => {
       const item = displayPlacement(rawItem);
       const movable = !rawItem.locked && rawItem.movable !== false;
+      const livePolygon = item.polygon && selectedComponentId===rawItem.id ? placementPolygonPoints(item) : item.polygon;
+      const invalidPreview = !previewIntegrity(rawItem);
       return <g key={item.id} data-component-id={item.id} transform={placementTransform(item)}
-        className={selectableClass(rawItem, `candidate-plan-component component-${item.kind}${movable ? " direct-draggable-placement" : ""}`)}
+        className={selectableClass(rawItem, `candidate-plan-component component-${item.kind}${movable ? " direct-draggable-placement" : ""}${invalidPreview ? " direct-preview-invalid" : ""}`)}
         onContextMenu={(event)=>openContextMenu(event,{componentId:rawItem.id})}
         onPointerDown={movable ? (event) => begin(event, { kind: "placement", pointerId: event.pointerId, componentId: rawItem.id,
           start: svgPoint(event.clientX, event.clientY), startX: rawItem.x, startY: rawItem.y }, rawItem.id) : click(rawItem)}>
-        {item.polygon ? <polygon points={pointString(item.polygon)} /> : <rect x={item.x} y={item.y} width={item.widthFt} height={item.depthFt} rx=".5" />}
+        {livePolygon ? <polygon points={pointString(livePolygon)} /> : <rect x={item.x} y={item.y} width={item.widthFt} height={item.depthFt} rx=".5" />}
         <text x={item.x + item.widthFt / 2} y={item.y + item.depthFt / 2}>{item.label}</text>
       </g>;
     })}
@@ -350,8 +400,8 @@ export function DirectManipulationPlan({ candidate, selectedComponentId, disable
       const item=contextMenu.componentId ? placementById.get(contextMenu.componentId) : undefined;
       const polygon=item ? placementPolygonPoints(item) : [];
       return <div className="direct-context-menu" style={{left:contextMenu.left,top:contextMenu.top}} onContextMenu={(event)=>event.preventDefault()}>
-          {item && contextMenu.wallIndex !== undefined && <button onClick={()=>runContext({kind:"insert-building-vertex",componentId:item.id,wallIndex:contextMenu.wallIndex!,point:[contextMenu.svgX,contextMenu.svgY]})}>Add deflection point</button>}
-          {item && contextMenu.vertexIndex !== undefined && polygon.length>4 && <button className="danger" onClick={()=>runContext({kind:"remove-building-vertex",componentId:item.id,vertexIndex:contextMenu.vertexIndex!})}>Remove point</button>}
+          {item && contextMenu.wallIndex !== undefined && <button onClick={()=>runContext({kind:"insert-building-vertex",componentId:item.id,wallIndex:contextMenu.wallIndex!,point:[contextMenu.svgX,contextMenu.svgY]})}>Add deflection point <kbd>A</kbd></button>}
+          {item && contextMenu.vertexIndex !== undefined && polygon.length>4 && <button className="danger" onClick={()=>runContext({kind:"remove-building-vertex",componentId:item.id,vertexIndex:contextMenu.vertexIndex!})}>Remove point <kbd>Del</kbd></button>}
           {item && item.kind==="home" && <><button onClick={()=>{ onSelectComponent?.(item.id); setContextMenu(null); }}>Edit dimensions</button><button onClick={()=>{ onMirrorPlacement?.(item.id,"horizontal"); setContextMenu(null); }}>Mirror left ↔ right</button><button onClick={()=>{ onMirrorPlacement?.(item.id,"vertical"); setContextMenu(null); }}>Mirror top ↔ bottom</button></>}
           {item && <button onClick={()=>{onSelectComponent?.(item.id);setContextMenu(null);}}>Select building</button>}
           {!item && <button onClick={()=>setContextMenu(null)}>Close menu</button>}
