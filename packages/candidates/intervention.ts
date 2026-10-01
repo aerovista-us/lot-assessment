@@ -13,6 +13,7 @@ import {
   type StallComponent
 } from "@/packages/candidates";
 import { assertPolygonIntegrity, polygonWinding, projectPointToSegment } from "@/packages/candidates/geometry-integrity";
+import { nextPlacementVertexId, placementShapeIdentity, resolvePlacementVertexIndex, resolvePlacementWallIndex } from "@/packages/candidates/shape-topology";
 
 export type EditableCandidateComponent = PlacementComponent | PathComponent | OpeningComponent | (PolygonComponent & { kind: "pavement" });
 
@@ -87,6 +88,7 @@ export function editPlacementComponent(candidate: CandidateRecord, componentId: 
   const sx = nextWidth / target.widthFt;
   const sy = nextDepth / target.depthFt;
   const originalWinding = target.polygon ? polygonWinding(target.polygon) : null;
+  const polygonVertexIds = target.polygon ? placementShapeIdentity(target).vertexIds : undefined;
   let polygon = target.polygon?.map(([x, y]) => [
     round(nextX + (x - target.x) * sx),
     round(nextY + (y - target.y) * sy)
@@ -105,7 +107,7 @@ export function editPlacementComponent(candidate: CandidateRecord, componentId: 
   if (polygon) assertBuildingPolygon(polygon, originalWinding);
 
   const placementBounds = polygon && deltaRotation ? polygonBounds(polygon) : { x: nextX, y: nextY, widthFt: nextWidth, depthFt: nextDepth };
-  components[index] = { ...target, ...placementBounds, rotationDeg: storedRotation, polygon };
+  components[index] = { ...target, ...placementBounds, rotationDeg: storedRotation, polygon, ...(polygon ? { polygonVertexIds } : {}) };
   if (target.kind === "garage") {
     const radians = deltaRotation * Math.PI / 180;
     for (let i = 0; i < components.length; i += 1) {
@@ -136,30 +138,29 @@ export function mirrorPlacementComponent(candidate: CandidateRecord, componentId
   const target = assertEditable(components[index]);
   if (target.kind !== "home" && target.kind !== "garage") throw new Error("Selected component is not a placement.");
   const center: Point = [target.x + target.widthFt / 2, target.y + target.depthFt / 2];
-  const base = target.polygon ?? [
-    [target.x, target.y], [target.x + target.widthFt, target.y],
-    [target.x + target.widthFt, target.y + target.depthFt], [target.x, target.y + target.depthFt]
-  ] as Point[];
-  const expectedWinding = polygonWinding(base);
-  const polygon = base.map(([x, y]) => [
+  const identity = placementShapeIdentity(target);
+  const expectedWinding = polygonWinding(identity.polygon);
+  const polygon = identity.polygon.map(([x, y]) => [
     round(axis === "horizontal" ? center[0] * 2 - x : x),
     round(axis === "vertical" ? center[1] * 2 - y : y)
   ] as Point).reverse();
+  const polygonVertexIds = [...identity.vertexIds].reverse();
   assertBuildingPolygon(polygon, expectedWinding);
   const bounds = polygonBounds(polygon);
-  components[index] = { ...target, ...bounds, polygon, rotationDeg: 0 };
+  components[index] = { ...target, ...bounds, polygon, polygonVertexIds, rotationDeg: 0 };
   return staleCandidate(candidate, components, updatedAt);
 }
 
-export function editPlacementWallLength(candidate: CandidateRecord, componentId: string, wallIndex: number, lengthDeltaFt: number, updatedAt = new Date().toISOString()) {
+export function editPlacementWallLength(candidate: CandidateRecord, componentId: string, wallRef: number | string, lengthDeltaFt: number, updatedAt = new Date().toISOString()) {
   const components = cloneCandidateComponents(candidate.components);
   const index = components.findIndex((item) => item.id === componentId);
   const target = assertEditable(components[index]);
   if (target.kind !== "home" && target.kind !== "garage") throw new Error("Selected component is not a placement.");
   if (!target.resizable) throw new Error("This building is shape-locked.");
-  const polygon = placementPolygon(target);
+  const identity = placementShapeIdentity(target);
+  const polygon = identity.polygon;
+  const wallIndex = resolvePlacementWallIndex(target, wallRef);
   const expectedWinding = polygonWinding(polygon);
-  if (wallIndex < 0 || wallIndex >= polygon.length) throw new Error("Wall index is out of range.");
   const a = polygon[wallIndex], bIndex = (wallIndex + 1) % polygon.length, b = polygon[bIndex];
   const dx = b[0] - a[0], dy = b[1] - a[1], length = Math.hypot(dx, dy);
   const nextLength = length + lengthDeltaFt;
@@ -169,64 +170,60 @@ export function editPlacementWallLength(candidate: CandidateRecord, componentId:
   polygon[bIndex] = [round(b[0] + ux * half), round(b[1] + uy * half)];
   assertBuildingPolygon(polygon, expectedWinding);
   const bounds = polygonBounds(polygon);
-  components[index] = { ...target, ...bounds, polygon, rotationDeg: 0 };
+  components[index] = { ...target, ...bounds, polygon, polygonVertexIds: identity.vertexIds, rotationDeg: 0 };
   return staleCandidate(candidate, components, updatedAt);
 }
 
-function placementPolygon(target: PlacementComponent): Point[] {
-  return (target.polygon ?? [
-    [target.x, target.y], [target.x + target.widthFt, target.y],
-    [target.x + target.widthFt, target.y + target.depthFt], [target.x, target.y + target.depthFt]
-  ] as Point[]).map(([x,y]) => [x,y] as Point);
-}
-
-export function insertPlacementVertex(candidate: CandidateRecord, componentId: string, wallIndex: number, point?: Point, updatedAt = new Date().toISOString()) {
+export function insertPlacementVertex(candidate: CandidateRecord, componentId: string, wallRef: number | string, point?: Point, updatedAt = new Date().toISOString()) {
   const components = cloneCandidateComponents(candidate.components);
   const index = components.findIndex((item) => item.id === componentId);
   const target = assertEditable(components[index]);
   if (target.kind !== "home" && target.kind !== "garage") throw new Error("Selected component is not a placement.");
   if (!target.resizable) throw new Error("This building is shape-locked.");
-  const polygon = placementPolygon(target);
+  const identity = placementShapeIdentity(target);
+  const polygon = identity.polygon, vertexIds = identity.vertexIds;
+  const wallIndex = resolvePlacementWallIndex(target, wallRef);
   const expectedWinding = polygonWinding(polygon);
-  if (wallIndex < 0 || wallIndex >= polygon.length) throw new Error("Wall index is out of range.");
   const a = polygon[wallIndex], b = polygon[(wallIndex + 1) % polygon.length];
   const requested: Point = point ?? [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
   const projected = projectPointToSegment(requested, a, b);
   const inserted: Point = [round(projected[0]), round(projected[1])];
   polygon.splice(wallIndex + 1, 0, inserted);
+  vertexIds.splice(wallIndex + 1, 0, nextPlacementVertexId(target.id, vertexIds));
   assertBuildingPolygon(polygon, expectedWinding);
-  components[index] = { ...target, ...polygonBounds(polygon), polygon, rotationDeg: 0 };
+  components[index] = { ...target, ...polygonBounds(polygon), polygon, polygonVertexIds: vertexIds, rotationDeg: 0 };
   return staleCandidate(candidate, components, updatedAt);
 }
 
-export function removePlacementVertex(candidate: CandidateRecord, componentId: string, vertexIndex: number, updatedAt = new Date().toISOString()) {
+export function removePlacementVertex(candidate: CandidateRecord, componentId: string, vertexRef: number | string, updatedAt = new Date().toISOString()) {
   const components = cloneCandidateComponents(candidate.components);
   const index = components.findIndex((item) => item.id === componentId);
   const target = assertEditable(components[index]);
   if (target.kind !== "home" && target.kind !== "garage") throw new Error("Selected component is not a placement.");
   if (!target.resizable) throw new Error("This building is shape-locked.");
-  const polygon = placementPolygon(target);
+  const identity = placementShapeIdentity(target);
+  const polygon = identity.polygon, vertexIds = identity.vertexIds;
+  const vertexIndex = resolvePlacementVertexIndex(target, vertexRef);
   const expectedWinding = polygonWinding(polygon);
-  if (vertexIndex < 0 || vertexIndex >= polygon.length) throw new Error("Building vertex is out of range.");
-  polygon.splice(vertexIndex, 1);
+  polygon.splice(vertexIndex, 1); vertexIds.splice(vertexIndex, 1);
   assertBuildingPolygon(polygon, expectedWinding);
-  components[index] = { ...target, ...polygonBounds(polygon), polygon, rotationDeg: 0 };
+  components[index] = { ...target, ...polygonBounds(polygon), polygon, polygonVertexIds: vertexIds, rotationDeg: 0 };
   return staleCandidate(candidate, components, updatedAt);
 }
 
-export function editPlacementVertex(candidate: CandidateRecord, componentId: string, vertexIndex: number, point: Point, updatedAt = new Date().toISOString()) {
+export function editPlacementVertex(candidate: CandidateRecord, componentId: string, vertexRef: number | string, point: Point, updatedAt = new Date().toISOString()) {
   const components = cloneCandidateComponents(candidate.components);
   const index = components.findIndex((item) => item.id === componentId);
   const target = assertEditable(components[index]);
   if (target.kind !== "home" && target.kind !== "garage") throw new Error("Selected component is not a placement.");
   if (!target.resizable) throw new Error("This building is shape-locked.");
-  const base = placementPolygon(target);
-  if (vertexIndex < 0 || vertexIndex >= base.length) throw new Error("Building vertex is out of range.");
-  const expectedWinding = polygonWinding(base);
-  const polygon = base.map(([x,y], i) => i === vertexIndex ? [round(point[0]), round(point[1])] as Point : [x,y] as Point);
+  const identity = placementShapeIdentity(target);
+  const vertexIndex = resolvePlacementVertexIndex(target, vertexRef);
+  const expectedWinding = polygonWinding(identity.polygon);
+  const polygon = identity.polygon.map(([x,y], i) => i === vertexIndex ? [round(point[0]), round(point[1])] as Point : [x,y] as Point);
   assertBuildingPolygon(polygon, expectedWinding);
   const bounds = polygonBounds(polygon);
-  components[index] = { ...target, ...bounds, polygon, rotationDeg: 0 };
+  components[index] = { ...target, ...bounds, polygon, polygonVertexIds: identity.vertexIds, rotationDeg: 0 };
   return staleCandidate(candidate, components, updatedAt);
 }
 
