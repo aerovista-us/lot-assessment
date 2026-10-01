@@ -50,6 +50,7 @@ export type PlacementComponent = ComponentBase & {
   widthFt: number;
   depthFt: number;
   polygon?: Point[];
+  polygonVertexIds?: string[];
   rotationDeg?: number;
   movable?: boolean;
   resizable?: boolean;

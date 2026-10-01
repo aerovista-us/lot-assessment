@@ -11,6 +11,7 @@ import type {
 } from "@/packages/candidates";
 import { isInterventionEditable } from "@/packages/candidates/intervention";
 import { assertPolygonIntegrity, polygonWinding } from "@/packages/candidates/geometry-integrity";
+import { placementShapeIdentity, placementWallId } from "@/packages/candidates/shape-topology";
 
 export type DirectManipulation =
   | { kind: "move-placement"; componentId: string; x: number; y: number }
@@ -18,10 +19,10 @@ export type DirectManipulation =
   | { kind: "move-path-point"; componentId: string; pointIndex: number; point: readonly [number, number] }
   | { kind: "move-pavement-vertex"; componentId: string; vertexIndex: number; point: readonly [number, number] }
   | { kind: "move-opening"; componentId: string; offsetFt: number }
-  | { kind: "move-building-vertex"; componentId: string; vertexIndex: number; point: readonly [number, number] }
-  | { kind: "resize-building-wall"; componentId: string; wallIndex: number; lengthDeltaFt: number }
-  | { kind: "insert-building-vertex"; componentId: string; wallIndex: number; point: readonly [number, number] }
-  | { kind: "remove-building-vertex"; componentId: string; vertexIndex: number };
+  | { kind: "move-building-vertex"; componentId: string; vertexIndex: number; vertexId: string; point: readonly [number, number] }
+  | { kind: "resize-building-wall"; componentId: string; wallIndex: number; wallId: string; lengthDeltaFt: number }
+  | { kind: "insert-building-vertex"; componentId: string; wallIndex: number; wallId: string; point: readonly [number, number] }
+  | { kind: "remove-building-vertex"; componentId: string; vertexIndex: number; vertexId: string };
 type Point = readonly [number, number];
 type DragState =
   | { kind: "placement"; pointerId: number; componentId: string; start: Point; startX: number; startY: number }
@@ -87,7 +88,7 @@ export function DirectManipulationPlan({ candidate, selectedComponentId, disable
   const [snapFt, setSnapFt] = useState(.25);
   const [viewBox, setViewBox] = useState(DEFAULT_VIEW);
   const [contextMenu, setContextMenu] = useState<null | {
-    left:number; top:number; svgX:number; svgY:number; componentId?:string; wallIndex?:number; vertexIndex?:number;
+    left:number; top:number; svgX:number; svgY:number; componentId?:string; wallIndex?:number; wallId?:string; vertexIndex?:number; vertexId?:string;
   }>(null);
   const previewRef = useRef<Preview>(null);
   const placements = useMemo(() => candidate.components.filter((item): item is PlacementComponent => item.kind === "home" || item.kind === "garage"), [candidate.components]);
@@ -201,14 +202,14 @@ export function DirectManipulationPlan({ candidate, selectedComponentId, disable
       if((event.key==="Delete"||event.key==="Backspace") && contextMenu?.componentId && contextMenu.vertexIndex!==undefined){
         const item=placementById.get(contextMenu.componentId);
         const count=item ? placementPolygonPoints(item).length : 0;
-        if(item && count>4){ event.preventDefault(); runContext({kind:"remove-building-vertex",componentId:item.id,vertexIndex:contextMenu.vertexIndex}); }
+        if(item && count>4){ event.preventDefault(); runContext({kind:"remove-building-vertex",componentId:item.id,vertexIndex:contextMenu.vertexIndex,vertexId:contextMenu.vertexId ?? placementShapeIdentity(item).vertexIds[contextMenu.vertexIndex]}); }
       }
     };
     window.addEventListener("keydown",onKeyDown);
     return ()=>window.removeEventListener("keydown",onKeyDown);
   },[contextMenu,candidate.updatedAt]);
 
-  function openContextMenu(event: ReactMouseEvent<SVGElement>, target: {componentId?:string;wallIndex?:number;vertexIndex?:number} = {}) {
+  function openContextMenu(event: ReactMouseEvent<SVGElement>, target: {componentId?:string;wallIndex?:number;wallId?:string;vertexIndex?:number;vertexId?:string} = {}) {
     if (disabled) return;
     event.preventDefault(); event.stopPropagation();
     const point=svgPoint(event.clientX,event.clientY);
@@ -282,8 +283,8 @@ export function DirectManipulationPlan({ candidate, selectedComponentId, disable
       if (committed.kind === "path-point") onCommit({ kind: "move-path-point", componentId: committed.componentId, pointIndex: committed.pointIndex, point: committed.point });
       if (committed.kind === "pavement-vertex") onCommit({ kind: "move-pavement-vertex", componentId: committed.componentId, vertexIndex: committed.vertexIndex, point: committed.point });
       if (committed.kind === "opening") onCommit({ kind: "move-opening", componentId: committed.componentId, offsetFt: committed.offsetFt });
-      if (committed.kind === "building-vertex") onCommit({ kind: "move-building-vertex", componentId: committed.componentId, vertexIndex: committed.vertexIndex, point: committed.point });
-      if (committed.kind === "building-wall") onCommit({ kind: "resize-building-wall", componentId: committed.componentId, wallIndex: committed.wallIndex, lengthDeltaFt: committed.lengthDeltaFt });
+      if (committed.kind === "building-vertex") { const item=placementById.get(committed.componentId); if(item) onCommit({ kind: "move-building-vertex", componentId: committed.componentId, vertexIndex: committed.vertexIndex, vertexId: placementShapeIdentity(item).vertexIds[committed.vertexIndex], point: committed.point }); }
+      if (committed.kind === "building-wall") { const item=placementById.get(committed.componentId); if(item) onCommit({ kind: "resize-building-wall", componentId: committed.componentId, wallIndex: committed.wallIndex, wallId: placementWallId(placementShapeIdentity(item).vertexIds, committed.wallIndex), lengthDeltaFt: committed.lengthDeltaFt }); }
     }
     try { svgRef.current?.releasePointerCapture(event.pointerId); } catch { /* pointer may already be released */ }
     dragRef.current = null; previewRef.current = null; setDrag(null); setPreview(null);
@@ -330,19 +331,20 @@ export function DirectManipulationPlan({ candidate, selectedComponentId, disable
     })}
     {placements.flatMap((rawItem) => {
       if (selectedComponentId !== rawItem.id || rawItem.locked || !rawItem.resizable) return [];
-      const item = displayPlacement(rawItem), polygon = placementPolygonPoints(item);
+      const item = displayPlacement(rawItem), polygon = placementPolygonPoints(item), identity = placementShapeIdentity(rawItem);
       const wallControls = polygon.map((a, wallIndex) => {
         const b = polygon[(wallIndex + 1) % polygon.length], mid: Point = [(a[0]+b[0])/2,(a[1]+b[1])/2];
         const length = Math.hypot(b[0]-a[0],b[1]-a[1]), unit: Point = [(b[0]-a[0])/Math.max(.001,length),(b[1]-a[1])/Math.max(.001,length)];
         const shownLength = preview?.kind === "building-wall" && preview.componentId === rawItem.id && preview.wallIndex === wallIndex ? preview.lengthFt : length;
-        return <g key={`${rawItem.id}-wall-${wallIndex}`} className="direct-building-wall-control" onContextMenu={(event)=>openContextMenu(event,{componentId:rawItem.id,wallIndex})}>
+        const wallId = placementWallId(identity.vertexIds, wallIndex);
+        return <g key={`${rawItem.id}-wall-${wallIndex}`} className="direct-building-wall-control" onContextMenu={(event)=>openContextMenu(event,{componentId:rawItem.id,wallIndex,wallId})}>
           <line x1={a[0]} y1={a[1]} x2={b[0]} y2={b[1]} />
           <circle cx={mid[0]} cy={mid[1]} r="1.15" onPointerDown={(event) => begin(event,{kind:"building-wall",pointerId:event.pointerId,componentId:rawItem.id,wallIndex,start:svgPoint(event.clientX,event.clientY),startLength:length,unit},rawItem.id)} />
-          <circle cx={mid[0]} cy={mid[1]} r=".55" className="building-add-point-handle" onDoubleClick={(event) => { event.stopPropagation(); onCommit({kind:"insert-building-vertex",componentId:rawItem.id,wallIndex,point:mid}); }} />
+          <circle cx={mid[0]} cy={mid[1]} r=".55" className="building-add-point-handle" onDoubleClick={(event) => { event.stopPropagation(); onCommit({kind:"insert-building-vertex",componentId:rawItem.id,wallIndex,wallId,point:mid}); }} />
           <text x={mid[0]} y={mid[1]-1.8}>{shownLength.toFixed(1)}′</text>
         </g>;
       });
-      const vertexControls = polygon.map((point, vertexIndex) => <g key={`${rawItem.id}-vertex-${vertexIndex}`} onContextMenu={(event)=>openContextMenu(event,{componentId:rawItem.id,vertexIndex})}><circle cx={point[0]} cy={point[1]} r="1.05" className="direct-control-handle building-vertex-handle" onPointerDown={(event) => begin(event,{kind:"building-vertex",pointerId:event.pointerId,componentId:rawItem.id,vertexIndex},rawItem.id)} onDoubleClick={(event) => { event.stopPropagation(); if(polygon.length>4) onCommit({kind:"remove-building-vertex",componentId:rawItem.id,vertexIndex}); }} /><title>{polygon.length>4?"Drag corner · double-click to remove point":"Drag corner"}</title></g>);
+      const vertexControls = polygon.map((point, vertexIndex) => { const vertexId=identity.vertexIds[vertexIndex]; return <g key={`${rawItem.id}-vertex-${vertexId}`} onContextMenu={(event)=>openContextMenu(event,{componentId:rawItem.id,vertexIndex,vertexId})}><circle cx={point[0]} cy={point[1]} r="1.05" className="direct-control-handle building-vertex-handle" onPointerDown={(event) => begin(event,{kind:"building-vertex",pointerId:event.pointerId,componentId:rawItem.id,vertexIndex},rawItem.id)} onDoubleClick={(event) => { event.stopPropagation(); if(polygon.length>4) onCommit({kind:"remove-building-vertex",componentId:rawItem.id,vertexIndex,vertexId}); }} /><title>{polygon.length>4?`Drag ${vertexId} · double-click to remove point`:`Drag ${vertexId}`}</title></g>; });
       return [...wallControls,...vertexControls];
     })}
     {placements.map((rawItem) => {
@@ -400,8 +402,8 @@ export function DirectManipulationPlan({ candidate, selectedComponentId, disable
       const item=contextMenu.componentId ? placementById.get(contextMenu.componentId) : undefined;
       const polygon=item ? placementPolygonPoints(item) : [];
       return <div className="direct-context-menu" style={{left:contextMenu.left,top:contextMenu.top}} onContextMenu={(event)=>event.preventDefault()}>
-          {item && contextMenu.wallIndex !== undefined && <button onClick={()=>runContext({kind:"insert-building-vertex",componentId:item.id,wallIndex:contextMenu.wallIndex!,point:[contextMenu.svgX,contextMenu.svgY]})}>Add deflection point <kbd>A</kbd></button>}
-          {item && contextMenu.vertexIndex !== undefined && polygon.length>4 && <button className="danger" onClick={()=>runContext({kind:"remove-building-vertex",componentId:item.id,vertexIndex:contextMenu.vertexIndex!})}>Remove point <kbd>Del</kbd></button>}
+          {item && contextMenu.wallIndex !== undefined && <button onClick={()=>runContext({kind:"insert-building-vertex",componentId:item.id,wallIndex:contextMenu.wallIndex!,wallId:contextMenu.wallId ?? placementWallId(placementShapeIdentity(item).vertexIds,contextMenu.wallIndex!),point:[contextMenu.svgX,contextMenu.svgY]})}>Add deflection point <kbd>A</kbd></button>}
+          {item && contextMenu.vertexIndex !== undefined && polygon.length>4 && <button className="danger" onClick={()=>runContext({kind:"remove-building-vertex",componentId:item.id,vertexIndex:contextMenu.vertexIndex!,vertexId:contextMenu.vertexId ?? placementShapeIdentity(item).vertexIds[contextMenu.vertexIndex!]})}>Remove point <kbd>Del</kbd></button>}
           {item && item.kind==="home" && <><button onClick={()=>{ onSelectComponent?.(item.id); setContextMenu(null); }}>Edit dimensions</button><button onClick={()=>{ onMirrorPlacement?.(item.id,"horizontal"); setContextMenu(null); }}>Mirror left ↔ right</button><button onClick={()=>{ onMirrorPlacement?.(item.id,"vertical"); setContextMenu(null); }}>Mirror top ↔ bottom</button></>}
           {item && <button onClick={()=>{onSelectComponent?.(item.id);setContextMenu(null);}}>Select building</button>}
           {!item && <button onClick={()=>setContextMenu(null)}>Close menu</button>}
