@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CandidatePlan } from "@/components/workbench/CandidatePlan";
 import { InterventionEditor } from "@/components/workbench/InterventionEditor";
 import { useCandidateWorkspace } from "@/components/workbench/useCandidateWorkspace";
-import { currentEvaluation, type PathComponent, type PolygonComponent } from "@/packages/candidates";
+import { currentEvaluation, type CandidateRecord, type PathComponent, type PolygonComponent } from "@/packages/candidates";
 import { createWorkspaceExportPackage } from "@/packages/candidates/workspace";
 import { pondyCandidateRegistry } from "@/projects/pondy-lot2/candidate-registry";
 
@@ -26,13 +26,70 @@ export function CandidateWorkspaceClient({ candidateId }: { candidateId: string 
   const workspace = useCandidateWorkspace(pondyCandidateRegistry);
   const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
+  const [undoIds, setUndoIds] = useState<string[]>([]);
+  const [redoIds, setRedoIds] = useState<string[]>([]);
+  const pendingCheckpointRef = useRef<string | null>(null);
   const candidate = workspace.registry.candidates.find((item) => item.id === candidateId);
+  const editableWorkingCopy = Boolean(candidate && workspace.isLocalCandidate(candidate.id) && (candidate.source === "STAFF_INTERVENTION" || candidate.source === "IMPORT"));
+
+  useEffect(() => {
+    setUndoIds([]);
+    setRedoIds([]);
+    pendingCheckpointRef.current = null;
+  }, [candidateId]);
+
+  function undoEdit() {
+    if (!candidate || !editableWorkingCopy || undoIds.length === 0) return;
+    try {
+      const targetId = undoIds[undoIds.length - 1];
+      const redo = workspace.checkpointCandidate(candidate.id, "Redo point");
+      workspace.restoreCheckpoint(candidate.id, targetId);
+      setUndoIds((current) => current.slice(0, -1));
+      setRedoIds((current) => [...current, redo.id]);
+      pendingCheckpointRef.current = null;
+      setMessage("Undo restored the previous geometry. Evidence remains stale until this exact state is evaluated.");
+    } catch (cause) {
+      setMessage(cause instanceof Error ? cause.message : "Undo failed.");
+    }
+  }
+
+  function redoEdit() {
+    if (!candidate || !editableWorkingCopy || redoIds.length === 0) return;
+    try {
+      const targetId = redoIds[redoIds.length - 1];
+      const undo = workspace.checkpointCandidate(candidate.id, "Undo point");
+      workspace.restoreCheckpoint(candidate.id, targetId);
+      setRedoIds((current) => current.slice(0, -1));
+      setUndoIds((current) => [...current, undo.id]);
+      pendingCheckpointRef.current = null;
+      setMessage("Redo restored the next geometry. Evidence remains stale until this exact state is evaluated.");
+    } catch (cause) {
+      setMessage(cause instanceof Error ? cause.message : "Redo failed.");
+    }
+  }
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!editableWorkingCopy || !(event.ctrlKey || event.metaKey)) return;
+      const target = event.target as HTMLElement | null;
+      if (target?.closest("input, textarea, select, [contenteditable='true']")) return;
+      if (event.key.toLowerCase() === "z" && !event.shiftKey) {
+        event.preventDefault();
+        undoEdit();
+      } else if (event.key.toLowerCase() === "y" || (event.key.toLowerCase() === "z" && event.shiftKey)) {
+        event.preventDefault();
+        redoEdit();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [editableWorkingCopy, undoIds, redoIds, candidate?.updatedAt]);
+
   if (!workspace.ready) return <div className="staff-empty-state wb-panel">Loading candidate workspace…</div>;
   if (!candidate) return <div className="staff-empty-state wb-panel">Candidate not found in the checked-in registry or local draft workspace. <Link href="/workbench/projects/pondy-lot2/candidates">Return to Candidate Library</Link>.</div>;
 
   const activeCandidate = candidate;
   const localCandidate = workspace.isLocalCandidate(activeCandidate.id);
-  const editableWorkingCopy = localCandidate && (activeCandidate.source === "STAFF_INTERVENTION" || activeCandidate.source === "IMPORT");
   const interventionEligible = ["ACCEPTABLE_FOR_INTERVENTION", "PARTIAL_FAIL", "PASS", "PROMOTION_READY"].includes(activeCandidate.status);
 
   const evaluation = currentEvaluation(candidate);
@@ -50,6 +107,21 @@ export function CandidateWorkspaceClient({ candidateId }: { candidateId: string 
     setMessage(`Checkpoint saved: ${created.label}`);
   }
 
+  function editorCheckpoint(label?: string) {
+    const created = workspace.checkpointCandidate(activeCandidate.id, label);
+    pendingCheckpointRef.current = created.id;
+  }
+
+  function editorSave(next: CandidateRecord) {
+    workspace.saveCandidate(next);
+    const checkpointId = pendingCheckpointRef.current;
+    if (checkpointId) {
+      setUndoIds((current) => [...current, checkpointId]);
+      setRedoIds([]);
+      pendingCheckpointRef.current = null;
+    }
+  }
+
   function branch(relation: "VARIANT" | "NEW_DESIGN") {
     const child = workspace.branchCandidate(activeCandidate.id, relation);
     router.push(`/workbench/projects/pondy-lot2/candidates/${child.id}`);
@@ -63,7 +135,9 @@ export function CandidateWorkspaceClient({ candidateId }: { candidateId: string 
 
   function restore(checkpointId: string) {
     try {
+      const redo = workspace.checkpointCandidate(activeCandidate.id, "Before manual checkpoint restore");
       workspace.restoreCheckpoint(activeCandidate.id, checkpointId);
+      setRedoIds((current) => [...current, redo.id]);
       setMessage("Checkpoint geometry restored. Evidence is stale until the active pipeline reruns this exact state.");
     } catch (cause) {
       setMessage(cause instanceof Error ? cause.message : "Checkpoint restore failed.");
@@ -87,6 +161,8 @@ export function CandidateWorkspaceClient({ candidateId }: { candidateId: string 
       <div className="hero-actions">
         <Link className="secondary-button" href="/workbench/projects/pondy-lot2/candidates">Candidate Library</Link>
         {editableWorkingCopy ? <button className="secondary-button" type="button" onClick={checkpoint}>Save checkpoint</button> : null}
+        {editableWorkingCopy ? <button className="secondary-button" type="button" disabled={undoIds.length === 0} title="Undo · Ctrl/Cmd+Z" onClick={undoEdit}>Undo</button> : null}
+        {editableWorkingCopy ? <button className="secondary-button" type="button" disabled={redoIds.length === 0} title="Redo · Ctrl/Cmd+Y or Shift+Cmd/Ctrl+Z" onClick={redoEdit}>Redo</button> : null}
         {!editableWorkingCopy && interventionEligible ? <button className="primary-button" type="button" onClick={createIntervention}>Create Intervention</button> : null}
         {localCandidate ? <button className="secondary-button" type="button" onClick={() => branch("VARIANT")}>Branch variant</button> : null}
         <button className="secondary-button" type="button" onClick={() => branch("NEW_DESIGN")}>New design from this</button>
@@ -115,7 +191,7 @@ export function CandidateWorkspaceClient({ candidateId }: { candidateId: string 
       </aside>
     </section>
 
-    {editableWorkingCopy ? <InterventionEditor candidate={activeCandidate} repairContextCandidate={evaluation ? activeCandidate : parent} onSave={workspace.saveCandidate} onCheckpoint={(label) => workspace.checkpointCandidate(activeCandidate.id, label)} /> : interventionEligible ? <section className="wb-panel intervention-start-callout"><div><p className="eyebrow">READY FOR STAFF INTERVENTION</p><h2>Create a protected child revision before changing geometry.</h2><p>{localCandidate ? "This saved solver candidate remains intact." : "The checked-in candidate stays untouched."} The new intervention branch starts with stale evidence and an automatic baseline checkpoint, then unlocks constrained component editing.</p></div><button className="primary-button" type="button" onClick={createIntervention}>Create Intervention</button></section> : null}
+    {editableWorkingCopy ? <InterventionEditor candidate={activeCandidate} repairContextCandidate={evaluation ? activeCandidate : parent} onSave={editorSave} onCheckpoint={editorCheckpoint} /> : interventionEligible ? <section className="wb-panel intervention-start-callout"><div><p className="eyebrow">READY FOR STAFF INTERVENTION</p><h2>Create a protected child revision before changing geometry.</h2><p>{localCandidate ? "This saved solver candidate remains intact." : "The checked-in candidate stays untouched."} The new intervention branch starts with stale evidence and an automatic baseline checkpoint, then unlocks constrained component editing.</p></div><button className="primary-button" type="button" onClick={createIntervention}>Create Intervention</button></section> : null}
 
     <section className="candidate-detail-grid">
       <article className="wb-panel"><p className="eyebrow">STRUCTURE COMPONENTS</p><h2>Homes + garages</h2><div className="component-list">{placements.map((item) => <div key={item.id}><span>{item.kind}</span><strong>{item.label}</strong><small>{"x" in item ? `${item.widthFt} x ${item.depthFt} ft · rotation ${item.rotationDeg ?? 0} deg · x ${item.x}, y ${item.y}` : ""}</small></div>)}</div></article>
