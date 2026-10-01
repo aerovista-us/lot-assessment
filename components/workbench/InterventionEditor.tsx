@@ -114,16 +114,16 @@ export function InterventionEditor({ candidate, repairContextCandidate, onSave, 
         next = editOpeningComponent(candidate, change.componentId, { offsetFt: change.offsetFt });
         label = `moving ${component.label}`;
       } else if (change.kind === "move-building-vertex") {
-        next = editPlacementVertex(candidate, change.componentId, change.vertexIndex, change.point);
+        next = editPlacementVertex(candidate, change.componentId, change.vertexId, change.point);
         label = `reshaping ${component.label} corner ${change.vertexIndex + 1}`;
       } else if (change.kind === "resize-building-wall") {
-        next = editPlacementWallLength(candidate, change.componentId, change.wallIndex, change.lengthDeltaFt);
+        next = editPlacementWallLength(candidate, change.componentId, change.wallId, change.lengthDeltaFt);
         label = `resizing ${component.label} wall ${change.wallIndex + 1}`;
       } else if (change.kind === "insert-building-vertex") {
-        next = insertPlacementVertex(candidate, change.componentId, change.wallIndex, change.point);
+        next = insertPlacementVertex(candidate, change.componentId, change.wallId, change.point);
         label = `adding a deflection point to ${component.label}`;
       } else if (change.kind === "remove-building-vertex") {
-        next = removePlacementVertex(candidate, change.componentId, change.vertexIndex);
+        next = removePlacementVertex(candidate, change.componentId, change.vertexId);
         label = `removing a deflection point from ${component.label}`;
       }
       if (JSON.stringify(next.components) === JSON.stringify(candidate.components)) return;

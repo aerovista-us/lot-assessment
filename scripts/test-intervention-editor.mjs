@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { pondyCandidateRegistry } from "../projects/pondy-lot2/candidate-registry.ts";
 import { editPlacementComponent, editPathPoint, editPavementVertex, editOpeningComponent, editPlacementVertex, editPlacementWallLength, mirrorPlacementComponent, insertPlacementVertex, removePlacementVertex, applyCandidateEvaluation } from "../packages/candidates/intervention.ts";
 import { evaluateInterventionCandidate, exploreInterventionNeighborhood } from "../packages/candidates/intervention-evaluation.ts";
+import { placementShapeIdentity, placementWallId } from "../packages/candidates/shape-topology.ts";
+import { canonicalizeInterventionGeometry, interventionGeometryHash } from "../packages/canonical/intervention-v2.ts";
 
 const rules = pondyCandidateRegistry.lots[0].rulesVersion;
 const d4 = pondyCandidateRegistry.candidates.find((candidate) => candidate.id === "pondy-d4");
@@ -59,6 +61,18 @@ const deflectedHome = insertPlacementVertex(d4, "home-b", 0, undefined, "2026-09
 const deflected = deflectedHome.components.find((component) => component.id === "home-b");
 assert(deflected && deflected.kind === "home" && deflected.polygon);
 assert.equal(deflected.polygon.length, homeB.polygon.length + 1, "adding a deflection point must add one authoritative polygon vertex");
+assert.equal(deflected.polygonVertexIds?.length, deflected.polygon.length, "edited footprints must persist stable vertex ids");
+const insertedVertexId = deflected.polygonVertexIds?.[1];
+assert.equal(insertedVertexId, "home-b:staff-v1", "first staff deflection point gets a stable stored id");
+const stableWallId = placementWallId(placementShapeIdentity(deflected).vertexIds, 1);
+const stableWallEdit = editPlacementWallLength(deflectedHome, "home-b", stableWallId, 1, "2026-09-18T12:01:52.600Z");
+assert.equal(stableWallEdit.components.find((component) => component.id === "home-b")?.polygonVertexIds?.[1], insertedVertexId, "wall edits addressed by stable id must preserve vertex identity");
+const stableVertexEdit = editPlacementVertex(deflectedHome, "home-b", insertedVertexId, [70, 6], "2026-09-18T12:01:52.650Z");
+assert.deepEqual(stableVertexEdit.components.find((component) => component.id === "home-b")?.polygon?.[1], [70, 6], "vertex edits must resolve durable ids after insertion");
+const canonicalV2 = canonicalizeInterventionGeometry(deflectedHome);
+const canonicalHash = interventionGeometryHash(deflectedHome);
+assert.equal(interventionGeometryHash(JSON.parse(JSON.stringify(canonicalV2))), canonicalHash, "canonical intervention geometry must survive serialization/reload");
+assert.notEqual(interventionGeometryHash(stableVertexEdit), canonicalHash, "geometry mutation must change the canonical intervention fingerprint");
 const restoredHome = removePlacementVertex(deflectedHome, "home-b", 1, "2026-09-18T12:01:52.750Z");
 assert.equal(restoredHome.components.find((component) => component.id === "home-b")?.polygon?.length, homeB.polygon.length, "removing the inserted deflection point must restore vertex count");
 
@@ -97,6 +111,8 @@ console.log(JSON.stringify({
   deflectionPointEditing: true,
   projectedDeflectionInsertion: true,
   sharedPolygonIntegrity: true,
+  stableFootprintIdentity: true,
+  canonicalInterventionGeometryV2: true,
   exploreSuggestions: suggestions.length,
   authoritativeOutboundAlwaysOpen: true
 }, null, 2));
