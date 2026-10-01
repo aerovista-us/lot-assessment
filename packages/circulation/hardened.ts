@@ -105,8 +105,40 @@ function polygonBoundaryDistance(a: Polygon, b: Polygon): number {
   return Number.isFinite(minimum) ? minimum : Infinity;
 }
 
-function bodyInsideAny(body: Polygon, zones: readonly Polygon[], epsilon = 0.08): boolean {
-  return body.every((corner) => zones.some((zone) => pointInPolygon(corner, zone, epsilon)));
+function pointInsidePolygonUnion(point: Point, zones: readonly Polygon[], epsilon: number) {
+  return zones.some((zone) => pointInPolygon(point, zone, epsilon));
+}
+
+/**
+ * Checks the whole rectangular vehicle footprint against the union of pavement
+ * zones, not each zone independently. Sampling the body interior prevents a
+ * vehicle that bridges a gap between adjacent polygons from being mislabeled as
+ * contained merely because its four corners happen to land in separate zones.
+ */
+export function bodyInsidePolygonUnion(body: Polygon, zones: readonly Polygon[], epsilon = 0.08, sampleStepFt = 0.5): boolean {
+  if (!zones.length || body.length !== 4) return false;
+  const [frontLeft, frontRight, rearRight, rearLeft] = body;
+  const length = Math.max(
+    Math.hypot(frontLeft[0] - rearLeft[0], frontLeft[1] - rearLeft[1]),
+    Math.hypot(frontRight[0] - rearRight[0], frontRight[1] - rearRight[1])
+  );
+  const width = Math.max(
+    Math.hypot(frontLeft[0] - frontRight[0], frontLeft[1] - frontRight[1]),
+    Math.hypot(rearLeft[0] - rearRight[0], rearLeft[1] - rearRight[1])
+  );
+  const longitudinalSteps = Math.max(1, Math.ceil(length / sampleStepFt));
+  const lateralSteps = Math.max(1, Math.ceil(width / sampleStepFt));
+  for (let i = 0; i <= longitudinalSteps; i += 1) {
+    const u = i / longitudinalSteps;
+    const left: Point = [rearLeft[0] + (frontLeft[0] - rearLeft[0]) * u, rearLeft[1] + (frontLeft[1] - rearLeft[1]) * u];
+    const right: Point = [rearRight[0] + (frontRight[0] - rearRight[0]) * u, rearRight[1] + (frontRight[1] - rearRight[1]) * u];
+    for (let j = 0; j <= lateralSteps; j += 1) {
+      const v = j / lateralSteps;
+      const point: Point = [left[0] + (right[0] - left[0]) * v, left[1] + (right[1] - left[1]) * v];
+      if (!pointInsidePolygonUnion(point, zones, epsilon)) return false;
+    }
+  }
+  return true;
 }
 
 function lineIntersections(body: Polygon, axis: "x" | "y", value: number): number[] {
@@ -219,7 +251,7 @@ function staticAudit(args: {
 
     if (completeBodyInParcel) {
       for (const corner of body) minimumBoundary = Math.min(minimumBoundary, distanceToPolygonBoundary(corner, args.parcel));
-      if (args.pavementZones.length && !bodyInsideAny(body, [...args.pavementZones, ...args.allowedNonPavementZones], 0.12)) pavementViolationSamples += 1;
+      if (args.pavementZones.length && !bodyInsidePolygonUnion(body, [...args.pavementZones, ...args.allowedNonPavementZones], 0.12)) pavementViolationSamples += 1;
     }
 
     for (const obstacle of args.obstacles) {
