@@ -210,7 +210,7 @@ export function cloneCandidateComponents(components: CandidateComponent[]): Cand
       return { ...component, polygon: component.polygon.map(clonePoint) };
     }
     if (component.kind === "home" || component.kind === "garage") {
-      return { ...component, polygon: component.polygon?.map(clonePoint) };
+      return { ...component, polygon: component.polygon?.map(clonePoint), polygonVertexIds: component.polygonVertexIds ? [...component.polygonVertexIds] : undefined };
     }
     if (component.kind === "driveway" || component.kind === "route") {
       return { ...component, points: component.points.map(clonePoint), movableControlPoints: component.movableControlPoints ? [...component.movableControlPoints] : undefined };
