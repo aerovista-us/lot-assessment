@@ -62,8 +62,18 @@ assert.equal(deflected.polygon.length, homeB.polygon.length + 1, "adding a defle
 const restoredHome = removePlacementVertex(deflectedHome, "home-b", 1, "2026-09-18T12:01:52.750Z");
 assert.equal(restoredHome.components.find((component) => component.id === "home-b")?.polygon?.length, homeB.polygon.length, "removing the inserted deflection point must restore vertex count");
 
+const projectedDeflection = insertPlacementVertex(d4, "home-b", 0, [70, 17], "2026-09-18T12:01:52.800Z");
+const projectedHome = projectedDeflection.components.find((component) => component.id === "home-b");
+assert(projectedHome && projectedHome.kind === "home" && projectedHome.polygon);
+assert.equal(projectedHome.polygon[1][1], 5, "requested deflection points must first project onto the selected wall");
+assert.equal(projectedHome.polygon[1][0], 70, "wall projection should preserve the along-wall click coordinate when it lies within the segment");
+
 const vertexEdited = editPlacementVertex(d4, "home-b", 5, [53, 22], "2026-09-18T12:01:53.000Z");
 assert.deepEqual(vertexEdited.components.find((component) => component.id === "home-b")?.polygon?.[5], [53, 22]);
+assert.throws(() => editPlacementVertex(d4, "home-b", 5, [54, 5], "2026-09-18T12:01:53.100Z"), /edges must remain|self-intersect|overlap/, "corner drag must reject collapsed or overlapping footprint geometry");
+const apron = d4.components.find((component) => component.id === "west-maneuver-apron");
+assert(apron && apron.kind === "pavement");
+assert.throws(() => editPavementVertex(d4, "west-maneuver-apron", 0, apron.polygon[1], "2026-09-18T12:01:53.200Z"), /edges must remain|self-intersect|overlap/, "pavement corner drag must use the same integrity contract");
 
 const screen = evaluateInterventionCandidate(edited, rules, "2026-09-18T12:02:00.001Z");
 const sameSecondScreen = evaluateInterventionCandidate(edited, rules, "2026-09-18T12:02:00.002Z");
@@ -85,6 +95,8 @@ console.log(JSON.stringify({
   directEditPrimitives: true,
   homeShapeTransforms: true,
   deflectionPointEditing: true,
+  projectedDeflectionInsertion: true,
+  sharedPolygonIntegrity: true,
   exploreSuggestions: suggestions.length,
   authoritativeOutboundAlwaysOpen: true
 }, null, 2));
