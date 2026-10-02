@@ -59,8 +59,8 @@ jobs:
           grep -q 'auditCandidateMobility' packages/placement/mobility-audit.ts
           grep -q 'CENTERLINE_CORRIDOR_V1' packages/placement/mobility-audit.ts
           grep -q 'requireFinalParkedInGarage: true' packages/placement/mobility-audit.ts
-          grep -q 'mobilityAuditSchema' app/api/workbench/pondy-ranked/route.ts
-          grep -q 'mobilityReady' app/api/workbench/pondy-ranked/route.ts
+          grep -q 'mobilityAuditSchema' packages/pondy-search/index.ts
+          grep -q 'mobilityReady' packages/pondy-search/index.ts
           grep -q 'Hardened vehicle mobility' lib/workbench-evidence-adapter.ts
           grep -q 'CANDIDATE LIFECYCLE' components/AssessmentResult.tsx
           grep -q 'B-SOUTH-door' projects/pondy-design4/evidence.ts
