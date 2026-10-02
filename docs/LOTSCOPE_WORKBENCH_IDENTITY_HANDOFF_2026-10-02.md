@@ -1,11 +1,31 @@
 # LotScope Workbench + AeroVista Identity / App Adapter
 ## Comprehensive Handoff and Continuation Plan
 
-**Date:** 2026-10-02  
-**Primary repository:** `aerovista-us/lot-assessment`  
-**Current LotScope main:** `56e77ea69fac1c952f48b283e731d45ad8ff5d8a`  
-**Current ACOS main:** `bffb2dda7e73c81b9d14b9380748a98a5f646f6e`  
+**Date:** 2026-10-02
+**Primary repository:** `aerovista-us/lot-assessment`
+**Current LotScope main:** `56e77ea69fac1c952f48b283e731d45ad8ff5d8a`
+**Current ACOS main after execution update:** `a82a020eee77f97679aa24775ce647d7b7556118`
 **Status:** Workbench edit → screen → authoritative-proof loop accepted on source/CI. Identity/App-Adapter integration and authenticated shared persistence are the next major platform milestones.
+
+---
+
+# Execution update — 2026-10-02
+
+The recommended identity path has begun and the following items are now complete in source:
+
+- ACOS PR #70 registered `lotscope_workbench` as a founder-only relying application at `https://lotscope.aerovista.us`, added it to the Identity Gateway broker, added Connected Apps metadata, defined the six planned `lotscope.*` capabilities, and added the founder canary provisioning tool.
+- ACOS PR #72 merged as `a82a020eee77f97679aa24775ce647d7b7556118` and fixes the runtime boundary by projecting `IDGW_SERVICE_SECRET_LOTSCOPE_WORKBENCH` into the Identity Gateway container.
+- App Adapter is now `@aerovista-us/app-adapter@0.4.0`; tag `app-adapter-v0.4.0` published successfully.
+- LotScope PR #47 implements the founder identity canary: Account login/callback, server-side handoff exchange, Secure/HttpOnly app-session cookie, live session resolution, live `lotscope.workbench.access`, Workbench/API guards, logout/revoke, and public-assessment regression protection.
+- Local LotScope acceptance is green against the actual v0.4.0 package bits: TypeScript, canonical/workspace/intervention/circulation tests, production build, and anonymous public/private boundary smoke.
+
+Open operational gates:
+
+1. `lot-assessment` is public and the private GitHub Package must not be exposed to fork workflows. PR #47 therefore expects a dedicated repository Actions secret `AEROVISTA_PACKAGES_TOKEN` with minimum package-read access rather than granting the public repo's `GITHUB_TOKEN` direct package access.
+2. Production Identity Gateway still lacks the LotScope broker secret and still runs an older deployment lineage. Provision the same strong `IDGW_SERVICE_SECRET_LOTSCOPE_WORKBENCH` on the Gateway and LotScope server sides, then use the guarded ACOS promotion/deploy scripts at `a82a020eee77f97679aa24775ce647d7b7556118`.
+3. After AVCC promotion, run `backend/tools/provision-lotscope-workbench-canary.mjs` against the canonical production AVCC database.
+4. The available Vercel connector currently exposes no AeroVista team/project, so LotScope production secret/deployment cannot be completed from this session.
+5. Shared workspace persistence remains intentionally blocked until the founder round trip is accepted.
 
 ---
 
@@ -315,11 +335,11 @@ Package:
 
 ```text
 @aerovista-us/app-adapter
-version 0.3.0
+version 0.4.0
 Node >=20
 ```
 
-v0.3 currently provides the required surface for LotScope.
+v0.4.0 is published through the successful `app-adapter-v0.4.0` release workflow and provides the required surface for LotScope.
 
 Browser:
 - `auth.buildLoginUrl()`
@@ -344,7 +364,7 @@ Server:
 
 Architecture rule:
 
-> `identity.describe()` selects experience.  
+> `identity.describe()` selects experience.
 > `identity.can()` authorizes protected actions.
 
 Role/display context must not be used as authorization.
