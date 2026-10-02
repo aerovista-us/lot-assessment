@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { CANDIDATE_SCHEMA_VERSION } from "../packages/candidates/index.ts";
-import { evaluateAuthoritativeCirculation } from "../packages/circulation/authoritative-search.ts";
+import { constantCurvatureConnector, evaluateAuthoritativeCirculation } from "../packages/circulation/authoritative-search.ts";
 import { bodyInsidePolygonUnion } from "../packages/circulation/hardened.ts";
 
 const candidate = {
@@ -38,6 +38,15 @@ assert.equal(result.summary.inboundPass, 1, result.stalls[0]?.inbound.failure ??
 assert.equal(result.summary.outboundPass, 1, result.stalls[0]?.outbound.failure ?? "outbound must pass");
 assert.equal(result.pass, true, "straight reference geometry must close full independent circulation");
 assert.equal(result.policyReady, null, "hard geometry must not invent a comfort-policy decision");
+// Historical D4 planners appended the exact stall pose once they were merely nearby.
+// B-South's accepted penultimate pose requires lateral translation with no heading change,
+// which is not a realizable constant-curvature vehicle connector. Keep this as a regression.
+const historicalBSouthConnector = constantCurvatureConnector(
+  { x: 22.619, y: 21.803, headingRad: -Math.PI, gear: 1 },
+  { x: 22.25, y: 21.5, headingRad: Math.PI, gear: 1 },
+  25
+);
+assert.equal(historicalBSouthConnector, null, "historical B-South endpoint jump must not be accepted as physical motion");
 assert(result.stalls[0].inbound.audit?.sampleCount > result.stalls[0].inbound.poses.length, "audit must independently densify the planner path");
 
 const body = [[0,0],[10,0],[10,4],[0,4]];
@@ -52,5 +61,6 @@ console.log(JSON.stringify({
   independentOutbound: result.summary.outboundPass,
   densifiedAuditSamples: result.stalls[0].inbound.audit?.sampleCount,
   pavementUnion: true,
-  comfortPolicyInvented: false
+  comfortPolicyInvented: false,
+  rejectsHistoricalEndpointTeleport: true
 }, null, 2));

@@ -34,6 +34,8 @@ export type AuthoritativeCirculationSearchOptions = {
   vehicle?: VehicleSpec;
   stepFt?: number;
   primitiveSampleStepFt?: number;
+  auditSampleStepFt?: number;
+  stallIds?: string[];
   hardClearanceFt?: number;
   maxExpandedStates?: number;
   portalWidthFt?: number;
@@ -213,31 +215,36 @@ function candidateOpening(candidate: CandidateRecord, garage: PlacementComponent
   };
 }
 
-function lineIntersections(body: Polygon, axis:"x"|"y", value:number) {
-  const out:number[]=[];
-  for(let i=0;i<body.length;i++){
-    const a=body[i],b=body[(i+1)%body.length],av=axis==="x"?a[0]:a[1],bv=axis==="x"?b[0]:b[1];
-    if(Math.abs(av-value)<1e-9) out.push(axis==="x"?a[1]:a[0]);
-    if((av-value)*(bv-value)>0||Math.abs(av-bv)<1e-9) continue;
-    const t=(value-av)/(bv-av); if(t<-1e-9||t>1+1e-9) continue;
-    out.push(axis==="x"?a[1]+(b[1]-a[1])*t:a[0]+(b[0]-a[0])*t);
-  }
-  return out;
+function segmentIntersectionPoint(a: Point,b: Point,c: Point,d: Point): Point | null {
+  const r:Point=[b[0]-a[0],b[1]-a[1]], q:Point=[d[0]-c[0],d[1]-c[1]];
+  const cross=(u:Point,v:Point)=>u[0]*v[1]-u[1]*v[0];
+  const denominator=cross(r,q), ca:Point=[c[0]-a[0],c[1]-a[1]];
+  if(Math.abs(denominator)<1e-9) return null;
+  const t=cross(ca,q)/denominator, u=cross(ca,r)/denominator;
+  if(t<-1e-7||t>1+1e-7||u<-1e-7||u>1+1e-7) return null;
+  return [a[0]+r[0]*t,a[1]+r[1]*t];
 }
 
 function targetGarageWallPass(body: Polygon, opening: GarageOpening) {
   const g=opening.garage,center:Point=[g.x+g.widthFt/2,g.y+g.depthFt/2],rotation=g.rotationRad??0;
   const local=Math.abs(rotation)<1e-9?body.map(([x,y])=>[x,y] as Point):body.map((point)=>rotatePoint(point,center,-rotation));
-  const walls:Array<{wall:GarageOpening["wall"];axis:"x"|"y";value:number}>=[
-    {wall:"west",axis:"x",value:g.x},{wall:"east",axis:"x",value:g.x+g.widthFt},
-    {wall:"north",axis:"y",value:g.y},{wall:"south",axis:"y",value:g.y+g.depthFt}
+  const walls:Array<{wall:GarageOpening["wall"];a:Point;b:Point}>=[
+    {wall:"west",a:[g.x,g.y],b:[g.x,g.y+g.depthFt]},
+    {wall:"east",a:[g.x+g.widthFt,g.y],b:[g.x+g.widthFt,g.y+g.depthFt]},
+    {wall:"north",a:[g.x,g.y],b:[g.x+g.widthFt,g.y]},
+    {wall:"south",a:[g.x,g.y+g.depthFt],b:[g.x+g.widthFt,g.y+g.depthFt]}
   ];
-  for(const wall of walls){
-    const hits=lineIntersections(local,wall.axis,wall.value);
-    if(hits.length<2) continue;
-    if(wall.wall!==opening.wall) return false;
-    const low=Math.min(...hits),high=Math.max(...hits);
-    if(low<opening.openingStartFt-1e-6||high>opening.openingEndFt+1e-6) return false;
+  for(let i=0;i<local.length;i++){
+    const a=local[i],b=local[(i+1)%local.length];
+    for(const wall of walls){
+      const hit=segmentIntersectionPoint(a,b,wall.a,wall.b);
+      if(!hit) continue;
+      // A body edge touching a garage corner is still a real wall crossing. Only
+      // the modeled opening wall is traversable, and only inside its finite opening.
+      if(wall.wall!==opening.wall) return false;
+      const coordinate=wall.wall==="east"||wall.wall==="west"?hit[1]:hit[0];
+      if(coordinate<opening.openingStartFt-1e-6||coordinate>opening.openingEndFt+1e-6) return false;
+    }
   }
   return true;
 }
@@ -264,7 +271,7 @@ function key(pose:SearchPose) {
 }
 function heuristic(a:SearchPose,b:SearchPose) { return Math.hypot(a.x-b.x,a.y-b.y)+Math.abs(wrap(a.headingRad-b.headingRad))*10; }
 
-function constantCurvatureConnector(from:SearchPose,to:SearchPose,minRadiusFt:number):{gear:-1|1;curvature:number;distanceFt:number}|null {
+export function constantCurvatureConnector(from:SearchPose,to:SearchPose,minRadiusFt:number):{gear:-1|1;curvature:number;distanceFt:number}|null {
   const dx=to.x-from.x,dy=to.y-from.y,c=Math.cos(from.headingRad),s=Math.sin(from.headingRad);
   const localX=c*dx+s*dy,localY=-s*dx+c*dy,r2=localX*localX+localY*localY;
   if(r2<1e-6) return Math.abs(wrap(to.headingRad-from.headingRad))<1e-3?{gear:1,curvature:0,distanceFt:0}:null;
@@ -291,7 +298,7 @@ function poseBounds(parcel:Polygon,portal:StreetPortal,margin=3) {
 
 function searchDirection(args:{
   start:SearchPose;goal:SearchPose;candidate:CandidateRecord;parcel:Polygon;portal:StreetPortal;garage:PlacementComponent;opening:GarageOpening;
-  companionPolygon:Polygon|null;vehicle:VehicleSpec;options:Required<Pick<AuthoritativeCirculationSearchOptions,"stepFt"|"primitiveSampleStepFt"|"hardClearanceFt"|"maxExpandedStates"|"pavementRequired">>;
+  companionPolygon:Polygon|null;vehicle:VehicleSpec;options:Required<Pick<AuthoritativeCirculationSearchOptions,"stepFt"|"primitiveSampleStepFt"|"auditSampleStepFt"|"hardClearanceFt"|"maxExpandedStates"|"pavementRequired">>;
   finalInGarage:boolean;
 }):DirectionSearchResult {
   const {candidate,parcel,portal,garage,opening,vehicle,options}=args;
@@ -338,7 +345,7 @@ function searchDirection(args:{
     const poses=reconstruct(finalNode);
     const audit=auditMotionPath({
       parcel,poses,vehicle,obstacles:otherObstacles,pavementZones:options.pavementRequired?pavement:[],allowedNonPavementZones:[garagePoly],allowOutside,garageOpening:opening,
-      preferredClearanceFt:options.hardClearanceFt,maximumComfortableGearChanges:Number.MAX_SAFE_INTEGER,maxInterpolationStepFt:options.primitiveSampleStepFt,turningRadiusToleranceFt:0.1,requireFinalParkedInGarage:args.finalInGarage
+      preferredClearanceFt:options.hardClearanceFt,maximumComfortableGearChanges:Number.MAX_SAFE_INTEGER,maxInterpolationStepFt:options.auditSampleStepFt,turningRadiusToleranceFt:0.1,requireFinalParkedInGarage:args.finalInGarage
     });
     if(!audit.pass) return null;
     return {poses,audit,gearChanges:finalNode.gearChanges};
@@ -374,7 +381,8 @@ export function evaluateAuthoritativeCirculation(candidate:CandidateRecord, opti
   const vehicle=options.vehicle??FULL_SIZE_SUV;
   const resolved={
     stepFt:options.stepFt??2,
-    primitiveSampleStepFt:options.primitiveSampleStepFt??0.25,
+    primitiveSampleStepFt:options.primitiveSampleStepFt??0.5,
+    auditSampleStepFt:options.auditSampleStepFt??0.25,
     hardClearanceFt:options.hardClearanceFt??1,
     maxExpandedStates:options.maxExpandedStates??180000,
     portalWidthFt:options.portalWidthFt??Math.max(16,vehicle.widthFt+8),
@@ -384,12 +392,15 @@ export function evaluateAuthoritativeCirculation(candidate:CandidateRecord, opti
   const parcel=parcelComponent(candidate).polygon;
   const portal=deriveStreetPortal(candidate,parcel,vehicle,resolved);
   const garages=new Map(candidate.components.filter((item):item is PlacementComponent=>item.kind==="garage").map((item)=>[item.id,item]));
-  const stalls=candidate.components.filter((item):item is StallComponent=>item.kind==="stall");
+  const allStalls=candidate.components.filter((item):item is StallComponent=>item.kind==="stall");
+  const selectedIds=options.stallIds?.length?new Set(options.stallIds):null;
+  const stalls=selectedIds?allStalls.filter((item)=>selectedIds.has(item.id)):allStalls;
+  if(selectedIds){ for(const id of selectedIds) if(!allStalls.some((item)=>item.id===id)) throw new Error(`Unknown stall id: ${id}`); }
   const rows:StallAuthoritativeCirculation[]=[];
   for(const stall of stalls){
     const garage=garages.get(stall.garageId); if(!garage) throw new Error(`Stall ${stall.id} references missing garage ${stall.garageId}.`);
     const opening=candidateOpening(candidate,garage);
-    const sameGarage=stalls.filter((item)=>item.garageId===stall.garageId&&item.id!==stall.id);
+    const sameGarage=allStalls.filter((item)=>item.garageId===stall.garageId&&item.id!==stall.id);
     const companion=sameGarage[0]??null;
     const companionPolygon=companion?vehiclePolygon(vehicle,companion.axleX,companion.axleY,companion.headingDeg*Math.PI/180):null;
     const parked:SearchPose={x:stall.axleX,y:stall.axleY,headingRad:stall.headingDeg*Math.PI/180,gear:1};
