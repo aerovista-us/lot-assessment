@@ -117,6 +117,11 @@ function pointInsidePolygonUnion(point: Point, zones: readonly Polygon[], epsilo
  */
 export function bodyInsidePolygonUnion(body: Polygon, zones: readonly Polygon[], epsilon = 0.08, sampleStepFt = 0.5): boolean {
   if (!zones.length || body.length !== 4) return false;
+  // Most audited poses sit wholly inside one pavement polygon. Avoid the costly
+  // interior union grid in that common case; the detailed sampling below is only
+  // needed when the vehicle genuinely bridges multiple adjacent zones.
+  if (zones.some((zone) => body.every((point) => pointInPolygon(point, zone, epsilon)))) return true;
+  if (!body.every((point) => pointInsidePolygonUnion(point, zones, epsilon))) return false;
   const [frontLeft, frontRight, rearRight, rearLeft] = body;
   const length = Math.max(
     Math.hypot(frontLeft[0] - rearLeft[0], frontLeft[1] - rearLeft[1]),
