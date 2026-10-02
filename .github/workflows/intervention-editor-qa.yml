@@ -13,6 +13,7 @@ on:
 
 permissions:
   contents: read
+  packages: read
 
 jobs:
   qa:
@@ -23,11 +24,17 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@aerovista-us'
       - name: Install dependencies
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npm install --no-audit --no-fund
       - name: Type check
         run: npm run lint
       - name: Intervention geometry tests
         run: npm run test:intervention
       - name: Production build
+        env:
+          LOTSCOPE_AUTH_MODE: disabled
         run: npm run build
