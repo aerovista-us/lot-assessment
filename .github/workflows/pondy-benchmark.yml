@@ -74,7 +74,7 @@ jobs:
           curl -fsS http://127.0.0.1:3000/workbench-auth | grep -q 'AeroVista sign in required'
 
       - name: Run authoritative Pondy benchmark
-        run: node --experimental-loader ./scripts/alias-loader.mjs scripts/run-pondy-ranked.mjs > pondy-ranked.json
+        run: npx tsx scripts/run-pondy-ranked.mjs > pondy-ranked.json
 
       - name: Build audit package
         shell: bash
