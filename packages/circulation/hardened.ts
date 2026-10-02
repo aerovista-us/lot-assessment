@@ -105,8 +105,71 @@ function polygonBoundaryDistance(a: Polygon, b: Polygon): number {
   return Number.isFinite(minimum) ? minimum : Infinity;
 }
 
-function bodyInsideAny(body: Polygon, zones: readonly Polygon[], epsilon = 0.08): boolean {
-  return body.every((corner) => zones.some((zone) => pointInPolygon(corner, zone, epsilon)));
+type PreparedPolygonZone = {
+  polygon: Polygon;
+  minX: number;
+  maxX: number;
+  minY: number;
+  maxY: number;
+};
+
+function preparePolygonZones(zones: readonly Polygon[]): PreparedPolygonZone[] {
+  return zones.map((polygon) => {
+    const xs = polygon.map(([x]) => x), ys = polygon.map(([, y]) => y);
+    return { polygon, minX: Math.min(...xs), maxX: Math.max(...xs), minY: Math.min(...ys), maxY: Math.max(...ys) };
+  });
+}
+
+function pointInsidePreparedUnion(point: Point, zones: readonly PreparedPolygonZone[], epsilon: number) {
+  const [x,y] = point;
+  return zones.some((zone) =>
+    x >= zone.minX - epsilon && x <= zone.maxX + epsilon &&
+    y >= zone.minY - epsilon && y <= zone.maxY + epsilon &&
+    pointInPolygon(point, zone.polygon, epsilon));
+}
+
+function bodyInsidePreparedPolygonUnion(body: Polygon, zones: readonly PreparedPolygonZone[], epsilon = 0.08, sampleStepFt = 0.5): boolean {
+  if (!zones.length || body.length !== 4) return false;
+  const bodyXs=body.map(([x])=>x), bodyYs=body.map(([,y])=>y);
+  const bodyMinX=Math.min(...bodyXs), bodyMaxX=Math.max(...bodyXs), bodyMinY=Math.min(...bodyYs), bodyMaxY=Math.max(...bodyYs);
+  // Common fast path: only zones whose bounding box can contain the complete body
+  // need the more expensive point-in-polygon checks.
+  for (const zone of zones) {
+    if (bodyMinX < zone.minX-epsilon || bodyMaxX > zone.maxX+epsilon || bodyMinY < zone.minY-epsilon || bodyMaxY > zone.maxY+epsilon) continue;
+    if (body.every((point)=>pointInPolygon(point, zone.polygon, epsilon))) return true;
+  }
+  if (!body.every((point) => pointInsidePreparedUnion(point, zones, epsilon))) return false;
+  const [frontLeft, frontRight, rearRight, rearLeft] = body;
+  const length = Math.max(
+    Math.hypot(frontLeft[0] - rearLeft[0], frontLeft[1] - rearLeft[1]),
+    Math.hypot(frontRight[0] - rearRight[0], frontRight[1] - rearRight[1])
+  );
+  const width = Math.max(
+    Math.hypot(frontLeft[0] - frontRight[0], frontLeft[1] - frontRight[1]),
+    Math.hypot(rearLeft[0] - rearRight[0], rearLeft[1] - rearRight[1])
+  );
+  const longitudinalSteps = Math.max(1, Math.ceil(length / sampleStepFt));
+  const lateralSteps = Math.max(1, Math.ceil(width / sampleStepFt));
+  for (let i = 0; i <= longitudinalSteps; i += 1) {
+    const u = i / longitudinalSteps;
+    const left: Point = [rearLeft[0] + (frontLeft[0] - rearLeft[0]) * u, rearLeft[1] + (frontLeft[1] - rearLeft[1]) * u];
+    const right: Point = [rearRight[0] + (frontRight[0] - rearRight[0]) * u, rearRight[1] + (frontRight[1] - rearRight[1]) * u];
+    for (let j = 0; j <= lateralSteps; j += 1) {
+      const v = j / lateralSteps;
+      const point: Point = [left[0] + (right[0] - left[0]) * v, left[1] + (right[1] - left[1]) * v];
+      if (!pointInsidePreparedUnion(point, zones, epsilon)) return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * Checks the whole rectangular vehicle footprint against the union of pavement
+ * zones. The exported wrapper prepares a small spatial index; auditMotionPath
+ * reuses one prepared index across every sampled pose.
+ */
+export function bodyInsidePolygonUnion(body: Polygon, zones: readonly Polygon[], epsilon = 0.08, sampleStepFt = 0.5): boolean {
+  return bodyInsidePreparedPolygonUnion(body, preparePolygonZones(zones), epsilon, sampleStepFt);
 }
 
 function lineIntersections(body: Polygon, axis: "x" | "y", value: number): number[] {
@@ -202,6 +265,7 @@ function staticAudit(args: {
   let minimumObstacle = Infinity;
   let minimumDoor = Infinity;
   const collisionLabels = new Set<string>();
+  const preparedPavementZones = preparePolygonZones([...args.pavementZones, ...args.allowedNonPavementZones]);
 
   for (const pose of args.poses) {
     const body = vehiclePolygon(args.vehicle, pose.x, pose.y, pose.headingRad);
@@ -219,7 +283,7 @@ function staticAudit(args: {
 
     if (completeBodyInParcel) {
       for (const corner of body) minimumBoundary = Math.min(minimumBoundary, distanceToPolygonBoundary(corner, args.parcel));
-      if (args.pavementZones.length && !bodyInsideAny(body, [...args.pavementZones, ...args.allowedNonPavementZones], 0.12)) pavementViolationSamples += 1;
+      if (args.pavementZones.length && !bodyInsidePreparedPolygonUnion(body, preparedPavementZones, 0.12)) pavementViolationSamples += 1;
     }
 
     for (const obstacle of args.obstacles) {
