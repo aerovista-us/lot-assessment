@@ -16,7 +16,8 @@
   "dependencies": {
     "next": "16.3.2",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "@aerovista-us/app-adapter": "0.4.0"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

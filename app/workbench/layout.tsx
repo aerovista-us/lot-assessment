@@ -1,3 +1,5 @@
+import { redirect } from "next/navigation";
+import { getWorkbenchAccess } from "@/lib/aerovista/session";
 import Link from "next/link";
 import "./workbench.css";
 
@@ -17,7 +19,11 @@ const engineeringNav = [
   ["EVIDENCE", "/workbench/evidence"]
 ] as const;
 
-export default function WorkbenchLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export const dynamic = "force-dynamic";
+
+export default async function WorkbenchLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  const session = await getWorkbenchAccess();
+  if (!session) redirect("/workbench-auth?next=/workbench");
   return <><div className="workbench-nav-shell"><nav className="workbench-nav" aria-label="LotScope internal Workbench">
     <div className="workbench-nav-group">{staffNav.map(([label, href]) => <Link key={href} href={href}>{label}</Link>)}</div>
     <div className="workbench-nav-group workbench-nav-engineering"><span>ENGINEERING</span>{engineeringNav.map(([label, href]) => <Link key={href} href={href}>{label}</Link>)}</div>

@@ -1,3 +1,4 @@
+import { requireWorkbenchApiAccess } from "@/lib/aerovista/api-guard";
 import { NextResponse } from "next/server";
 import { CANDIDATE_SCHEMA_VERSION, type CandidateRecord } from "@/packages/candidates";
 import { evaluateInterventionCandidate, exploreInterventionNeighborhood } from "@/packages/candidates/intervention-evaluation";
@@ -14,6 +15,8 @@ function validCandidate(value: unknown): value is CandidateRecord {
 }
 
 export async function POST(request: Request) {
+  const authGuard = await requireWorkbenchApiAccess();
+  if (authGuard) return authGuard;
   const body = await request.json().catch(() => null) as { mode?: string; candidate?: unknown; componentId?: string } | null;
   if (!body || !validCandidate(body.candidate)) return NextResponse.json({ error: "Valid Pondy candidate payload required." }, { status: 400 });
   const rulesVersion = pondyCandidateRegistry.lots.find((lot) => lot.id === "pondy-lot2")?.rulesVersion;

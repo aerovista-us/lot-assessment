@@ -1,3 +1,4 @@
+import { requireWorkbenchApiAccess } from "@/lib/aerovista/api-guard";
 import { NextRequest, NextResponse } from "next/server";
 import { createExportPackage } from "@/packages/candidates";
 import { pondyCandidateRegistry } from "@/projects/pondy-lot2/candidate-registry";
@@ -5,6 +6,8 @@ import { pondyCandidateRegistry } from "@/projects/pondy-lot2/candidate-registry
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
+  const authGuard = await requireWorkbenchApiAccess();
+  if (authGuard) return authGuard;
   const candidateId = request.nextUrl.searchParams.get("id");
   if (!candidateId) return NextResponse.json({ error: "candidate id is required" }, { status: 400 });
   const pkg = createExportPackage(pondyCandidateRegistry, candidateId);

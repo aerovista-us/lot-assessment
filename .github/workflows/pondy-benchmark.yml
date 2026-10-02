@@ -22,17 +22,22 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
+  packages: read
   contents: write
 
 jobs:
   benchmark:
     runs-on: ubuntu-latest
+    env:
+      NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@aerovista-us'
 
       - name: Install + verify build
         run: |
@@ -61,14 +66,15 @@ jobs:
         run: |
           set -euo pipefail
           curl -fsS http://127.0.0.1:3000/ > /tmp/public.html
-          curl -fsS http://127.0.0.1:3000/workbench > /tmp/workbench.html
+          test "$(curl -sS -o /tmp/workbench.html -w '%{http_code}' http://127.0.0.1:3000/workbench)" = "307"
+          curl -sSI http://127.0.0.1:3000/workbench | grep -qi '/workbench-auth'
           grep -q 'GUIDED ASSESSMENT v2.1' /tmp/public.html
           grep -q 'QUICK RECTANGLE' /tmp/public.html
           grep -q 'CUSTOM / IRREGULAR LOT' /tmp/public.html
-          grep -q 'Workbench' /tmp/workbench.html
+          curl -fsS http://127.0.0.1:3000/workbench-auth | grep -q 'AeroVista sign in required'
 
       - name: Run authoritative Pondy benchmark
-        run: curl -fsS http://127.0.0.1:3000/api/workbench/pondy-ranked > pondy-ranked.json
+        run: node --experimental-loader ./scripts/alias-loader.mjs scripts/run-pondy-ranked.mjs > pondy-ranked.json
 
       - name: Build audit package
         shell: bash

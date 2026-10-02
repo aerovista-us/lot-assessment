@@ -1,3 +1,4 @@
+import { requireWorkbenchApiAccess } from "@/lib/aerovista/api-guard";
 import { NextResponse } from "next/server";
 import { GET as getRanked } from "@/app/api/workbench/pondy-ranked/route";
 import { evidenceForAudience } from "@/packages/evidence";
@@ -6,6 +7,8 @@ import { workbenchCandidateEvidence, type WorkbenchCandidateEvidenceInput } from
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
+  const authGuard = await requireWorkbenchApiAccess();
+  if (authGuard) return authGuard;
   const rankedResponse = await getRanked();
   if (!rankedResponse.ok) return rankedResponse;
 
