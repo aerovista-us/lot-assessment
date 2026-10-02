@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { CandidatePlan } from "@/components/workbench/CandidatePlan";
 import { DirectManipulationPlan, type DirectManipulation } from "@/components/workbench/DirectManipulationPlan";
 import type { CandidateComponent, CandidateRecord } from "@/packages/candidates";
@@ -20,6 +20,25 @@ import {
   suggestedEditableComponent
 } from "@/packages/candidates/intervention";
 import type { InterventionSuggestion } from "@/packages/candidates/intervention-evaluation";
+import type { AuthoritativeCirculationResult, StallAuthoritativeCirculation } from "@/packages/circulation/authoritative-search";
+
+
+type AuthoritativeProofState = {
+  candidateUpdatedAt: string;
+  status: "running" | "complete" | "cancelled" | "error";
+  completed: number;
+  total: number;
+  currentStallLabel?: string;
+  rows: StallAuthoritativeCirculation[];
+  result?: AuthoritativeCirculationResult;
+  error?: string;
+};
+
+type AuthoritativeWorkerMessage =
+  | { type: "progress"; candidateUpdatedAt: string; stallId: string; stallLabel: string; index: number; total: number }
+  | { type: "stall"; candidateUpdatedAt: string; stallId: string; stallLabel: string; index: number; total: number; row: StallAuthoritativeCirculation }
+  | { type: "complete"; candidateUpdatedAt: string; result: AuthoritativeCirculationResult }
+  | { type: "error"; candidateUpdatedAt: string; error: string };
 
 function numberValue(value: string, fallback: number) {
   const parsed = Number(value);
@@ -73,7 +92,9 @@ export function InterventionEditor({ candidate, repairContextCandidate, onSave, 
   const selected = candidate.components.find((component) => component.id === selectedId) ?? null;
   const [draft, setDraft] = useState<Record<string, string>>(() => initialDraft(selected));
   const [message, setMessage] = useState<string | null>(null);
-  const [running, setRunning] = useState<"evaluate" | "explore" | null>(null);
+  const [running, setRunning] = useState<"evaluate" | "explore" | "authoritative" | null>(null);
+  const workerRef = useRef<Worker | null>(null);
+  const [authoritativeProof, setAuthoritativeProof] = useState<AuthoritativeProofState | null>(null);
   const [suggestions, setSuggestions] = useState<InterventionSuggestion[]>([]);
   const repairClasses = currentRepairClasses(repairContext);
   const draftDirty = selected ? JSON.stringify(draft) !== JSON.stringify(initialDraft(selected)) : false;
@@ -88,6 +109,17 @@ export function InterventionEditor({ candidate, repairContextCandidate, onSave, 
     setDraft(initialDraft(selected));
     setSuggestions([]);
   }, [selectedId, candidate.updatedAt]);
+
+  useEffect(() => () => workerRef.current?.terminate(), []);
+
+  useEffect(() => {
+    if (running === "authoritative" && authoritativeProof?.candidateUpdatedAt !== candidate.updatedAt) {
+      workerRef.current?.terminate(); workerRef.current = null;
+      setRunning(null);
+      setAuthoritativeProof((current) => current ? { ...current, status: "cancelled" } : current);
+      setMessage("Authoritative proof stopped because the candidate geometry changed.");
+    }
+  }, [candidate.updatedAt, authoritativeProof?.candidateUpdatedAt, running]);
 
   const setField = (key: string, value: string) => setDraft((current) => ({ ...current, [key]: value }));
 
@@ -242,12 +274,58 @@ export function InterventionEditor({ candidate, repairContextCandidate, onSave, 
       if (!response.ok || !payload.evaluation) throw new Error(payload.error ?? `Evaluation failed (${response.status})`);
       const evaluated = applyCandidateEvaluation(candidate, payload.evaluation);
       onSave(evaluated);
-      setMessage(`Exact intervention screening complete: ${payload.hardLocalFailures ?? 0} local hard blocker(s), score ${payload.screeningScore ?? "—"}. Independent outbound proof is still open.`);
+      setMessage(`Exact intervention screening complete: ${payload.hardLocalFailures ?? 0} local hard blocker(s), score ${payload.screeningScore ?? "—"}. Authoritative circulation proof remains separate; run it when you are ready for the full search.`);
     } catch (cause) {
       setMessage(cause instanceof Error ? cause.message : "Evaluation failed.");
     } finally {
       setRunning(null);
     }
+  }
+
+  function runAuthoritativeProof() {
+    if (draftDirty || running !== null) return;
+    workerRef.current?.terminate();
+    const worker = new Worker(new URL("../../workers/authoritative-circulation.worker.ts", import.meta.url), { type: "module" });
+    workerRef.current = worker;
+    const total = candidate.components.filter((item) => item.kind === "stall").length;
+    setRunning("authoritative"); setMessage(null);
+    setAuthoritativeProof({ candidateUpdatedAt: candidate.updatedAt, status: "running", completed: 0, total, rows: [] });
+    worker.onmessage = (event: MessageEvent<AuthoritativeWorkerMessage>) => {
+      const payload = event.data;
+      if (payload.candidateUpdatedAt !== candidate.updatedAt) return;
+      if (payload.type === "progress") {
+        setAuthoritativeProof((current) => current ? { ...current, currentStallLabel: payload.stallLabel, total: payload.total } : current);
+        return;
+      }
+      if (payload.type === "stall") {
+        setAuthoritativeProof((current) => current ? { ...current, completed: payload.index, currentStallLabel: payload.stallLabel, rows: [...current.rows, payload.row] } : current);
+        return;
+      }
+      if (payload.type === "complete") {
+        setAuthoritativeProof((current) => ({ candidateUpdatedAt: payload.candidateUpdatedAt, status: "complete", completed: payload.result.summary.stallCount, total: payload.result.summary.stallCount, rows: payload.result.stalls, result: payload.result }));
+        setRunning(null); workerRef.current?.terminate(); workerRef.current = null;
+        const summary = payload.result.summary;
+        setMessage(payload.result.pass
+          ? `Authoritative hard-geometry proof closed ${summary.fullCirculationPass}/${summary.stallCount} stalls. Comfort policy and professional review remain separate.`
+          : `Authoritative search closed ${summary.fullCirculationPass}/${summary.stallCount} full-circulation stalls. Unclosed stalls remain unproven, not impossible.`);
+        return;
+      }
+      setAuthoritativeProof((current) => current ? { ...current, status: "error", error: payload.error } : { candidateUpdatedAt: payload.candidateUpdatedAt, status: "error", completed: 0, total, rows: [], error: payload.error });
+      setRunning(null); workerRef.current?.terminate(); workerRef.current = null; setMessage(payload.error);
+    };
+    worker.onerror = (event) => {
+      const error = event.message || "Authoritative proof worker failed.";
+      setAuthoritativeProof((current) => current ? { ...current, status: "error", error } : { candidateUpdatedAt: candidate.updatedAt, status: "error", completed: 0, total, rows: [], error });
+      setRunning(null); workerRef.current?.terminate(); workerRef.current = null; setMessage(error);
+    };
+    worker.postMessage({ candidate, maxExpandedStates: 180000 });
+  }
+
+  function cancelAuthoritativeProof() {
+    workerRef.current?.terminate(); workerRef.current = null;
+    setRunning(null);
+    setAuthoritativeProof((current) => current ? { ...current, status: "cancelled" } : current);
+    setMessage("Authoritative proof cancelled. Existing screening evidence is unchanged.");
   }
 
   async function exploreAround() {
@@ -273,7 +351,7 @@ export function InterventionEditor({ candidate, repairContextCandidate, onSave, 
       onCheckpoint(`Before applying ${suggestion.label}`);
       onSave(suggestion.candidate);
       setSuggestions([]);
-      setMessage(`${suggestion.label} applied. Its current evidence is screening-only; authoritative outbound remains open.`);
+      setMessage(`${suggestion.label} applied. Its current evidence is screening-only; run authoritative proof on the applied geometry when ready.`);
     } catch (cause) {
       setMessage(cause instanceof Error ? cause.message : "Unable to apply exploration suggestion.");
     }
@@ -285,7 +363,7 @@ export function InterventionEditor({ candidate, repairContextCandidate, onSave, 
       <div><p className="eyebrow">INTERVENTION EDITOR V3</p><h2>Drag the plan directly, then make the machine re-check it.</h2></div>
       <span className="mode-pill">{candidate.evidenceState} EVIDENCE</span>
     </div>
-    <div className="candidate-warning-box intervention-truth-boundary"><b>Screening boundary</b><p>This editor can test static geometry, enclosed parking and route-hint sweeps. It cannot close the authoritative independent stall-to-Pennsylvania outbound gate. A screen result is never a manual PASS.</p></div>
+    <div className="candidate-warning-box intervention-truth-boundary"><b>Screening boundary</b><p>Evaluate exact edit is a fast screening layer for static geometry, enclosed parking and route hints. Run authoritative proof separately to test continuous stall-to-street circulation. Neither action replaces professional/AHJ review.</p></div>
     {repairClasses.length > 0 && <div className="candidate-chip-row intervention-repairs">{repairClasses.map((repair) => <span key={repair}>{repair}</span>)}</div>}
     <div className="intervention-grid">
       <div className="intervention-plan-wrap">
@@ -370,9 +448,18 @@ export function InterventionEditor({ candidate, repairContextCandidate, onSave, 
         <div className="intervention-actions">
           <button className="secondary-button" type="button" disabled={!selectedEditable || running !== null} onClick={applyGeometry}>Save edit</button>
           <button className="primary-button" type="button" disabled={running !== null || draftDirty} title={draftDirty ? "Save the geometry edit first." : undefined} onClick={evaluateExact}>{running === "evaluate" ? "Evaluating…" : "Evaluate exact edit"}</button>
+          {running === "authoritative"
+            ? <button className="secondary-button" type="button" onClick={cancelAuthoritativeProof}>Cancel authoritative proof</button>
+            : <button className="secondary-button" type="button" disabled={running !== null || draftDirty} title={draftDirty ? "Save the geometry edit first." : "Runs continuous-motion proof locally in a background worker."} onClick={runAuthoritativeProof}>Run authoritative proof</button>}
           <button className="secondary-button" type="button" disabled={!selectedEditable || running !== null || draftDirty} title={draftDirty ? "Save the geometry edit first." : undefined} onClick={exploreAround}>{running === "explore" ? "Exploring…" : "Explore around edit"}</button>
         </div>
         <p className="microcopy">Drag/drop changes save immediately with a recovery checkpoint. Use Precision controls only when you want exact dimensions or coordinates; then click Save edit before evaluating.</p>
+        {authoritativeProof && <div className={`authoritative-proof-panel ${authoritativeProof.candidateUpdatedAt !== candidate.updatedAt ? "is-stale" : ""}`}>
+          <div className="authoritative-proof-head"><div><b>Authoritative circulation</b><span>{authoritativeProof.status === "running" ? `Running ${authoritativeProof.currentStallLabel ?? "planner"} · ${authoritativeProof.completed}/${authoritativeProof.total} stalls complete` : authoritativeProof.status === "complete" ? `${authoritativeProof.result?.summary.fullCirculationPass ?? 0}/${authoritativeProof.result?.summary.stallCount ?? authoritativeProof.total} full-circulation stalls proven` : authoritativeProof.status}</span></div><strong>{authoritativeProof.candidateUpdatedAt !== candidate.updatedAt ? "STALE" : authoritativeProof.result?.pass ? "HARD PASS" : authoritativeProof.status.toUpperCase()}</strong></div>
+          {authoritativeProof.rows.length > 0 && <div className="authoritative-stall-grid">{authoritativeProof.rows.map((row) => <article key={row.stallId}><b>{row.stallId}</b><span className={row.fullCirculationPass ? "repair-pass" : "repair-fail"}>{row.fullCirculationPass ? "FULL PASS" : "OPEN"}</span><small>Inbound {row.inbound.found ? "proven" : "open"} · outbound {row.outbound.found ? "proven" : "open"}</small><small>{row.inbound.expandedStates.toLocaleString()} in / {row.outbound.expandedStates.toLocaleString()} out states</small></article>)}</div>}
+          {authoritativeProof.status === "error" && <p>{authoritativeProof.error}</p>}
+          <small>Hard geometry only. An unclosed search means not proven within the search contract; it is not a mathematical impossibility finding. Comfort and professional/AHJ gates remain separate.</small>
+        </div>}
         {message && <p className="intervention-message">{message}</p>}
       </div>
     </div>
