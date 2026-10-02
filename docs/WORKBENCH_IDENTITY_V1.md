@@ -20,7 +20,7 @@ Because this repository is public, CI must **not** grant the repository's fork-c
 AEROVISTA_PACKAGES_TOKEN
 ```
 
-It must be a dedicated credential with the minimum package-read access required for `@aerovista-us/app-adapter`. Do not place it in source, `.npmrc`, browser code, or Vercel runtime variables. Fork-origin pull requests do not receive repository Actions secrets and therefore cannot retrieve the private package.
+It must be a dedicated credential with the minimum package-read access required for `@aerovista-us/app-adapter`. The repository `.npmrc` contains only the `${NODE_AUTH_TOKEN}` reference, never the credential value. GitHub Actions maps `AEROVISTA_PACKAGES_TOKEN` to `NODE_AUTH_TOKEN`. Vercel should store the same package-read credential as a build-time `NODE_AUTH_TOKEN` Secret. It is not a LotScope runtime authorization secret. Fork-origin pull requests do not receive repository Actions secrets and therefore cannot retrieve the private package.
 
 ## Runtime secret
 
