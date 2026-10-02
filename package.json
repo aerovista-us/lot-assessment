@@ -11,12 +11,14 @@
     "test:room-packing": "node scripts/test-room-packing.mjs",
     "test:workspace": "node --experimental-loader ./scripts/alias-loader.mjs scripts/test-candidate-workspace.mjs",
     "test:intervention": "node --experimental-loader ./scripts/alias-loader.mjs scripts/test-intervention-editor.mjs",
-    "test:authoritative-circulation": "node --experimental-loader ./scripts/alias-loader.mjs scripts/test-authoritative-circulation.mjs"
+    "test:authoritative-circulation": "node --experimental-loader ./scripts/alias-loader.mjs scripts/test-authoritative-circulation.mjs",
+    "test:workbench-auth": "node --experimental-loader ./scripts/alias-loader.mjs scripts/test-workbench-auth.mjs"
   },
   "dependencies": {
     "next": "16.3.2",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "@aerovista-us/app-adapter": "0.4.0"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
