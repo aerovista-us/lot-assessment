@@ -1,4 +1,7 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { WORKBENCH_SESSION_COOKIE, evaluateWorkbenchAccess, isWorkbenchAuthBypassed } from "@/lib/aerovista/workbench-access";
 import "./workbench.css";
 
 const staffNav = [
@@ -17,9 +20,18 @@ const engineeringNav = [
   ["EVIDENCE", "/workbench/evidence"]
 ] as const;
 
-export default function WorkbenchLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default async function WorkbenchLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  let identityName: string | null = null;
+  if (!isWorkbenchAuthBypassed()) {
+    const token = (await cookies()).get(WORKBENCH_SESSION_COOKIE)?.value || null;
+    const access = await evaluateWorkbenchAccess(token);
+    if (access.status === "unauthenticated") redirect("/auth/lotscope/login?next=/workbench");
+    if (access.status === "forbidden") redirect("/auth/lotscope/denied?reason=forbidden");
+    if (access.status === "unavailable") redirect("/auth/lotscope/denied?reason=unavailable");
+    identityName = access.identity?.name || access.identity?.email || "AeroVista identity";
+  }
   return <><div className="workbench-nav-shell"><nav className="workbench-nav" aria-label="LotScope internal Workbench">
     <div className="workbench-nav-group">{staffNav.map(([label, href]) => <Link key={href} href={href}>{label}</Link>)}</div>
     <div className="workbench-nav-group workbench-nav-engineering"><span>ENGINEERING</span>{engineeringNav.map(([label, href]) => <Link key={href} href={href}>{label}</Link>)}</div>
-  </nav></div>{children}</>;
+  <div className="workbench-nav-identity">{identityName && <span>{identityName}</span>}<form action="/api/workbench/auth/logout" method="post"><button type="submit">SIGN OUT</button></form></div></nav></div>{children}</>;
 }
