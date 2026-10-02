@@ -36,7 +36,7 @@ jobs:
   qa:
     runs-on: ubuntu-latest
     env:
-      NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      NODE_AUTH_TOKEN: ${{ secrets.AEROVISTA_PACKAGES_TOKEN }}
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
