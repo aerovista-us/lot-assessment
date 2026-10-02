@@ -21,10 +21,11 @@ import {
 } from "@/packages/candidates/intervention";
 import type { InterventionSuggestion } from "@/packages/candidates/intervention-evaluation";
 import type { AuthoritativeCirculationResult, StallAuthoritativeCirculation } from "@/packages/circulation/authoritative-search";
+import { interventionGeometryRevision } from "@/packages/canonical/intervention-geometry";
 
 
 type AuthoritativeProofState = {
-  candidateUpdatedAt: string;
+  geometryRevision: string;
   status: "running" | "complete" | "cancelled" | "error";
   completed: number;
   total: number;
@@ -35,10 +36,10 @@ type AuthoritativeProofState = {
 };
 
 type AuthoritativeWorkerMessage =
-  | { type: "progress"; candidateUpdatedAt: string; stallId: string; stallLabel: string; index: number; total: number }
-  | { type: "stall"; candidateUpdatedAt: string; stallId: string; stallLabel: string; index: number; total: number; row: StallAuthoritativeCirculation }
-  | { type: "complete"; candidateUpdatedAt: string; result: AuthoritativeCirculationResult }
-  | { type: "error"; candidateUpdatedAt: string; error: string };
+  | { type: "progress"; geometryRevision: string; stallId: string; stallLabel: string; index: number; total: number }
+  | { type: "stall"; geometryRevision: string; stallId: string; stallLabel: string; index: number; total: number; row: StallAuthoritativeCirculation }
+  | { type: "complete"; geometryRevision: string; result: AuthoritativeCirculationResult }
+  | { type: "error"; geometryRevision: string; error: string };
 
 function numberValue(value: string, fallback: number) {
   const parsed = Number(value);
@@ -98,6 +99,7 @@ export function InterventionEditor({ candidate, repairContextCandidate, onSave, 
   const [suggestions, setSuggestions] = useState<InterventionSuggestion[]>([]);
   const repairClasses = currentRepairClasses(repairContext);
   const draftDirty = selected ? JSON.stringify(draft) !== JSON.stringify(initialDraft(selected)) : false;
+  const geometryRevision = useMemo(() => interventionGeometryRevision(candidate), [candidate.components, candidate.id, candidate.revisionLabel]);
 
   useEffect(() => {
     if (!selectedId || !candidate.components.some((component) => component.id === selectedId && isInterventionEditable(component))) {
@@ -113,13 +115,13 @@ export function InterventionEditor({ candidate, repairContextCandidate, onSave, 
   useEffect(() => () => workerRef.current?.terminate(), []);
 
   useEffect(() => {
-    if (running === "authoritative" && authoritativeProof?.candidateUpdatedAt !== candidate.updatedAt) {
+    if (running === "authoritative" && authoritativeProof?.geometryRevision !== geometryRevision) {
       workerRef.current?.terminate(); workerRef.current = null;
       setRunning(null);
       setAuthoritativeProof((current) => current ? { ...current, status: "cancelled" } : current);
       setMessage("Authoritative proof stopped because the candidate geometry changed.");
     }
-  }, [candidate.updatedAt, authoritativeProof?.candidateUpdatedAt, running]);
+  }, [geometryRevision, authoritativeProof?.geometryRevision, running]);
 
   const setField = (key: string, value: string) => setDraft((current) => ({ ...current, [key]: value }));
 
@@ -289,10 +291,10 @@ export function InterventionEditor({ candidate, repairContextCandidate, onSave, 
     workerRef.current = worker;
     const total = candidate.components.filter((item) => item.kind === "stall").length;
     setRunning("authoritative"); setMessage(null);
-    setAuthoritativeProof({ candidateUpdatedAt: candidate.updatedAt, status: "running", completed: 0, total, rows: [] });
+    setAuthoritativeProof({ geometryRevision, status: "running", completed: 0, total, rows: [] });
     worker.onmessage = (event: MessageEvent<AuthoritativeWorkerMessage>) => {
       const payload = event.data;
-      if (payload.candidateUpdatedAt !== candidate.updatedAt) return;
+      if (payload.geometryRevision !== geometryRevision) return;
       if (payload.type === "progress") {
         setAuthoritativeProof((current) => current ? { ...current, currentStallLabel: payload.stallLabel, total: payload.total } : current);
         return;
@@ -302,7 +304,7 @@ export function InterventionEditor({ candidate, repairContextCandidate, onSave, 
         return;
       }
       if (payload.type === "complete") {
-        setAuthoritativeProof((current) => ({ candidateUpdatedAt: payload.candidateUpdatedAt, status: "complete", completed: payload.result.summary.stallCount, total: payload.result.summary.stallCount, rows: payload.result.stalls, result: payload.result }));
+        setAuthoritativeProof((current) => ({ geometryRevision: payload.geometryRevision, status: "complete", completed: payload.result.summary.stallCount, total: payload.result.summary.stallCount, rows: payload.result.stalls, result: payload.result }));
         setRunning(null); workerRef.current?.terminate(); workerRef.current = null;
         const summary = payload.result.summary;
         setMessage(payload.result.pass
@@ -310,15 +312,15 @@ export function InterventionEditor({ candidate, repairContextCandidate, onSave, 
           : `Authoritative search closed ${summary.fullCirculationPass}/${summary.stallCount} full-circulation stalls. Unclosed stalls remain unproven, not impossible.`);
         return;
       }
-      setAuthoritativeProof((current) => current ? { ...current, status: "error", error: payload.error } : { candidateUpdatedAt: payload.candidateUpdatedAt, status: "error", completed: 0, total, rows: [], error: payload.error });
+      setAuthoritativeProof((current) => current ? { ...current, status: "error", error: payload.error } : { geometryRevision: payload.geometryRevision, status: "error", completed: 0, total, rows: [], error: payload.error });
       setRunning(null); workerRef.current?.terminate(); workerRef.current = null; setMessage(payload.error);
     };
     worker.onerror = (event) => {
       const error = event.message || "Authoritative proof worker failed.";
-      setAuthoritativeProof((current) => current ? { ...current, status: "error", error } : { candidateUpdatedAt: candidate.updatedAt, status: "error", completed: 0, total, rows: [], error });
+      setAuthoritativeProof((current) => current ? { ...current, status: "error", error } : { geometryRevision, status: "error", completed: 0, total, rows: [], error });
       setRunning(null); workerRef.current?.terminate(); workerRef.current = null; setMessage(error);
     };
-    worker.postMessage({ candidate, maxExpandedStates: 180000 });
+    worker.postMessage({ candidate, geometryRevision, maxExpandedStates: 180000 });
   }
 
   function cancelAuthoritativeProof() {
@@ -454,8 +456,8 @@ export function InterventionEditor({ candidate, repairContextCandidate, onSave, 
           <button className="secondary-button" type="button" disabled={!selectedEditable || running !== null || draftDirty} title={draftDirty ? "Save the geometry edit first." : undefined} onClick={exploreAround}>{running === "explore" ? "Exploring…" : "Explore around edit"}</button>
         </div>
         <p className="microcopy">Drag/drop changes save immediately with a recovery checkpoint. Use Precision controls only when you want exact dimensions or coordinates; then click Save edit before evaluating.</p>
-        {authoritativeProof && <div className={`authoritative-proof-panel ${authoritativeProof.candidateUpdatedAt !== candidate.updatedAt ? "is-stale" : ""}`}>
-          <div className="authoritative-proof-head"><div><b>Authoritative circulation</b><span>{authoritativeProof.status === "running" ? `Running ${authoritativeProof.currentStallLabel ?? "planner"} · ${authoritativeProof.completed}/${authoritativeProof.total} stalls complete` : authoritativeProof.status === "complete" ? `${authoritativeProof.result?.summary.fullCirculationPass ?? 0}/${authoritativeProof.result?.summary.stallCount ?? authoritativeProof.total} full-circulation stalls proven` : authoritativeProof.status}</span></div><strong>{authoritativeProof.candidateUpdatedAt !== candidate.updatedAt ? "STALE" : authoritativeProof.result?.pass ? "HARD PASS" : authoritativeProof.status.toUpperCase()}</strong></div>
+        {authoritativeProof && <div className={`authoritative-proof-panel ${authoritativeProof.geometryRevision !== geometryRevision ? "is-stale" : ""}`}>
+          <div className="authoritative-proof-head"><div><b>Authoritative circulation</b><span>{authoritativeProof.status === "running" ? `Running ${authoritativeProof.currentStallLabel ?? "planner"} · ${authoritativeProof.completed}/${authoritativeProof.total} stalls complete` : authoritativeProof.status === "complete" ? `${authoritativeProof.result?.summary.fullCirculationPass ?? 0}/${authoritativeProof.result?.summary.stallCount ?? authoritativeProof.total} full-circulation stalls proven` : authoritativeProof.status}</span></div><strong>{authoritativeProof.geometryRevision !== geometryRevision ? "STALE" : authoritativeProof.result?.pass ? "HARD PASS" : authoritativeProof.status.toUpperCase()}</strong></div>
           {authoritativeProof.rows.length > 0 && <div className="authoritative-stall-grid">{authoritativeProof.rows.map((row) => <article key={row.stallId}><b>{row.stallId}</b><span className={row.fullCirculationPass ? "repair-pass" : "repair-fail"}>{row.fullCirculationPass ? "FULL PASS" : "OPEN"}</span><small>Inbound {row.inbound.found ? "proven" : "open"} · outbound {row.outbound.found ? "proven" : "open"}</small><small>{row.inbound.expandedStates.toLocaleString()} in / {row.outbound.expandedStates.toLocaleString()} out states</small></article>)}</div>}
           {authoritativeProof.status === "error" && <p>{authoritativeProof.error}</p>}
           <small>Hard geometry only. An unclosed search means not proven within the search contract; it is not a mathematical impossibility finding. Comfort and professional/AHJ gates remain separate.</small>

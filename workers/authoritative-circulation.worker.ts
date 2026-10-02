@@ -3,19 +3,19 @@
 import { evaluateAuthoritativeCirculation, type AuthoritativeCirculationResult, type StallAuthoritativeCirculation } from "@/packages/circulation/authoritative-search";
 import type { CandidateRecord, StallComponent } from "@/packages/candidates";
 
-type RequestMessage = { candidate: CandidateRecord; maxExpandedStates?: number };
+type RequestMessage = { candidate: CandidateRecord; geometryRevision: string; maxExpandedStates?: number };
 
 type ProgressMessage = {
   type: "progress";
-  candidateUpdatedAt: string;
+  geometryRevision: string;
   stallId: string;
   stallLabel: string;
   index: number;
   total: number;
 };
 type StallMessage = Omit<ProgressMessage, "type"> & { type: "stall"; row: StallAuthoritativeCirculation };
-type CompleteMessage = { type: "complete"; candidateUpdatedAt: string; result: AuthoritativeCirculationResult };
-type ErrorMessage = { type: "error"; candidateUpdatedAt: string; error: string };
+type CompleteMessage = { type: "complete"; geometryRevision: string; result: AuthoritativeCirculationResult };
+type ErrorMessage = { type: "error"; geometryRevision: string; error: string };
 
 function combine(candidate: CandidateRecord, parts: AuthoritativeCirculationResult[], rows: StallAuthoritativeCirculation[]): AuthoritativeCirculationResult {
   const seed = parts[0];
@@ -40,7 +40,7 @@ function combine(candidate: CandidateRecord, parts: AuthoritativeCirculationResu
 }
 
 self.onmessage = (event: MessageEvent<RequestMessage>) => {
-  const { candidate, maxExpandedStates = 180000 } = event.data;
+  const { candidate, geometryRevision, maxExpandedStates = 180000 } = event.data;
   try {
     const stalls = candidate.components.filter((item): item is StallComponent => item.kind === "stall");
     const parts: AuthoritativeCirculationResult[] = [];
@@ -48,7 +48,7 @@ self.onmessage = (event: MessageEvent<RequestMessage>) => {
     stalls.forEach((stall, index) => {
       const progress: ProgressMessage = {
         type: "progress",
-        candidateUpdatedAt: candidate.updatedAt,
+        geometryRevision,
         stallId: stall.id,
         stallLabel: stall.label,
         index,
@@ -63,12 +63,12 @@ self.onmessage = (event: MessageEvent<RequestMessage>) => {
       self.postMessage(completed);
     });
     const result = combine(candidate, parts, rows);
-    const complete: CompleteMessage = { type: "complete", candidateUpdatedAt: candidate.updatedAt, result };
+    const complete: CompleteMessage = { type: "complete", geometryRevision, result };
     self.postMessage(complete);
   } catch (cause) {
     const failure: ErrorMessage = {
       type: "error",
-      candidateUpdatedAt: candidate.updatedAt,
+      geometryRevision,
       error: cause instanceof Error ? cause.message : "Authoritative circulation worker failed."
     };
     self.postMessage(failure);
