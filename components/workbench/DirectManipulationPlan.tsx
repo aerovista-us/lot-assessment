@@ -7,7 +7,8 @@ import type {
   OpeningComponent,
   PathComponent,
   PlacementComponent,
-  PolygonComponent
+  PolygonComponent,
+  RoofComponent
 } from "@/packages/candidates";
 import { isInterventionEditable } from "@/packages/candidates/intervention";
 import { assertPolygonIntegrity, polygonWinding } from "@/packages/candidates/geometry-integrity";
@@ -99,6 +100,7 @@ export function DirectManipulationPlan({ candidate, selectedComponentId, disable
   const paths = candidate.components.filter((item): item is PathComponent => item.kind === "driveway" || item.kind === "route");
   const stalls = candidate.components.filter((item) => item.kind === "stall");
   const openings = candidate.components.filter((item): item is OpeningComponent => item.kind === "opening");
+  const roofs = candidate.components.filter((item): item is RoofComponent => item.kind === "roof");
 
   const svgPoint = (clientX: number, clientY: number): Point => {
     const svg = svgRef.current;
@@ -361,6 +363,15 @@ export function DirectManipulationPlan({ candidate, selectedComponentId, disable
           { kind: "rotation", pointerId: event.pointerId, componentId: rawItem.id, center, limit }, rawItem.id)} />
       </g>;
     })}
+    {roofs.flatMap((roof) => roof.zones.map((zone) => {
+      if (!zone.ridgeA || !zone.ridgeB) return null;
+      return <g key={`${roof.id}-${zone.id}`} data-component-id={roof.id}
+        className={selectableClass(roof, `candidate-plan-roof ${roof.status === "LOCKED" ? "roof-locked" : "roof-unlocked"}`)}
+        onPointerDown={click(roof)}>
+        <line x1={zone.ridgeA[0]} y1={zone.ridgeA[1]} x2={zone.ridgeB[0]} y2={zone.ridgeB[1]} />
+        <text x={(zone.ridgeA[0] + zone.ridgeB[0]) / 2} y={(zone.ridgeA[1] + zone.ridgeB[1]) / 2 - 1.2}>{zone.label}</text>
+      </g>;
+    }))}
     {openings.map((rawOpening) => {
       const item = displayOpening(rawOpening);
       const rawOwner = placementById.get(item.ownerId);

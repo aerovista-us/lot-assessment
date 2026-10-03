@@ -1,6 +1,6 @@
 "use client";
 
-import type { CandidateComponent, CandidateRecord, PathComponent, PlacementComponent, PolygonComponent } from "@/packages/candidates";
+import type { CandidateComponent, CandidateRecord, PathComponent, PlacementComponent, PolygonComponent, RoofComponent } from "@/packages/candidates";
 
 const points = (polygon: ReadonlyArray<readonly [number, number]>) => polygon.map(([x, y]) => `${x},${y}`).join(" ");
 
@@ -39,6 +39,7 @@ export function CandidatePlan({ candidate, selectedComponentId, onSelectComponen
   const paths = candidate.components.filter((item): item is PathComponent => (item.kind === "driveway" || item.kind === "route") && "points" in item);
   const stalls = candidate.components.filter((item) => item.kind === "stall");
   const openings = candidate.components.filter((item) => item.kind === "opening");
+  const roofs = candidate.components.filter((item): item is RoofComponent => item.kind === "roof");
 
   const selectableClass = (id: string, base: string) => `${base}${onSelectComponent ? " candidate-plan-selectable" : ""}${selectedComponentId === id ? " candidate-plan-selected" : ""}`;
   const select = (id: string) => onSelectComponent ? () => onSelectComponent(id) : undefined;
@@ -53,6 +54,15 @@ export function CandidatePlan({ candidate, selectedComponentId, onSelectComponen
       {item.polygon ? <polygon points={points(item.polygon)} /> : <rect x={item.x} y={item.y} width={item.widthFt} height={item.depthFt} rx=".5" />}
       <text x={item.x + item.widthFt / 2} y={item.y + item.depthFt / 2}>{item.label}</text>
     </g>)}
+    {roofs.flatMap((roof) => roof.zones.map((zone) => {
+      if (!zone.ridgeA || !zone.ridgeB) return null;
+      return <g key={`${roof.id}-${zone.id}`} data-component-id={roof.id}
+        className={selectableClass(roof.id, `candidate-plan-roof ${roof.status === "LOCKED" ? "roof-locked" : "roof-unlocked"}`)}
+        onClick={select(roof.id)}>
+        <line x1={zone.ridgeA[0]} y1={zone.ridgeA[1]} x2={zone.ridgeB[0]} y2={zone.ridgeB[1]} />
+        <text x={(zone.ridgeA[0] + zone.ridgeB[0]) / 2} y={(zone.ridgeA[1] + zone.ridgeB[1]) / 2 - 1.2}>{zone.label}</text>
+      </g>;
+    }))}
     {openings.map((item) => {
       const owner = placementById.get(item.ownerId);
       if (!owner) return null;

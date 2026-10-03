@@ -1,5 +1,6 @@
 import { evaluateSweptPath, FULL_SIZE_SUV, vehiclePolygon, type Obstacle } from "@/packages/circulation";
 import { distanceToPolygonBoundary, pointInPolygon, polygonInside, rectangle, rotatePolygon, type Point, type Polygon } from "@/packages/geometry";
+import { validateCandidateRoofs } from "@/packages/roof-geometry";
 import {
   applyCandidateEvaluation,
   editOpeningComponent,
@@ -207,6 +208,48 @@ function openingGate(candidate: CandidateRecord): GateEvaluation {
   };
 }
 
+function roofGate(candidate: CandidateRecord): GateEvaluation {
+  const roofs = validateCandidateRoofs(candidate.components);
+  if (!roofs.results.length) {
+    return {
+      id: "intervention-roof",
+      label: "Roof geometry contract",
+      status: "WATCH",
+      summary: "No roof model is attached yet. Elevations/sections may show only clearly labeled concept roof graphics.",
+      blockerClass: "roof-geometry",
+      repairClasses: ["create-roof-model"]
+    };
+  }
+  if (roofs.invalid > 0) {
+    const errors = roofs.results.flatMap((item) => item.errors).slice(0, 4);
+    return {
+      id: "intervention-roof",
+      label: "Roof geometry contract",
+      status: "FAIL",
+      summary: `${roofs.invalid} roof model(s) fail closed: ${errors.join("; ")}`,
+      blockerClass: "roof-geometry",
+      repairClasses: ["unlock-roof", "edit-ridge", "edit-pitch", "revalidate-roof"]
+    };
+  }
+  if (roofs.conceptOnly > 0) {
+    return {
+      id: "intervention-roof",
+      label: "Roof geometry contract",
+      status: "WATCH",
+      summary: `${roofs.conceptOnly} roof model(s) remain CONCEPT ONLY. They cannot be represented as authoritative ridge/slope geometry until locked through the roof solver.`,
+      blockerClass: "roof-geometry",
+      repairClasses: ["edit-ridge", "edit-pitch", "lock-roof"]
+    };
+  }
+  return {
+    id: "intervention-roof",
+    label: "Roof geometry contract",
+    status: "PASS",
+    summary: `${roofs.locked} roof model(s) are geometry-locked to their exact owner footprints through the shared roof solver.`,
+    blockerClass: "roof-geometry"
+  };
+}
+
 function routeGate(candidate: CandidateRecord): GateEvaluation {
   const parcel = parcelPolygon(candidate);
   const paths = candidate.components.filter((item): item is PathComponent => item.kind === "driveway" || item.kind === "route");
@@ -265,6 +308,7 @@ export function evaluateInterventionCandidate(candidate: CandidateRecord, rulesV
     structureOverlapGate(candidate),
     ...programAndParkingGates(candidate),
     openingGate(candidate),
+    roofGate(candidate),
     routeGate(candidate),
     {
       id: "authoritative-outbound",

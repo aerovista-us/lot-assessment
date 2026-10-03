@@ -22,6 +22,18 @@ function d4BaseComponents(): CandidateComponent[] {
     { id: "garage-a", kind: "garage", label: "Garage A", x: 5, y: 29, widthFt: 22, depthFt: 22, rotationDeg: 0, movable: true, resizable: false, rotationLimitDeg: 45 },
     { id: "garage-b-opening", kind: "opening", label: "Garage B east opening", ownerId: "garage-b", wall: "east", openingWidthFt: 20, offsetFt: 1 },
     { id: "garage-a-opening", kind: "opening", label: "Garage A east opening", ownerId: "garage-a", wall: "east", openingWidthFt: 20, offsetFt: 1 },
+    { id: "roof-home-b", kind: "roof", label: "Home B roof", ownerId: "home-b", status: "UNLOCKED", staleReason: "Design 4 roof geometry has not been adopted.", zones: [
+      { id: "home-b-roof-zone-1", label: "Main gable draft", status: "UNLOCKED", type: "gable", plateZFt: null, ridgeA: null, ridgeB: null, solveBy: "PITCH", pitchRise: null, pitchRun: 12, ridgeZFt: null }
+    ] },
+    { id: "roof-home-a", kind: "roof", label: "Home A roof", ownerId: "home-a", status: "UNLOCKED", staleReason: "Design 4 roof geometry has not been adopted.", zones: [
+      { id: "home-a-roof-zone-1", label: "Main gable draft", status: "UNLOCKED", type: "gable", plateZFt: null, ridgeA: null, ridgeB: null, solveBy: "PITCH", pitchRise: null, pitchRun: 12, ridgeZFt: null }
+    ] },
+    { id: "roof-garage-b", kind: "roof", label: "Garage B roof", ownerId: "garage-b", status: "UNLOCKED", staleReason: "Design 4 garage roof geometry has not been adopted.", zones: [
+      { id: "garage-b-roof-zone-1", label: "Main gable draft", status: "UNLOCKED", type: "gable", plateZFt: null, ridgeA: null, ridgeB: null, solveBy: "PITCH", pitchRise: null, pitchRun: 12, ridgeZFt: null }
+    ] },
+    { id: "roof-garage-a", kind: "roof", label: "Garage A roof", ownerId: "garage-a", status: "UNLOCKED", staleReason: "Design 4 garage roof geometry has not been adopted.", zones: [
+      { id: "garage-a-roof-zone-1", label: "Main gable draft", status: "UNLOCKED", type: "gable", plateZFt: null, ridgeA: null, ridgeB: null, solveBy: "PITCH", pitchRise: null, pitchRun: 12, ridgeZFt: null }
+    ] },
     { id: "b-north", kind: "stall", label: "B-North", garageId: "garage-b", axleX: 22.25, axleY: 10.5, headingDeg: 180, vehicleId: "FS-SUV" },
     { id: "b-south", kind: "stall", label: "B-South", garageId: "garage-b", axleX: 22.25, axleY: 21.5, headingDeg: 180, vehicleId: "FS-SUV" },
     { id: "a-north", kind: "stall", label: "A-North", garageId: "garage-a", axleX: 22.25, axleY: 34.5, headingDeg: 180, vehicleId: "FS-SUV" },

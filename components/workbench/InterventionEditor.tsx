@@ -3,9 +3,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CandidatePlan } from "@/components/workbench/CandidatePlan";
 import { DirectManipulationPlan, type DirectManipulation } from "@/components/workbench/DirectManipulationPlan";
-import type { CandidateComponent, CandidateRecord } from "@/packages/candidates";
+import type { CandidateComponent, CandidateRecord, PlacementComponent, RoofComponent, RoofVerticalAuthority } from "@/packages/candidates";
 import {
+  addRoofZone,
   applyCandidateEvaluation,
+  createRoofComponent,
   currentRepairClasses,
   editOpeningComponent,
   editPathPoint,
@@ -13,15 +15,20 @@ import {
   editPlacementComponent,
   editPlacementVertex,
   editPlacementWallLength,
+  editRoofZone,
+  lockRoofComponent,
   mirrorPlacementComponent,
   insertPlacementVertex,
   removePlacementVertex,
+  removeRoofZone,
+  unlockRoofComponent,
   isInterventionEditable,
   suggestedEditableComponent
 } from "@/packages/candidates/intervention";
 import type { InterventionSuggestion } from "@/packages/candidates/intervention-evaluation";
 import type { AuthoritativeCirculationResult, StallAuthoritativeCirculation } from "@/packages/circulation/authoritative-search";
 import { interventionGeometryRevision } from "@/packages/canonical/intervention-geometry";
+import { validateCandidateRoofs, validateRoofComponent } from "@/packages/roof-geometry";
 
 
 type AuthoritativeProofState = {
@@ -49,6 +56,14 @@ function numberValue(value: string, fallback: number) {
 function fieldKey(prefix: string, index: number, axis: "x" | "y") {
   return `${prefix}-${index}-${axis}`;
 }
+function roofFieldKey(index: number, field: string) {
+  return `roof-${index}-${field}`;
+}
+function nullableNumberValue(value: string | undefined, fallback: number | null) {
+  if (value == null || value.trim() === "") return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
 function initialDraft(component: CandidateComponent | null) {
   const draft: Record<string, string> = {};
   if (!component) return draft;
@@ -71,6 +86,24 @@ function initialDraft(component: CandidateComponent | null) {
     component.polygon.forEach(([x, y], index) => {
       draft[fieldKey("vertex", index, "x")] = String(x);
       draft[fieldKey("vertex", index, "y")] = String(y);
+    });
+  }
+  if (component.kind === "roof") {
+    component.zones.forEach((zone, index) => {
+      draft[roofFieldKey(index, "plateZFt")] = zone.plateZFt == null ? "" : String(zone.plateZFt);
+      draft[roofFieldKey(index, "ridgeAx")] = zone.ridgeA ? String(zone.ridgeA[0]) : "";
+      draft[roofFieldKey(index, "ridgeAy")] = zone.ridgeA ? String(zone.ridgeA[1]) : "";
+      draft[roofFieldKey(index, "ridgeBx")] = zone.ridgeB ? String(zone.ridgeB[0]) : "";
+      draft[roofFieldKey(index, "ridgeBy")] = zone.ridgeB ? String(zone.ridgeB[1]) : "";
+      draft[roofFieldKey(index, "solveBy")] = zone.solveBy;
+      draft[roofFieldKey(index, "pitchRise")] = zone.pitchRise == null ? "" : String(zone.pitchRise);
+      draft[roofFieldKey(index, "pitchRun")] = zone.pitchRun == null ? "" : String(zone.pitchRun);
+      draft[roofFieldKey(index, "ridgeZFt")] = zone.ridgeZFt == null ? "" : String(zone.ridgeZFt);
+      draft[roofFieldKey(index, "source")] = zone.source ?? "";
+      zone.footprint?.slice(0, 4).forEach(([x, y], pointIndex) => {
+        draft[roofFieldKey(index, `footprint-${pointIndex}-x`)] = String(x);
+        draft[roofFieldKey(index, `footprint-${pointIndex}-y`)] = String(y);
+      });
     });
   }
   return draft;
@@ -100,6 +133,7 @@ export function InterventionEditor({ candidate, repairContextCandidate, onSave, 
   const repairClasses = currentRepairClasses(repairContext);
   const draftDirty = selected ? JSON.stringify(draft) !== JSON.stringify(initialDraft(selected)) : false;
   const geometryRevision = useMemo(() => interventionGeometryRevision(candidate), [candidate.components, candidate.id, candidate.revisionLabel]);
+  const roofSummary = useMemo(() => validateCandidateRoofs(candidate.components), [candidate.components]);
 
   useEffect(() => {
     if (!selectedId || !candidate.components.some((component) => component.id === selectedId && isInterventionEditable(component))) {
@@ -205,6 +239,41 @@ export function InterventionEditor({ candidate, repairContextCandidate, onSave, 
             numberValue(draft[fieldKey("vertex", i, "x")], polygon.polygon[i][0]),
             numberValue(draft[fieldKey("vertex", i, "y")], polygon.polygon[i][1])
           ]);
+        }
+      } else if (selected.kind === "roof") {
+        for (let i = 0; i < selected.zones.length; i += 1) {
+          const current = next.components.find((component): component is RoofComponent => component.id === selected.id && component.kind === "roof");
+          if (!current) continue;
+          const zone = current.zones[i];
+          if (!zone) continue;
+          const ax = nullableNumberValue(draft[roofFieldKey(i, "ridgeAx")], zone.ridgeA?.[0] ?? null);
+          const ay = nullableNumberValue(draft[roofFieldKey(i, "ridgeAy")], zone.ridgeA?.[1] ?? null);
+          const bx = nullableNumberValue(draft[roofFieldKey(i, "ridgeBx")], zone.ridgeB?.[0] ?? null);
+          const by = nullableNumberValue(draft[roofFieldKey(i, "ridgeBy")], zone.ridgeB?.[1] ?? null);
+          const footprintKeys = Array.from({ length: 4 }, (_, pointIndex) => [
+            roofFieldKey(i, `footprint-${pointIndex}-x`), roofFieldKey(i, `footprint-${pointIndex}-y`)
+          ] as const).flat();
+          const footprintProvided = footprintKeys.filter((key) => (draft[key] ?? "").trim() !== "").length;
+          if (footprintProvided !== 0 && footprintProvided !== 8) {
+            throw new Error(`${zone.label}: enter all X/Y values for all four roof-zone corners, or leave the footprint blank to use the owner footprint.`);
+          }
+          const explicitFootprint = footprintProvided === 8
+            ? Array.from({ length: 4 }, (_, pointIndex) => [
+                numberValue(draft[roofFieldKey(i, `footprint-${pointIndex}-x`)], 0),
+                numberValue(draft[roofFieldKey(i, `footprint-${pointIndex}-y`)], 0)
+              ] as const)
+            : zone.footprint;
+          next = editRoofZone(next, selected.id, zone.id, {
+            footprint: explicitFootprint ? explicitFootprint.map(([x,y]) => [x,y]) : undefined,
+            plateZFt: nullableNumberValue(draft[roofFieldKey(i, "plateZFt")], zone.plateZFt),
+            ridgeA: ax == null || ay == null ? null : [ax, ay],
+            ridgeB: bx == null || by == null ? null : [bx, by],
+            solveBy: (draft[roofFieldKey(i, "solveBy")] ?? zone.solveBy) as RoofVerticalAuthority,
+            pitchRise: nullableNumberValue(draft[roofFieldKey(i, "pitchRise")], zone.pitchRise),
+            pitchRun: nullableNumberValue(draft[roofFieldKey(i, "pitchRun")], zone.pitchRun),
+            ridgeZFt: nullableNumberValue(draft[roofFieldKey(i, "ridgeZFt")], zone.ridgeZFt),
+            source: draft[roofFieldKey(i, "source")]?.trim() || zone.source
+          });
         }
       }
       if (JSON.stringify(next.components) === JSON.stringify(candidate.components)) {
@@ -359,13 +428,86 @@ export function InterventionEditor({ candidate, repairContextCandidate, onSave, 
     }
   }
 
+  function createRoofForBuilding(owner: PlacementComponent) {
+    try {
+      onCheckpoint(`Before creating roof model for ${owner.label}`);
+      const next = createRoofComponent(candidate, owner.id);
+      onSave(next);
+      setSelectedId(`roof-${owner.id}`);
+      setMessage(`${owner.label} roof draft created. It is CONCEPT ONLY until exact ridge/plate/pitch geometry passes the roof lock gate.`);
+    } catch (cause) {
+      setMessage(cause instanceof Error ? cause.message : "Unable to create roof model.");
+    }
+  }
+
+  function lockSelectedRoof() {
+    if (!selected || selected.kind !== "roof") return;
+    try {
+      if (draftDirty) throw new Error("Save the roof draft before locking it.");
+      onCheckpoint(`Before locking ${selected.label}`);
+      onSave(lockRoofComponent(candidate, selected.id));
+      setMessage(`${selected.label} passed the roof geometry solver and is now geometry-locked.`);
+    } catch (cause) {
+      setMessage(cause instanceof Error ? cause.message : "Roof lock failed.");
+    }
+  }
+
+  function unlockSelectedRoof() {
+    if (!selected || selected.kind !== "roof") return;
+    try {
+      onCheckpoint(`Before unlocking ${selected.label}`);
+      onSave(unlockRoofComponent(candidate, selected.id));
+      setMessage(`${selected.label} unlocked for editing. Renderers must treat it as CONCEPT ONLY until it passes lock again.`);
+    } catch (cause) {
+      setMessage(cause instanceof Error ? cause.message : "Unable to unlock roof.");
+    }
+  }
+
+  function addZoneToSelectedRoof() {
+    if (!selected || selected.kind !== "roof") return;
+    try {
+      onCheckpoint(`Before adding roof zone to ${selected.label}`);
+      onSave(addRoofZone(candidate, selected.id));
+      setMessage("Additional gable zone added as an unlocked draft. Enter exact geometry before locking.");
+    } catch (cause) {
+      setMessage(cause instanceof Error ? cause.message : "Unable to add roof zone.");
+    }
+  }
+
+  function removeZoneFromSelectedRoof(zoneId: string) {
+    if (!selected || selected.kind !== "roof") return;
+    try {
+      onCheckpoint(`Before removing roof zone from ${selected.label}`);
+      onSave(removeRoofZone(candidate, selected.id, zoneId));
+      setMessage("Roof zone removed. Roof remains CONCEPT ONLY until revalidated.");
+    } catch (cause) {
+      setMessage(cause instanceof Error ? cause.message : "Unable to remove roof zone.");
+    }
+  }
+
   const selectedEditable = selected && isInterventionEditable(selected) ? selected : null;
+  const selectedRoofOwner = selectedEditable?.kind === "roof"
+    ? candidate.components.find((item): item is PlacementComponent => item.id === selectedEditable.ownerId && (item.kind === "home" || item.kind === "garage")) ?? null
+    : null;
+  const selectedRoofValidation = selectedEditable?.kind === "roof"
+    ? validateRoofComponent(selectedEditable, selectedRoofOwner)
+    : null;
+  const selectedBuildingRoof = selectedEditable && (selectedEditable.kind === "home" || selectedEditable.kind === "garage")
+    ? candidate.components.find((item): item is RoofComponent => item.kind === "roof" && item.ownerId === selectedEditable.id) ?? null
+    : null;
   return <section className="wb-panel intervention-editor-panel">
     <div className="section-heading intervention-editor-head">
-      <div><p className="eyebrow">INTERVENTION EDITOR V3</p><h2>Drag the plan directly, then make the machine re-check it.</h2></div>
+      <div><p className="eyebrow">INTERVENTION EDITOR V4</p><h2>Drag the plan directly, then make the machine re-check it.</h2></div>
       <span className="mode-pill">{candidate.evidenceState} EVIDENCE</span>
     </div>
     <div className="candidate-warning-box intervention-truth-boundary"><b>Screening boundary</b><p>Evaluate exact edit is a fast screening layer for static geometry, enclosed parking and route hints. Run authoritative proof separately to test continuous stall-to-street circulation. Neither action replaces professional/AHJ review.</p></div>
+    <div className={`candidate-warning-box roof-contract-summary ${roofSummary.invalid ? "has-error" : roofSummary.locked && !roofSummary.conceptOnly ? "is-locked" : ""}`}><b>Roof geometry contract</b><p>{roofSummary.invalid
+      ? `${roofSummary.invalid} roof model(s) are invalid and fail closed. Authoritative roof output is prohibited.`
+      : roofSummary.results.length === 0
+        ? "No roof model exists yet. Any roof shown in deliverables must remain explicitly conceptual."
+        : roofSummary.conceptOnly
+          ? `${roofSummary.conceptOnly} roof model(s) remain CONCEPT ONLY · ${roofSummary.locked} geometry-locked.`
+          : `${roofSummary.locked} roof model(s) are geometry-locked to their exact owner footprints.`}</p></div>
     {repairClasses.length > 0 && <div className="candidate-chip-row intervention-repairs">{repairClasses.map((repair) => <span key={repair}>{repair}</span>)}</div>}
     <div className="intervention-grid">
       <div className="intervention-plan-wrap">
@@ -377,7 +519,7 @@ export function InterventionEditor({ candidate, repairContextCandidate, onSave, 
           }} onCommit={commitDirectManipulation} />
         <div className="direct-manipulation-help">
           <span><b>Move</b> drag a home or garage</span><span><b>Rotate</b> drag the round handle above any selected building</span>
-          <span><b>Shape</b> drag wall/corner handles · double-click a wall midpoint to add a point · double-click an extra corner to remove it</span><span><b>Driveway</b> drag the round route points</span><span><b>Pavement</b> select it, then drag a corner</span>
+          <span><b>Shape</b> drag wall/corner handles · double-click a wall midpoint to add a point · double-click an extra corner to remove it</span><span><b>Driveway</b> drag the round route points</span><span><b>Pavement</b> select it, then drag a corner</span><span><b>Roof</b> select a ridge line or roof component for exact pitch/ridge controls</span>
         </div>
         <p className="microcopy">Drag/drop saves the geometry immediately with a recovery checkpoint. Parcel and derived envelope geometry stay protected.</p>
       </div>
@@ -393,6 +535,12 @@ export function InterventionEditor({ candidate, repairContextCandidate, onSave, 
             <Field label="Width ft" value={draft.widthFt ?? ""} disabled={!selectedEditable.resizable} onChange={(value) => setField("widthFt", value)} />
             <Field label="Depth ft" value={draft.depthFt ?? ""} disabled={!selectedEditable.resizable} onChange={(value) => setField("depthFt", value)} />
             <Field label="Rotation deg" value={draft.rotationDeg ?? "0"} step={1} onChange={(value) => setField("rotationDeg", value)} />
+          </div>
+          <div className="roof-owner-callout">
+            <b>Roof geometry</b>
+            {selectedBuildingRoof
+              ? <><span>{selectedBuildingRoof.status === "LOCKED" ? "GEOMETRY LOCKED" : "CONCEPT ONLY"}</span><button type="button" className="secondary-button" onClick={() => setSelectedId(selectedBuildingRoof.id)}>Open roof model</button></>
+              : <><span>NO ROOF MODEL</span><button type="button" className="secondary-button" onClick={() => createRoofForBuilding(selectedEditable)}>Create roof model</button></>}
           </div>
           <div className="shape-editor-tools">
             <b>Shape tools</b>
@@ -435,6 +583,44 @@ export function InterventionEditor({ candidate, repairContextCandidate, onSave, 
           <Field label="Offset ft" value={draft.offsetFt ?? ""} onChange={(value) => setField("offsetFt", value)} />
         </div>}
 
+        {selectedEditable?.kind === "roof" && <div className="roof-editor">
+          <div className="roof-status-row">
+            <div><b>{selectedEditable.label}</b><span>{selectedRoofValidation?.status ?? "NO_MODEL"}</span></div>
+            <small>{selectedEditable.staleReason ?? (selectedRoofValidation?.authoritative ? "Exact owner footprint + roof geometry validated." : "Roof is not authoritative.")}</small>
+          </div>
+          {selectedRoofValidation?.errors.length ? <div className="roof-error-list">{selectedRoofValidation.errors.map((error) => <span key={error}>{error}</span>)}</div> : null}
+          {selectedEditable.zones.map((zone, index) => <article key={zone.id} className="roof-zone-editor">
+            <div className="roof-zone-head"><b>{zone.label}</b><span>{zone.status}</span><button type="button" className="tiny-action" onClick={() => removeZoneFromSelectedRoof(zone.id)}>Remove zone</button></div>
+            <label className="intervention-select-label">Vertical authority<select value={draft[roofFieldKey(index, "solveBy")] ?? zone.solveBy} onChange={(event) => setField(roofFieldKey(index, "solveBy"), event.target.value)}>
+              <option value="PITCH">Pitch → derive ridge Z</option><option value="RIDGE_Z">Ridge Z → derive pitch</option>
+            </select></label>
+            <details className="roof-zone-footprint"><summary>Roof-zone footprint <span>{zone.footprint ? "explicit 4-corner zone" : "uses owner footprint"}</span></summary>
+              <p className="microcopy">Centered-gable v1 locks only rectangular zones. Leave all corners blank to use a rectangular owner footprint. Irregular buildings must be tiled by explicit 4-corner zones with no gaps or overlaps.</p>
+              <div className="intervention-field-grid">
+                {Array.from({ length: 4 }, (_, pointIndex) => <div className="roof-zone-corner" key={pointIndex}><b>Corner {pointIndex + 1}</b>
+                  <Field label="X" value={draft[roofFieldKey(index, `footprint-${pointIndex}-x`)] ?? ""} step={.25} onChange={(value) => setField(roofFieldKey(index, `footprint-${pointIndex}-x`), value)} />
+                  <Field label="Y" value={draft[roofFieldKey(index, `footprint-${pointIndex}-y`)] ?? ""} step={.25} onChange={(value) => setField(roofFieldKey(index, `footprint-${pointIndex}-y`), value)} />
+                </div>)}
+              </div>
+            </details>
+            <div className="intervention-field-grid">
+              <Field label="Plate / bearing Z ft" value={draft[roofFieldKey(index, "plateZFt")] ?? ""} step={.25} onChange={(value) => setField(roofFieldKey(index, "plateZFt"), value)} />
+              <Field label="Ridge A · X" value={draft[roofFieldKey(index, "ridgeAx")] ?? ""} step={.25} onChange={(value) => setField(roofFieldKey(index, "ridgeAx"), value)} />
+              <Field label="Ridge A · Y" value={draft[roofFieldKey(index, "ridgeAy")] ?? ""} step={.25} onChange={(value) => setField(roofFieldKey(index, "ridgeAy"), value)} />
+              <Field label="Ridge B · X" value={draft[roofFieldKey(index, "ridgeBx")] ?? ""} step={.25} onChange={(value) => setField(roofFieldKey(index, "ridgeBx"), value)} />
+              <Field label="Ridge B · Y" value={draft[roofFieldKey(index, "ridgeBy")] ?? ""} step={.25} onChange={(value) => setField(roofFieldKey(index, "ridgeBy"), value)} />
+              {(draft[roofFieldKey(index, "solveBy")] ?? zone.solveBy) === "PITCH"
+                ? <><Field label="Pitch rise" value={draft[roofFieldKey(index, "pitchRise")] ?? ""} step={.25} onChange={(value) => setField(roofFieldKey(index, "pitchRise"), value)} /><Field label="Pitch run" value={draft[roofFieldKey(index, "pitchRun")] ?? ""} step={.25} onChange={(value) => setField(roofFieldKey(index, "pitchRun"), value)} /></>
+                : <Field label="Ridge Z ft" value={draft[roofFieldKey(index, "ridgeZFt")] ?? ""} step={.25} onChange={(value) => setField(roofFieldKey(index, "ridgeZFt"), value)} />}
+            </div>
+            <label className="intervention-field roof-source-field"><span>Geometry source / provenance</span><input type="text" value={draft[roofFieldKey(index, "source")] ?? ""} placeholder="Adopted roof decision, plan sheet, field measure…" onChange={(event) => setField(roofFieldKey(index, "source"), event.target.value)} /></label>
+          </article>)}
+          <div className="shape-editor-actions"><button type="button" className="secondary-button" onClick={addZoneToSelectedRoof}>Add roof zone</button>
+            {selectedEditable.status === "LOCKED" ? <button type="button" className="secondary-button" onClick={unlockSelectedRoof}>Unlock roof</button> : <button type="button" className="primary-button" disabled={draftDirty} title={draftDirty ? "Save the roof draft first." : undefined} onClick={lockSelectedRoof}>Validate + lock roof geometry</button>}
+          </div>
+          <p className="microcopy">Locking is fail-closed. Ridge location, centered run, plate/bearing datum and pitch/ridge-Z authority must all agree with the exact owner footprint.</p>
+        </div>}
+
         {selectedEditable && (selectedEditable.kind === "driveway" || selectedEditable.kind === "route") && <div className="intervention-point-list">
           {selectedEditable.points.map((point, index) => {
             const locked = Boolean(selectedEditable.movableControlPoints?.length && !selectedEditable.movableControlPoints.includes(index));
@@ -453,7 +639,7 @@ export function InterventionEditor({ candidate, repairContextCandidate, onSave, 
           {running === "authoritative"
             ? <button className="secondary-button" type="button" onClick={cancelAuthoritativeProof}>Cancel authoritative proof</button>
             : <button className="secondary-button" type="button" disabled={running !== null || draftDirty} title={draftDirty ? "Save the geometry edit first." : "Runs continuous-motion proof locally in a background worker."} onClick={runAuthoritativeProof}>Run authoritative proof</button>}
-          <button className="secondary-button" type="button" disabled={!selectedEditable || running !== null || draftDirty} title={draftDirty ? "Save the geometry edit first." : undefined} onClick={exploreAround}>{running === "explore" ? "Exploring…" : "Explore around edit"}</button>
+          <button className="secondary-button" type="button" disabled={!selectedEditable || selectedEditable.kind === "roof" || running !== null || draftDirty} title={selectedEditable?.kind === "roof" ? "Roof alternatives must remain explicit authored geometry; automatic neighborhood exploration is disabled." : draftDirty ? "Save the geometry edit first." : undefined} onClick={exploreAround}>{running === "explore" ? "Exploring…" : "Explore around edit"}</button>
         </div>
         <p className="microcopy">Drag/drop changes save immediately with a recovery checkpoint. Use Precision controls only when you want exact dimensions or coordinates; then click Save edit before evaluating.</p>
         {authoritativeProof && <div className={`authoritative-proof-panel ${authoritativeProof.geometryRevision !== geometryRevision ? "is-stale" : ""}`}>
