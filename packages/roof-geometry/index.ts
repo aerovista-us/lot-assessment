@@ -158,7 +158,25 @@ function polygonContained(inner: ReadonlyArray<Point>, outer: ReadonlyArray<Poin
   if (!inner.every((point) => pointInPolygon(point, outer))) return false;
   return inner.every((point, index) => segmentContainedInPolygon(point, inner[(index + 1) % inner.length], outer));
 }
+function convexPolygonsInteriorOverlap(a: ReadonlyArray<Point>, b: ReadonlyArray<Point>) {
+  const axes: Point[] = [];
+  for (const polygon of [a, b]) {
+    for (let i = 0; i < polygon.length; i += 1) {
+      const edge = subtract(polygon[(i + 1) % polygon.length], polygon[i]);
+      const unit = normalize(edge);
+      if (unit) axes.push([-unit[1], unit[0]]);
+    }
+  }
+  return axes.every((axis) => {
+    const projectionA = a.map((point) => dot(point, axis));
+    const projectionB = b.map((point) => dot(point, axis));
+    const overlap = Math.min(Math.max(...projectionA), Math.max(...projectionB))
+      - Math.max(Math.min(...projectionA), Math.min(...projectionB));
+    return overlap > ROOF_TOLERANCE.planFt;
+  });
+}
 function polygonsInteriorOverlap(a: ReadonlyArray<Point>, b: ReadonlyArray<Point>) {
+  if (rectangleCheck(a).ok && rectangleCheck(b).ok) return convexPolygonsInteriorOverlap(a, b);
   for (let i = 0; i < a.length; i += 1) {
     for (let j = 0; j < b.length; j += 1) {
       if (properSegmentsIntersect(a[i], a[(i + 1) % a.length], b[j], b[(j + 1) % b.length])) return true;

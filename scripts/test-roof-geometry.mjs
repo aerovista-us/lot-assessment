@@ -53,6 +53,41 @@ const concaveValidation = validateRoofComponent(spanningConcaveRoof, concaveOwne
 assert.equal(concaveValidation.status, "FAIL_CLOSED_INVALID");
 assert(concaveValidation.errors.some((error) => /extend outside the owner footprint/i.test(error)), "roof zones may not bridge a concave owner cutout even when crossings land on owner vertices");
 
+const overlapOwner = {
+  ...baseHome,
+  id: "overlap-owner",
+  label: "Overlap balance owner",
+  x: 0, y: 0, widthFt: 10, depthFt: 10, rotationDeg: 0,
+  polygon: undefined
+};
+const overlapBalanceRoof = {
+  id: "roof-overlap-owner",
+  kind: "roof",
+  label: "Overlap balance negative roof",
+  ownerId: overlapOwner.id,
+  status: "LOCKED",
+  ownerGeometryKey: ownerGeometryKey(overlapOwner),
+  zones: [
+    {
+      id: "overlap-zone-a", label: "A", status: "LOCKED", type: "gable",
+      footprint: [[0,0],[6,0],[6,10],[0,10]],
+      plateZFt: 8, ridgeA: [3,0], ridgeB: [3,10],
+      solveBy: "PITCH", pitchRise: 6, pitchRun: 12, ridgeZFt: null,
+      source: "overlap balance negative test A"
+    },
+    {
+      id: "overlap-zone-b", label: "B", status: "LOCKED", type: "gable",
+      footprint: [[4,0],[8,0],[8,10],[4,10]],
+      plateZFt: 8, ridgeA: [6,0], ridgeB: [6,10],
+      solveBy: "PITCH", pitchRise: 6, pitchRun: 12, ridgeZFt: null,
+      source: "overlap balance negative test B"
+    }
+  ]
+};
+const overlapBalanceValidation = validateRoofComponent(overlapBalanceRoof, overlapOwner);
+assert.equal(overlapBalanceValidation.status, "FAIL_CLOSED_INVALID");
+assert(overlapBalanceValidation.errors.some((error) => /overlap in plan/i.test(error)), "overlap and equal-area gap may not cancel each other in roof-zone coverage");
+
 let candidate = editRoofZone(d4, "roof-home-a", "home-a-roof-zone-1", {
   plateZFt: 20,
   ridgeA: [94.5, 18.125],
@@ -177,6 +212,7 @@ console.log(JSON.stringify({
   duplicateRoofOwnersFailClosed: duplicateSummary.renderPolicy === "FAIL_CLOSED_INVALID",
   orphanRoofsFailClosed: orphanSummary.renderPolicy === "FAIL_CLOSED_INVALID",
   concaveCutoutBridgeRejected: concaveValidation.status === "FAIL_CLOSED_INVALID",
+  balancedOverlapGapRejected: overlapBalanceValidation.errors.some((error) => /overlap in plan/i.test(error)),
   clearableProvenanceFailsClosed: true,
   status: validation.status,
   pitch: validation.zones[0].pitch12,
