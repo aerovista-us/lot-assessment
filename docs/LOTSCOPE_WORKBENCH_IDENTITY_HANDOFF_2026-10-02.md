@@ -3,9 +3,34 @@
 
 **Date:** 2026-10-02
 **Primary repository:** `aerovista-us/lot-assessment`
-**Current LotScope main:** `56e77ea69fac1c952f48b283e731d45ad8ff5d8a`
+**Current LotScope main:** `4fd2698536bed60708d87d27c08ceb968b040391`
 **Current ACOS main after execution update:** `a82a020eee77f97679aa24775ce647d7b7556118`
-**Status:** Workbench edit → screen → authoritative-proof loop accepted on source/CI. Identity/App-Adapter integration and authenticated shared persistence are the next major platform milestones.
+**Status:** Founder-only Workbench Identity/App-Adapter canary is live in production. Shared persistence remains the next major platform milestone after interactive founder round-trip acceptance.
+
+---
+
+# Production acceptance update — 2026-10-02
+
+The founder-only Identity/App-Adapter canary has now crossed the production infrastructure gate. This section supersedes any older operational-gate wording below.
+
+Accepted production facts:
+
+- `@aerovista-us/app-adapter@0.4.0` is installable by CI and Vercel using a dedicated package-read credential; no package credential is committed to source.
+- LotScope PR #47 merged as `4fd2698536bed60708d87d27c08ceb968b040391` after all five exact-head gates passed: Workbench Identity QA, Intervention Editor QA, vNext Evidence QA, Authoritative Circulation QA, and Pondy Solver Benchmark.
+- ACOS/AVCC production is deployed and healthy at `a82a020eee77f97679aa24775ce647d7b7556118`.
+- Identity Gateway production is deployed and healthy at the same `a82a020eee77f97679aa24775ce647d7b7556118` SHA, with `IDGW_SERVICE_SECRET_LOTSCOPE_WORKBENCH` present in the runtime container.
+- The guarded Identity Gateway deployment passed 9 test files / 62 tests, local and public health, unauthenticated broker rejection, and AVCC connectivity.
+- Production founder canary provisioning assigned exactly `lotscope.workbench.access` to one active founder identity.
+- Vercel project `aerovista-us-projects/lotscope` has both production secrets required by this canary: `NODE_AUTH_TOKEN` and `IDGW_SERVICE_SECRET_LOTSCOPE_WORKBENCH`.
+- The production deployment is Ready and serves `https://lotscope.aerovista.us`.
+- Live anonymous boundary acceptance passed: `/` = 200, `/assessment/guided` = 200, `/workbench-auth` = 200, `/workbench` = 307 to `/workbench-auth?next=/workbench`, `/api/workbench/registry` = 401 `workbench_not_authorized`, and `/api/workbench/auth/session` reports `authenticated:false` without an app session.
+
+Still open before broadening access or starting shared persistence:
+
+1. Perform one interactive founder Account → LotScope handoff in a real browser and verify the native Workbench session is created, `identity.describe()` resolves the founder experience, `identity.can()` grants `lotscope.workbench.access`, Workbench loads, and logout/revoke destroys only the LotScope app session while the Account session remains valid.
+2. Record that browser round-trip evidence as the final founder-canary acceptance artifact.
+3. Keep wider staff/collaborator rollout blocked until Account Session Security v1 is production-promoted and independently verified for app-session inventory/revoke semantics.
+4. Only after the founder round trip is accepted should shared PostgreSQL workspace persistence begin.
 
 ---
 
