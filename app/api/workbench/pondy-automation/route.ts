@@ -1,3 +1,4 @@
+import { requireWorkbenchApiAccess } from "@/lib/aerovista/api-guard";
 import { NextRequest, NextResponse } from "next/server";
 import {
   SITE_AUTOMATION_PASSES,
@@ -37,6 +38,8 @@ type RankedResponse = {
 };
 
 export async function GET(request: NextRequest) {
+  const authGuard = await requireWorkbenchApiAccess();
+  if (authGuard) return authGuard;
   const rankedUrl = new URL("/api/workbench/pondy-ranked", request.url);
   const response = await fetch(rankedUrl, { cache: "no-store" });
   if (!response.ok) {

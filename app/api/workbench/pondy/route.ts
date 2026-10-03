@@ -1,3 +1,4 @@
+import { requireWorkbenchApiAccess } from "@/lib/aerovista/api-guard";
 import { NextResponse } from "next/server";
 import { solveFamilies } from "@/packages/optimizer";
 import { pondyFamilies, pondyProblem } from "@/packages/pondy";
@@ -5,6 +6,8 @@ import { pondyFamilies, pondyProblem } from "@/packages/pondy";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  const authGuard = await requireWorkbenchApiAccess();
+  if (authGuard) return authGuard;
   const started = Date.now();
   const solved = solveFamilies(pondyProblem, pondyFamilies, {
     // Diagnostic-only physical screen. The ranked endpoint is authoritative and owns

@@ -1,0 +1,56 @@
+name: Workbench Identity QA
+
+on:
+  pull_request:
+    paths:
+      - 'app/workbench/**'
+      - 'app/workbench-auth/**'
+      - 'app/api/workbench/**'
+      - 'lib/aerovista/**'
+      - 'package.json'
+      - '.npmrc'
+      - '.github/workflows/workbench-identity-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NODE_AUTH_TOKEN: ${{ secrets.AEROVISTA_PACKAGES_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@aerovista-us'
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Type check
+        run: npm run lint
+      - name: Production build
+        run: npm run build
+      - name: Anonymous boundary smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm start > /tmp/lotscope-identity.log 2>&1 &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null || true' EXIT
+          for i in {1..40}; do
+            curl -fsS http://127.0.0.1:3000/ >/dev/null && break
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:3000/ | grep -q 'GUIDED ASSESSMENT'
+          curl -fsS http://127.0.0.1:3000/assessment/guided >/dev/null
+          curl -fsS http://127.0.0.1:3000/workbench-auth | grep -q 'AeroVista sign in required'
+          test "$(curl -sS -o /tmp/workbench.html -w '%{http_code}' http://127.0.0.1:3000/workbench)" = "307"
+          grep -qi '/workbench-auth' <(curl -sSI http://127.0.0.1:3000/workbench)
+          test "$(curl -sS -o /tmp/registry.json -w '%{http_code}' http://127.0.0.1:3000/api/workbench/registry)" = "401"
+          grep -q 'workbench_not_authorized' /tmp/registry.json
+          curl -fsS http://127.0.0.1:3000/api/workbench/auth/session | grep -q '"authenticated":false'
