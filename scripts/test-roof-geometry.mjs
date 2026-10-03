@@ -50,6 +50,15 @@ const canonical = canonicalizeInterventionGeometry(candidate);
 assert.equal(canonical.schemaVersion, "lotscope-intervention-geometry-v3");
 assert.equal(canonical.roofs.find((item) => item.id === "roof-home-a")?.status, "LOCKED");
 
+const noop = editPlacementComponent(candidate, "home-a", {
+  x: owner.x, y: owner.y, widthFt: owner.widthFt, depthFt: owner.depthFt, rotationDeg: owner.rotationDeg ?? 0
+}, "2026-10-03T06:00:01.500Z");
+assert.equal(noop, candidate, "no-op placement save should return the untouched candidate");
+const noopRoof = noop.components.find((item) => item.id === "roof-home-a");
+assert(noopRoof?.kind === "roof");
+assert.equal(noopRoof.status, "LOCKED", "no-op placement saves must preserve a valid roof lock");
+assert.equal(noopRoof.ownerGeometryKey, roof.ownerGeometryKey, "no-op placement saves must preserve the owner geometry binding");
+
 const moved = editPlacementComponent(candidate, "home-a", { x: 95.5 }, "2026-10-03T06:00:02.000Z");
 const staleRoof = moved.components.find((item) => item.id === "roof-home-a");
 assert(staleRoof?.kind === "roof");
@@ -95,6 +104,11 @@ const tiledValidation = validateRoofComponent(tiledRoof, tiledOwner);
 assert.equal(tiledValidation.status, "ROOF_GEOMETRY_LOCKED");
 assert.equal(tiledValidation.zones.length, 2);
 
+const clearedFootprint = editRoofZone(tiled, "roof-home-b", "home-b-roof-zone-1", { footprint: null }, "2026-10-03T06:01:03.500Z");
+const clearedRoof = clearedFootprint.components.find((item) => item.id === "roof-home-b");
+assert(clearedRoof?.kind === "roof");
+assert.equal(clearedRoof.zones.find((zone) => zone.id === "home-b-roof-zone-1")?.footprint, undefined, "explicit roof-zone footprint must be clearable back to owner-derived geometry");
+
 const discontinuous = editRoofZone(tiled, "roof-home-b", "home-b-roof-zone-2", {
   plateZFt: 21
 }, "2026-10-03T06:01:04.000Z");
@@ -114,6 +128,8 @@ console.log(JSON.stringify({
   pitch: validation.zones[0].pitch12,
   ridgeZFt: validation.zones[0].ridgeZFt,
   footprintDependencyInvalidation: true,
+  noOpPlacementPreservesRoofLock: true,
+  explicitZoneFootprintClearable: true,
   offCenterRidgeRejected: true,
   irregularSingleZoneRejected: true,
   multiZoneCoverageAndContinuity: tiledValidation.status === "ROOF_GEOMETRY_LOCKED",

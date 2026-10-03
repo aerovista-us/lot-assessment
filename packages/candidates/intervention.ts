@@ -124,7 +124,10 @@ export function editPlacementComponent(candidate: CandidateRecord, componentId: 
   if (polygon) assertBuildingPolygon(polygon, originalWinding);
 
   const placementBounds = polygon && deltaRotation ? polygonBounds(polygon) : { x: nextX, y: nextY, widthFt: nextWidth, depthFt: nextDepth };
-  components[index] = { ...target, ...placementBounds, rotationDeg: storedRotation, polygon, ...(polygon ? { polygonVertexIds } : {}) };
+  const nextPlacement: PlacementComponent = { ...target, ...placementBounds, rotationDeg: storedRotation, polygon, ...(polygon ? { polygonVertexIds } : {}) };
+  const ownerGeometryChanged = ownerGeometryKey(target) !== ownerGeometryKey(nextPlacement);
+  if (!ownerGeometryChanged) return candidate;
+  components[index] = nextPlacement;
   if (target.kind === "garage") {
     const radians = deltaRotation * Math.PI / 180;
     for (let i = 0; i < components.length; i += 1) {
@@ -287,10 +290,12 @@ export function editOpeningComponent(candidate: CandidateRecord, componentId: st
   return staleCandidate(candidate, components, updatedAt);
 }
 
-export type RoofZoneEdit = Partial<Pick<RoofZone,
+export type RoofZoneEdit = Omit<Partial<Pick<RoofZone,
   "label" | "footprint" | "plateZFt" | "ridgeA" | "ridgeB" | "solveBy" | "pitchRise" | "pitchRun" |
   "ridgeZFt" | "ridgeZCheckFt" | "pitchCheckRise" | "pitchCheckRun" | "source"
->>;
+>>, "footprint"> & {
+  footprint?: Point[] | null;
+};
 
 export function createRoofComponent(candidate: CandidateRecord, ownerId: string, updatedAt = new Date().toISOString()) {
   const components = cloneCandidateComponents(candidate.components);
@@ -358,7 +363,7 @@ export function editRoofZone(candidate: CandidateRecord, roofId: string, zoneId:
   const next: RoofZone = {
     ...zone,
     label: edit.label ?? zone.label,
-    footprint: edit.footprint === undefined ? zone.footprint : edit.footprint.map(([x,y]) => [round(x),round(y)] as Point),
+    footprint: edit.footprint === undefined ? zone.footprint : edit.footprint === null ? undefined : edit.footprint.map(([x,y]) => [round(x),round(y)] as Point),
     plateZFt: numeric(edit.plateZFt, zone.plateZFt),
     ridgeA: normalizePoint(edit.ridgeA, zone.ridgeA),
     ridgeB: normalizePoint(edit.ridgeB, zone.ridgeB),

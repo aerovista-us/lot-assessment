@@ -43,9 +43,10 @@ A roof draft may contain:
 - pitch rise/run or ridge elevation,
 - geometry source/provenance.
 
-The plan displays entered ridge lines:
+The plan displays entered ridge lines from validation, not the stored status flag alone:
 - dashed purple = unlocked / concept-only,
-- green = geometry-locked.
+- green = solver-validated geometry-locked,
+- dashed red = stored/imported roof data that fails the current roof contract.
 
 **Validate + lock roof geometry** runs the shared solver. Locking fails when:
 - ridge data is incomplete,
@@ -72,7 +73,7 @@ This is intentionally stricter than silently transforming or scaling roof geomet
 
 ## Canonical behavior
 
-Roof components are part of canonical Intervention Geometry v3.
+Roof components are part of canonical Intervention Geometry v3. The legacy `packages/canonical/intervention-v2.ts` entry point remains pinned to the original v2 schema and hash shape so serialized v2 geometry remains hash-compatible.
 
 Changing:
 - ridge endpoints,

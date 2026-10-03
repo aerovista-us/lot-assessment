@@ -1,6 +1,7 @@
 "use client";
 
 import type { CandidateComponent, CandidateRecord, PathComponent, PlacementComponent, PolygonComponent, RoofComponent } from "@/packages/candidates";
+import { validateCandidateRoofs } from "@/packages/roof-geometry";
 
 const points = (polygon: ReadonlyArray<readonly [number, number]>) => polygon.map(([x, y]) => `${x},${y}`).join(" ");
 
@@ -40,6 +41,7 @@ export function CandidatePlan({ candidate, selectedComponentId, onSelectComponen
   const stalls = candidate.components.filter((item) => item.kind === "stall");
   const openings = candidate.components.filter((item) => item.kind === "opening");
   const roofs = candidate.components.filter((item): item is RoofComponent => item.kind === "roof");
+  const roofValidationById = new Map(validateCandidateRoofs(candidate.components).results.map((result) => [result.roofId, result]));
 
   const selectableClass = (id: string, base: string) => `${base}${onSelectComponent ? " candidate-plan-selectable" : ""}${selectedComponentId === id ? " candidate-plan-selected" : ""}`;
   const select = (id: string) => onSelectComponent ? () => onSelectComponent(id) : undefined;
@@ -54,15 +56,19 @@ export function CandidatePlan({ candidate, selectedComponentId, onSelectComponen
       {item.polygon ? <polygon points={points(item.polygon)} /> : <rect x={item.x} y={item.y} width={item.widthFt} height={item.depthFt} rx=".5" />}
       <text x={item.x + item.widthFt / 2} y={item.y + item.depthFt / 2}>{item.label}</text>
     </g>)}
-    {roofs.flatMap((roof) => roof.zones.map((zone) => {
+    {roofs.flatMap((roof) => {
+      const validation = roofValidationById.get(roof.id);
+      const roofClass = validation?.authoritative ? "roof-locked" : validation?.status === "FAIL_CLOSED_INVALID" ? "roof-invalid" : "roof-unlocked";
+      return roof.zones.map((zone) => {
       if (!zone.ridgeA || !zone.ridgeB) return null;
       return <g key={`${roof.id}-${zone.id}`} data-component-id={roof.id}
-        className={selectableClass(roof.id, `candidate-plan-roof ${roof.status === "LOCKED" ? "roof-locked" : "roof-unlocked"}`)}
+        className={selectableClass(roof.id, `candidate-plan-roof ${roofClass}`)}
         onClick={select(roof.id)}>
         <line x1={zone.ridgeA[0]} y1={zone.ridgeA[1]} x2={zone.ridgeB[0]} y2={zone.ridgeB[1]} />
         <text x={(zone.ridgeA[0] + zone.ridgeB[0]) / 2} y={(zone.ridgeA[1] + zone.ridgeB[1]) / 2 - 1.2}>{zone.label}</text>
       </g>;
-    }))}
+    });
+    })}
     {openings.map((item) => {
       const owner = placementById.get(item.ownerId);
       if (!owner) return null;

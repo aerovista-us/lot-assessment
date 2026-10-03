@@ -428,17 +428,19 @@ export function validateCandidateRoofs(components: ReadonlyArray<any>) {
       results.push(validateRoofComponent(owned[0], owner));
       continue;
     }
-    results.push({
-      schemaVersion: ROOF_GEOMETRY_SCHEMA,
-      roofId: owned.map((roof) => roof.id).join(","),
-      ownerId: owner.id,
-      status: "FAIL_CLOSED_INVALID",
-      authoritative: false,
-      safe: false,
-      errors: [`multiple roof components target the same owner: ${owned.map((roof) => roof.id).join(", ")}`],
-      ownerGeometryCurrent: false,
-      zones: []
-    });
+    for (const roof of owned) {
+      results.push({
+        schemaVersion: ROOF_GEOMETRY_SCHEMA,
+        roofId: roof.id,
+        ownerId: owner.id,
+        status: "FAIL_CLOSED_INVALID",
+        authoritative: false,
+        safe: false,
+        errors: [`multiple roof components target the same owner: ${owned.map((item) => item.id).join(", ")}`],
+        ownerGeometryCurrent: false,
+        zones: []
+      });
+    }
   }
   for (const roof of roofs) if (!byOwner.has(roof.ownerId)) results.push(validateRoofComponent(roof, undefined));
   const locked = results.filter((item) => item.status === "ROOF_GEOMETRY_LOCKED").length;

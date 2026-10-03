@@ -262,9 +262,9 @@ export function InterventionEditor({ candidate, repairContextCandidate, onSave, 
                 numberValue(draft[roofFieldKey(i, `footprint-${pointIndex}-x`)], 0),
                 numberValue(draft[roofFieldKey(i, `footprint-${pointIndex}-y`)], 0)
               ] as const)
-            : zone.footprint;
+            : null;
           next = editRoofZone(next, selected.id, zone.id, {
-            footprint: explicitFootprint ? explicitFootprint.map(([x,y]) => [x,y]) : undefined,
+            footprint: explicitFootprint ? explicitFootprint.map(([x,y]) => [x,y]) : null,
             plateZFt: nullableNumberValue(draft[roofFieldKey(i, "plateZFt")], zone.plateZFt),
             ridgeA: ax == null || ay == null ? null : [ax, ay],
             ridgeB: bx == null || by == null ? null : [bx, by],

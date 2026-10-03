@@ -13,6 +13,7 @@ import type {
 import { isInterventionEditable } from "@/packages/candidates/intervention";
 import { assertPolygonIntegrity, polygonWinding } from "@/packages/candidates/geometry-integrity";
 import { placementShapeIdentity, placementWallId } from "@/packages/candidates/shape-topology";
+import { validateCandidateRoofs } from "@/packages/roof-geometry";
 
 export type DirectManipulation =
   | { kind: "move-placement"; componentId: string; x: number; y: number }
@@ -101,6 +102,7 @@ export function DirectManipulationPlan({ candidate, selectedComponentId, disable
   const stalls = candidate.components.filter((item) => item.kind === "stall");
   const openings = candidate.components.filter((item): item is OpeningComponent => item.kind === "opening");
   const roofs = candidate.components.filter((item): item is RoofComponent => item.kind === "roof");
+  const roofValidationById = useMemo(() => new Map(validateCandidateRoofs(candidate.components).results.map((result) => [result.roofId, result])), [candidate.components]);
 
   const svgPoint = (clientX: number, clientY: number): Point => {
     const svg = svgRef.current;
@@ -363,15 +365,24 @@ export function DirectManipulationPlan({ candidate, selectedComponentId, disable
           { kind: "rotation", pointerId: event.pointerId, componentId: rawItem.id, center, limit }, rawItem.id)} />
       </g>;
     })}
-    {roofs.flatMap((roof) => roof.zones.map((zone) => {
+    {roofs.flatMap((roof) => {
+      const validation = roofValidationById.get(roof.id);
+      const ownerPreviewActive = Boolean(preview && preview.componentId === roof.ownerId
+        && ["placement", "rotation", "building-vertex", "building-wall"].includes(preview.kind));
+      const roofClass = ownerPreviewActive ? "roof-unlocked"
+        : validation?.authoritative ? "roof-locked"
+        : validation?.status === "FAIL_CLOSED_INVALID" ? "roof-invalid"
+        : "roof-unlocked";
+      return roof.zones.map((zone) => {
       if (!zone.ridgeA || !zone.ridgeB) return null;
       return <g key={`${roof.id}-${zone.id}`} data-component-id={roof.id}
-        className={selectableClass(roof, `candidate-plan-roof ${roof.status === "LOCKED" ? "roof-locked" : "roof-unlocked"}`)}
+        className={selectableClass(roof, `candidate-plan-roof ${roofClass}`)}
         onPointerDown={click(roof)}>
         <line x1={zone.ridgeA[0]} y1={zone.ridgeA[1]} x2={zone.ridgeB[0]} y2={zone.ridgeB[1]} />
         <text x={(zone.ridgeA[0] + zone.ridgeB[0]) / 2} y={(zone.ridgeA[1] + zone.ridgeB[1]) / 2 - 1.2}>{zone.label}</text>
       </g>;
-    }))}
+    });
+    })}
     {openings.map((rawOpening) => {
       const item = displayOpening(rawOpening);
       const rawOwner = placementById.get(item.ownerId);

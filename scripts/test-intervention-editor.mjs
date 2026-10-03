@@ -4,6 +4,7 @@ import { editPlacementComponent, editPathPoint, editPavementVertex, editOpeningC
 import { evaluateInterventionCandidate, exploreInterventionNeighborhood } from "../packages/candidates/intervention-evaluation.ts";
 import { placementShapeIdentity, placementWallId } from "../packages/candidates/shape-topology.ts";
 import { canonicalizeInterventionGeometry, interventionGeometryHash } from "../packages/canonical/intervention-v3.ts";
+import { canonicalizeInterventionGeometry as canonicalizeInterventionGeometryV2, interventionGeometryHash as interventionGeometryHashV2 } from "../packages/canonical/intervention-v2.ts";
 
 const rules = pondyCandidateRegistry.lots[0].rulesVersion;
 const d4 = pondyCandidateRegistry.candidates.find((candidate) => candidate.id === "pondy-d4");
@@ -73,6 +74,11 @@ const canonicalV3 = canonicalizeInterventionGeometry(deflectedHome);
 const canonicalHash = interventionGeometryHash(deflectedHome);
 assert.equal(interventionGeometryHash(JSON.parse(JSON.stringify(canonicalV3))), canonicalHash, "canonical intervention geometry must survive serialization/reload");
 assert.notEqual(interventionGeometryHash(stableVertexEdit), canonicalHash, "geometry mutation must change the canonical intervention fingerprint");
+const canonicalV2 = canonicalizeInterventionGeometryV2(deflectedHome);
+const canonicalV2Hash = interventionGeometryHashV2(deflectedHome);
+assert.equal(canonicalV2.schemaVersion, "lotscope-intervention-geometry-v2", "legacy v2 entrypoint must stay pinned to the v2 schema");
+assert.equal(interventionGeometryHashV2(JSON.parse(JSON.stringify(canonicalV2))), canonicalV2Hash, "serialized v2 canonical geometry must remain hashable through the v2 API");
+assert.equal("roofs" in canonicalV2, false, "v2 canonical shape must not acquire v3 roof fields");
 const restoredHome = removePlacementVertex(deflectedHome, "home-b", 1, "2026-09-18T12:01:52.750Z");
 assert.equal(restoredHome.components.find((component) => component.id === "home-b")?.polygon?.length, homeB.polygon.length, "removing the inserted deflection point must restore vertex count");
 
@@ -113,6 +119,7 @@ console.log(JSON.stringify({
   sharedPolygonIntegrity: true,
   stableFootprintIdentity: true,
   canonicalInterventionGeometryV3: true,
+  canonicalInterventionGeometryV2Compatibility: true,
   exploreSuggestions: suggestions.length,
   authoritativeOutboundAlwaysOpen: true
 }, null, 2));
