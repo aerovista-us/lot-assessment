@@ -172,7 +172,7 @@ function convexPolygonsInteriorOverlap(a: ReadonlyArray<Point>, b: ReadonlyArray
     const projectionB = b.map((point) => dot(point, axis));
     const overlap = Math.min(Math.max(...projectionA), Math.max(...projectionB))
       - Math.max(Math.min(...projectionA), Math.min(...projectionB));
-    return overlap > ROOF_TOLERANCE.planFt;
+    return overlap > 1e-8;
   });
 }
 function polygonsInteriorOverlap(a: ReadonlyArray<Point>, b: ReadonlyArray<Point>) {
@@ -227,9 +227,9 @@ export function pitch12Label(ratio: number | null) {
 }
 
 function zoneFootprint(owner: PlacementComponent, zone: RoofZone) {
-  return zone.footprint?.length && zone.footprint.length >= 3
-    ? zone.footprint.map(([x, y]) => [x, y] as Point)
-    : placementPolygon(owner);
+  if (zone.footprint === undefined) return placementPolygon(owner);
+  if (!Array.isArray(zone.footprint)) return [];
+  return zone.footprint.map(([x, y]) => [x, y] as Point);
 }
 
 export type SolvedRoofZone = {

@@ -23,7 +23,7 @@ Roof geometry is a first-class candidate dependency. If the roof model is missin
 6. Redundant values are verification checks only and disagreement outside tolerance fails the lock.
 7. Centered-gable v1 requires each authoritative zone to be a true rectangle; the ridge must bisect the cross-span, align to a zone axis, terminate on the zone boundary, and span the full distance between gable ends.
 8. Irregular buildings use multiple explicit rectangular roof zones rather than stretching one generic gable over the footprint.
-9. Every roof-zone edge must remain inside or on the owner footprint for its full length. A zone may not bridge a concave cutout, even when the crossing occurs exactly at owner vertices or along collinear boundary segments. Multiple zones must tile the exact owner footprint with no area gaps or interior overlaps.
+9. Every roof-zone edge must remain inside or on the owner footprint for its full length. A zone may not bridge a concave cutout, even when the crossing occurs exactly at owner vertices or along collinear boundary segments. Multiple zones must tile the exact owner footprint with no area gaps and no positive interior overlap; display/plan tolerances never excuse real overlap.
 10. Touching roof zones must agree in solved Z along their shared interface within tolerance; discontinuous roof surfaces fail closed.
 11. Every locked zone records its geometry source/provenance.
 12. Every home/garage placement is roof-accounted: a missing roof component forces CONCEPT ONLY.
@@ -36,7 +36,7 @@ The Intervention Editor now treats roof geometry as an editable candidate compon
 
 A roof draft may contain:
 - one or more rectangular gable zones,
-- an explicit 4-corner zone footprint when the owner footprint is irregular (clear all four corners to return to owner-derived geometry),
+- an explicit 4-corner zone footprint when the owner footprint is irregular (clear all four corners to return to owner-derived geometry); malformed imported/restored explicit footprints fail closed rather than falling back to the owner,
 - plate/bearing elevation,
 - ridge endpoint A and B,
 - vertical authority,

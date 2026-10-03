@@ -88,6 +88,41 @@ const overlapBalanceValidation = validateRoofComponent(overlapBalanceRoof, overl
 assert.equal(overlapBalanceValidation.status, "FAIL_CLOSED_INVALID");
 assert(overlapBalanceValidation.errors.some((error) => /overlap in plan/i.test(error)), "overlap and equal-area gap may not cancel each other in roof-zone coverage");
 
+const tinyOverlapOwner = {
+  ...baseHome,
+  id: "tiny-overlap-owner",
+  label: "Tiny overlap owner",
+  x: 0, y: 0, widthFt: 100, depthFt: 10, rotationDeg: 0,
+  polygon: undefined
+};
+const tinyOverlapRoof = {
+  id: "roof-tiny-overlap-owner",
+  kind: "roof",
+  label: "Tiny overlap negative roof",
+  ownerId: tinyOverlapOwner.id,
+  status: "LOCKED",
+  ownerGeometryKey: ownerGeometryKey(tinyOverlapOwner),
+  zones: [
+    {
+      id: "tiny-overlap-a", label: "A", status: "LOCKED", type: "gable",
+      footprint: [[0,0],[50.005,0],[50.005,10],[0,10]],
+      plateZFt: 8, ridgeA: [25.0025,0], ridgeB: [25.0025,10],
+      solveBy: "PITCH", pitchRise: 6, pitchRun: 12, ridgeZFt: null,
+      source: "tiny overlap negative test A"
+    },
+    {
+      id: "tiny-overlap-b", label: "B", status: "LOCKED", type: "gable",
+      footprint: [[49.995,0],[99.99,0],[99.99,10],[49.995,10]],
+      plateZFt: 8, ridgeA: [74.9925,0], ridgeB: [74.9925,10],
+      solveBy: "PITCH", pitchRise: 6, pitchRun: 12, ridgeZFt: null,
+      source: "tiny overlap negative test B"
+    }
+  ]
+};
+const tinyOverlapValidation = validateRoofComponent(tinyOverlapRoof, tinyOverlapOwner);
+assert.equal(tinyOverlapValidation.status, "FAIL_CLOSED_INVALID");
+assert(tinyOverlapValidation.errors.some((error) => /overlap in plan/i.test(error)), "any positive interior overlap must fail even when it is smaller than plan-display tolerance");
+
 let candidate = editRoofZone(d4, "roof-home-a", "home-a-roof-zone-1", {
   plateZFt: 20,
   ridgeA: [94.5, 18.125],
@@ -108,6 +143,14 @@ assert.equal(validation.status, "ROOF_GEOMETRY_LOCKED");
 assert.equal(validation.authoritative, true);
 assert.equal(validation.zones[0].pitch12, "6:12");
 assert(Math.abs((validation.zones[0].ridgeZFt ?? 0) - 26.5625) < 0.001);
+
+const malformedFootprintRoof = {
+  ...roof,
+  zones: [{ ...roof.zones[0], footprint: [[94.5,5],[128,5]] }]
+};
+const malformedFootprintValidation = validateRoofComponent(malformedFootprintRoof, owner);
+assert.equal(malformedFootprintValidation.status, "FAIL_CLOSED_INVALID");
+assert(malformedFootprintValidation.errors.some((error) => /expected 4 vertices/i.test(error)), "an explicitly present malformed roof footprint must not inherit the owner footprint");
 
 const canonical = canonicalizeInterventionGeometry(candidate);
 assert.equal(canonical.schemaVersion, "lotscope-intervention-geometry-v3");
@@ -213,6 +256,8 @@ console.log(JSON.stringify({
   orphanRoofsFailClosed: orphanSummary.renderPolicy === "FAIL_CLOSED_INVALID",
   concaveCutoutBridgeRejected: concaveValidation.status === "FAIL_CLOSED_INVALID",
   balancedOverlapGapRejected: overlapBalanceValidation.errors.some((error) => /overlap in plan/i.test(error)),
+  tinyPositiveOverlapRejected: tinyOverlapValidation.errors.some((error) => /overlap in plan/i.test(error)),
+  malformedExplicitFootprintRejected: malformedFootprintValidation.status === "FAIL_CLOSED_INVALID",
   clearableProvenanceFailsClosed: true,
   status: validation.status,
   pitch: validation.zones[0].pitch12,
