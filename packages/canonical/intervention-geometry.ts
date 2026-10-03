@@ -33,22 +33,51 @@ function canonicalOpening(item: OpeningComponent) {
 function nullable(value: number | null | undefined) {
   return value == null ? null : rounded(value);
 }
+function canonicalPoint(value: unknown) {
+  if (!Array.isArray(value) || value.length < 2 || !Number.isFinite(value[0]) || !Number.isFinite(value[1])) return null;
+  return [rounded(Number(value[0])), rounded(Number(value[1]))] as [number, number];
+}
+function canonicalRoofZone(value: unknown, index: number) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return { id: `__malformed-zone-${index}`, malformed: true, rawType: value === null ? "null" : Array.isArray(value) ? "array" : typeof value };
+  }
+  const zone = value as Record<string, unknown>;
+  const rawFootprint = zone.footprint;
+  const footprint = rawFootprint == null
+    ? null
+    : Array.isArray(rawFootprint)
+      ? rawFootprint.map(canonicalPoint)
+      : null;
+  const footprintMalformed = rawFootprint != null && (!Array.isArray(rawFootprint) || footprint?.some((point) => point === null));
+  return {
+    id: typeof zone.id === "string" ? zone.id : `__malformed-zone-${index}`,
+    label: typeof zone.label === "string" ? zone.label : null,
+    status: typeof zone.status === "string" ? zone.status : null,
+    type: typeof zone.type === "string" ? zone.type : null,
+    malformed: typeof zone.id !== "string" || footprintMalformed,
+    footprint,
+    plateZFt: typeof zone.plateZFt === "number" && Number.isFinite(zone.plateZFt) ? rounded(zone.plateZFt) : null,
+    ridgeA: canonicalPoint(zone.ridgeA),
+    ridgeB: canonicalPoint(zone.ridgeB),
+    solveBy: typeof zone.solveBy === "string" ? zone.solveBy : null,
+    pitchRise: typeof zone.pitchRise === "number" && Number.isFinite(zone.pitchRise) ? rounded(zone.pitchRise) : null,
+    pitchRun: typeof zone.pitchRun === "number" && Number.isFinite(zone.pitchRun) ? rounded(zone.pitchRun) : null,
+    ridgeZFt: typeof zone.ridgeZFt === "number" && Number.isFinite(zone.ridgeZFt) ? rounded(zone.ridgeZFt) : null,
+    ridgeZCheckFt: typeof zone.ridgeZCheckFt === "number" && Number.isFinite(zone.ridgeZCheckFt) ? rounded(zone.ridgeZCheckFt) : null,
+    pitchCheckRise: typeof zone.pitchCheckRise === "number" && Number.isFinite(zone.pitchCheckRise) ? rounded(zone.pitchCheckRise) : null,
+    pitchCheckRun: typeof zone.pitchCheckRun === "number" && Number.isFinite(zone.pitchCheckRun) ? rounded(zone.pitchCheckRun) : null,
+    source: typeof zone.source === "string" ? zone.source : null
+  };
+}
 function canonicalRoof(item: RoofComponent) {
+  const rawZones = (item as unknown as { zones?: unknown }).zones;
+  const zones = Array.isArray(rawZones)
+    ? rawZones.map(canonicalRoofZone).sort((a,b)=>a.id.localeCompare(b.id))
+    : [{ id: "__malformed-zones__", malformed: true, rawType: rawZones === null ? "null" : typeof rawZones }];
   return {
     id: item.id, ownerId: item.ownerId, status: item.status,
     ownerGeometryKey: item.ownerGeometryKey ?? null,
-    zones: item.zones.map((zone) => ({
-      id: zone.id, label: zone.label, status: zone.status, type: zone.type,
-      footprint: zone.footprint?.map(([x,y]) => [rounded(x),rounded(y)] as [number,number]) ?? null,
-      plateZFt: nullable(zone.plateZFt),
-      ridgeA: zone.ridgeA ? [rounded(zone.ridgeA[0]),rounded(zone.ridgeA[1])] as [number,number] : null,
-      ridgeB: zone.ridgeB ? [rounded(zone.ridgeB[0]),rounded(zone.ridgeB[1])] as [number,number] : null,
-      solveBy: zone.solveBy,
-      pitchRise: nullable(zone.pitchRise), pitchRun: nullable(zone.pitchRun),
-      ridgeZFt: nullable(zone.ridgeZFt), ridgeZCheckFt: nullable(zone.ridgeZCheckFt),
-      pitchCheckRise: nullable(zone.pitchCheckRise), pitchCheckRun: nullable(zone.pitchCheckRun),
-      source: zone.source ?? null
-    })).sort((a,b)=>a.id.localeCompare(b.id))
+    zones
   };
 }
 

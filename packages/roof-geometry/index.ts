@@ -257,13 +257,36 @@ export function roofZoneHeightAt(zone: SolvedRoofZone, point: Point) {
   const offset = Math.abs(dot(subtract(point, zone.ridgeA), normal));
   return zone.ridgeZFt - offset * zone.pitchRatio;
 }
+function segmentIntersectionPoint(a: Point, b: Point, c: Point, d: Point): Point | null {
+  const r = subtract(b, a), s = subtract(d, c);
+  const denominator = cross2(r, s);
+  if (Math.abs(denominator) <= 1e-9) return null;
+  const cMinusA = subtract(c, a);
+  const t = cross2(cMinusA, s) / denominator;
+  const u = cross2(cMinusA, r) / denominator;
+  if (t < -1e-9 || t > 1 + 1e-9 || u < -1e-9 || u > 1 + 1e-9) return null;
+  return [a[0] + r[0] * Math.max(0, Math.min(1, t)), a[1] + r[1] * Math.max(0, Math.min(1, t))];
+}
+function uniqueInterfacePoints(points: Point[]) {
+  const unique: Point[] = [];
+  for (const point of points) {
+    if (!unique.some((candidate) => Math.hypot(candidate[0] - point[0], candidate[1] - point[1]) <= 1e-8)) unique.push(point);
+  }
+  return unique;
+}
 function zoneInterfaceCheck(a: SolvedRoofZone, b: SolvedRoofZone) {
   const shared = sharedBoundarySegments(a.footprint, b.footprint);
   if (!shared.length) return { adjacent: false, continuous: false, maxDeltaFt: null as number | null };
   let maxDelta = 0;
   for (const [start, end] of shared) {
     const midpoint: Point = [(start[0] + end[0]) / 2, (start[1] + end[1]) / 2];
-    for (const point of [start, midpoint, end]) {
+    const samples: Point[] = [start, midpoint, end];
+    for (const zone of [a, b]) {
+      if (!zone.ridgeA || !zone.ridgeB) continue;
+      const crossing = segmentIntersectionPoint(start, end, zone.ridgeA, zone.ridgeB);
+      if (crossing) samples.push(crossing);
+    }
+    for (const point of uniqueInterfacePoints(samples)) {
       const za = roofZoneHeightAt(a, point), zb = roofZoneHeightAt(b, point);
       if (za == null || zb == null) return { adjacent: true, continuous: false, maxDeltaFt: null as number | null };
       maxDelta = Math.max(maxDelta, Math.abs(za - zb));

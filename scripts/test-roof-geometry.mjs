@@ -41,6 +41,11 @@ const clonedMalformed = cloneCandidateComponents([malformedMissingZones, malform
 assert.equal(clonedMalformed.length, 2, "malformed roof records must clone without crashing workspace branch/checkpoint operations");
 assert.equal(validateRoofComponent(clonedMalformed[0], d4.components.find((item) => item.id === "home-a")).status, "FAIL_CLOSED_INVALID");
 assert.equal(validateRoofComponent(clonedMalformed[1], d4.components.find((item) => item.id === "home-a")).status, "FAIL_CLOSED_INVALID");
+const malformedCanonicalCandidate = { ...d4, components: [...d4.components.filter((item) => item.id !== "roof-home-a"), malformedMissingZones] };
+const malformedCanonical = canonicalizeInterventionGeometry(malformedCanonicalCandidate);
+const malformedCanonicalRoof = malformedCanonical.roofs.find((item) => item.id === "roof-malformed-missing-zones");
+assert(malformedCanonicalRoof, "malformed roofs must remain representable in canonical intervention geometry");
+assert(malformedCanonicalRoof.zones.some((zone) => zone.malformed), "canonical intervention geometry must mark malformed roof zones instead of throwing");
 
 const baseHome = d4.components.find((item) => item.id === "home-a");
 assert(baseHome?.kind === "home");
@@ -206,6 +211,41 @@ const partialPitchCheckValidation = validateRoofComponent(partialPitchCheckRoof,
 assert.equal(partialPitchCheckValidation.status, "FAIL_CLOSED_INVALID");
 assert(partialPitchCheckValidation.errors.some((error) => /requires both/i.test(error)), "a partially supplied pitch verification check must fail closed");
 
+const interfaceOwner = {
+  ...baseHome,
+  id: "interface-break-owner",
+  label: "Interface breakpoint owner",
+  x: 0, y: 0, widthFt: 10, depthFt: 10, rotationDeg: 0,
+  polygon: [[0,0],[5,0],[5,4],[10,4],[10,8],[5,8],[5,10],[0,10]]
+};
+const interfaceBreakRoof = {
+  id: "roof-interface-break-owner",
+  kind: "roof",
+  label: "Interface breakpoint negative roof",
+  ownerId: interfaceOwner.id,
+  status: "LOCKED",
+  ownerGeometryKey: ownerGeometryKey(interfaceOwner),
+  zones: [
+    {
+      id: "interface-zone-a", label: "Tall zone", status: "LOCKED", type: "gable",
+      footprint: [[0,0],[5,0],[5,10],[0,10]],
+      plateZFt: 0, ridgeA: [0,5], ridgeB: [5,5],
+      solveBy: "PITCH", pitchRise: 0.216, pitchRun: 12, ridgeZFt: null,
+      source: "interface breakpoint negative test A"
+    },
+    {
+      id: "interface-zone-b", label: "Short zone", status: "LOCKED", type: "gable",
+      footprint: [[5,4],[10,4],[10,8],[5,8]],
+      plateZFt: 0.054, ridgeA: [5,6], ridgeB: [10,6],
+      solveBy: "PITCH", pitchRise: 0.108, pitchRun: 12, ridgeZFt: null,
+      source: "interface breakpoint negative test B"
+    }
+  ]
+};
+const interfaceBreakValidation = validateRoofComponent(interfaceBreakRoof, interfaceOwner);
+assert.equal(interfaceBreakValidation.status, "FAIL_CLOSED_INVALID");
+assert(interfaceBreakValidation.errors.some((error) => /vertically discontinuous/i.test(error)), "shared interfaces must sample every ridge/slope breakpoint, not only endpoints and midpoint");
+
 let candidate = editRoofZone(d4, "roof-home-a", "home-a-roof-zone-1", {
   plateZFt: 20,
   ridgeA: [94.5, 18.125],
@@ -366,6 +406,8 @@ console.log(JSON.stringify({
   duplicateRoofOwnersFailClosed: duplicateSummary.renderPolicy === "FAIL_CLOSED_INVALID",
   orphanRoofsFailClosed: orphanSummary.renderPolicy === "FAIL_CLOSED_INVALID",
   malformedRoofArraysFailClosedWithoutCrash: malformedMissingValidation.status === "FAIL_CLOSED_INVALID" && malformedNullValidation.status === "FAIL_CLOSED_INVALID",
+  malformedRoofCanonicalizationSafe: Boolean(malformedCanonicalRoof?.zones.some((zone) => zone.malformed)),
+  interfaceSlopeBreakpointsChecked: interfaceBreakValidation.errors.some((error) => /vertically discontinuous/i.test(error)),
   optionalVerificationChecksClearable: true,
   concaveCutoutBridgeRejected: concaveValidation.status === "FAIL_CLOSED_INVALID",
   balancedOverlapGapRejected: overlapBalanceValidation.errors.some((error) => /overlap in plan/i.test(error)),
