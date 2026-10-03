@@ -89,7 +89,10 @@ function initialDraft(component: CandidateComponent | null) {
     });
   }
   if (component.kind === "roof") {
-    component.zones.forEach((zone, index) => {
+    const zones = Array.isArray((component as unknown as { zones?: unknown }).zones)
+      ? component.zones.filter((zone) => Boolean(zone && typeof zone === "object"))
+      : [];
+    zones.forEach((zone, index) => {
       draft[roofFieldKey(index, "plateZFt")] = zone.plateZFt == null ? "" : String(zone.plateZFt);
       draft[roofFieldKey(index, "ridgeAx")] = zone.ridgeA ? String(zone.ridgeA[0]) : "";
       draft[roofFieldKey(index, "ridgeAy")] = zone.ridgeA ? String(zone.ridgeA[1]) : "";
@@ -99,10 +102,14 @@ function initialDraft(component: CandidateComponent | null) {
       draft[roofFieldKey(index, "pitchRise")] = zone.pitchRise == null ? "" : String(zone.pitchRise);
       draft[roofFieldKey(index, "pitchRun")] = zone.pitchRun == null ? "" : String(zone.pitchRun);
       draft[roofFieldKey(index, "ridgeZFt")] = zone.ridgeZFt == null ? "" : String(zone.ridgeZFt);
+      draft[roofFieldKey(index, "ridgeZCheckFt")] = zone.ridgeZCheckFt == null ? "" : String(zone.ridgeZCheckFt);
+      draft[roofFieldKey(index, "pitchCheckRise")] = zone.pitchCheckRise == null ? "" : String(zone.pitchCheckRise);
+      draft[roofFieldKey(index, "pitchCheckRun")] = zone.pitchCheckRun == null ? "" : String(zone.pitchCheckRun);
       draft[roofFieldKey(index, "source")] = zone.source ?? "";
-      zone.footprint?.slice(0, 4).forEach(([x, y], pointIndex) => {
-        draft[roofFieldKey(index, `footprint-${pointIndex}-x`)] = String(x);
-        draft[roofFieldKey(index, `footprint-${pointIndex}-y`)] = String(y);
+      if (Array.isArray(zone.footprint)) zone.footprint.slice(0, 4).forEach((point, pointIndex) => {
+        if (!Array.isArray(point) || point.length < 2) return;
+        draft[roofFieldKey(index, `footprint-${pointIndex}-x`)] = String(point[0]);
+        draft[roofFieldKey(index, `footprint-${pointIndex}-y`)] = String(point[1]);
       });
     });
   }
@@ -241,9 +248,10 @@ export function InterventionEditor({ candidate, repairContextCandidate, onSave, 
           ]);
         }
       } else if (selected.kind === "roof") {
-        for (let i = 0; i < selected.zones.length; i += 1) {
+        const selectedZones = Array.isArray((selected as unknown as { zones?: unknown }).zones) ? selected.zones : [];
+        for (let i = 0; i < selectedZones.length; i += 1) {
           const current = next.components.find((component): component is RoofComponent => component.id === selected.id && component.kind === "roof");
-          if (!current) continue;
+          if (!current || !Array.isArray((current as unknown as { zones?: unknown }).zones)) continue;
           const zone = current.zones[i];
           if (!zone) continue;
           const ax = nullableNumberValue(draft[roofFieldKey(i, "ridgeAx")], zone.ridgeA?.[0] ?? null);
@@ -272,6 +280,9 @@ export function InterventionEditor({ candidate, repairContextCandidate, onSave, 
             pitchRise: nullableNumberValue(draft[roofFieldKey(i, "pitchRise")], zone.pitchRise),
             pitchRun: nullableNumberValue(draft[roofFieldKey(i, "pitchRun")], zone.pitchRun),
             ridgeZFt: nullableNumberValue(draft[roofFieldKey(i, "ridgeZFt")], zone.ridgeZFt),
+            ridgeZCheckFt: nullableNumberValue(draft[roofFieldKey(i, "ridgeZCheckFt")], zone.ridgeZCheckFt ?? null),
+            pitchCheckRise: nullableNumberValue(draft[roofFieldKey(i, "pitchCheckRise")], zone.pitchCheckRise ?? null),
+            pitchCheckRun: nullableNumberValue(draft[roofFieldKey(i, "pitchCheckRun")], zone.pitchCheckRun ?? null),
             source: (draft[roofFieldKey(i, "source")] ?? zone.source ?? "").trim()
           });
         }
@@ -495,6 +506,9 @@ export function InterventionEditor({ candidate, repairContextCandidate, onSave, 
   const selectedBuildingRoof = selectedEditable && (selectedEditable.kind === "home" || selectedEditable.kind === "garage")
     ? candidate.components.find((item): item is RoofComponent => item.kind === "roof" && item.ownerId === selectedEditable.id) ?? null
     : null;
+  const selectedRoofZones = selectedEditable?.kind === "roof" && Array.isArray((selectedEditable as unknown as { zones?: unknown }).zones)
+    ? selectedEditable.zones.filter((zone) => Boolean(zone && typeof zone === "object"))
+    : [];
   return <section className="wb-panel intervention-editor-panel">
     <div className="section-heading intervention-editor-head">
       <div><p className="eyebrow">INTERVENTION EDITOR V4</p><h2>Drag the plan directly, then make the machine re-check it.</h2></div>
@@ -589,7 +603,7 @@ export function InterventionEditor({ candidate, repairContextCandidate, onSave, 
             <small>{selectedEditable.staleReason ?? (selectedRoofValidation?.authoritative ? "Exact owner footprint + roof geometry validated." : "Roof is not authoritative.")}</small>
           </div>
           {selectedRoofValidation?.errors.length ? <div className="roof-error-list">{selectedRoofValidation.errors.map((error) => <span key={error}>{error}</span>)}</div> : null}
-          {selectedEditable.zones.map((zone, index) => <article key={zone.id} className="roof-zone-editor">
+          {selectedRoofZones.map((zone, index) => <article key={zone.id ?? `roof-zone-${index}`} className="roof-zone-editor">
             <div className="roof-zone-head"><b>{zone.label}</b><span>{zone.status}</span><button type="button" className="tiny-action" onClick={() => removeZoneFromSelectedRoof(zone.id)}>Remove zone</button></div>
             <label className="intervention-select-label">Vertical authority<select value={draft[roofFieldKey(index, "solveBy")] ?? zone.solveBy} onChange={(event) => setField(roofFieldKey(index, "solveBy"), event.target.value)}>
               <option value="PITCH">Pitch → derive ridge Z</option><option value="RIDGE_Z">Ridge Z → derive pitch</option>
@@ -613,6 +627,15 @@ export function InterventionEditor({ candidate, repairContextCandidate, onSave, 
                 ? <><Field label="Pitch rise" value={draft[roofFieldKey(index, "pitchRise")] ?? ""} step={.25} onChange={(value) => setField(roofFieldKey(index, "pitchRise"), value)} /><Field label="Pitch run" value={draft[roofFieldKey(index, "pitchRun")] ?? ""} step={.25} onChange={(value) => setField(roofFieldKey(index, "pitchRun"), value)} /></>
                 : <Field label="Ridge Z ft" value={draft[roofFieldKey(index, "ridgeZFt")] ?? ""} step={.25} onChange={(value) => setField(roofFieldKey(index, "ridgeZFt"), value)} />}
             </div>
+            <details className="roof-zone-verification">
+              <summary>Verification checks <span>optional · clear to remove</span></summary>
+              <p className="microcopy">Checks are independent evidence, not a second authority. If supplied they must agree with the solved roof; blank fields remove the check.</p>
+              <div className="intervention-field-grid">
+                {(draft[roofFieldKey(index, "solveBy")] ?? zone.solveBy) === "PITCH"
+                  ? <Field label="Ridge Z check ft" value={draft[roofFieldKey(index, "ridgeZCheckFt")] ?? ""} step={.25} onChange={(value) => setField(roofFieldKey(index, "ridgeZCheckFt"), value)} />
+                  : <><Field label="Pitch check rise" value={draft[roofFieldKey(index, "pitchCheckRise")] ?? ""} step={.25} onChange={(value) => setField(roofFieldKey(index, "pitchCheckRise"), value)} /><Field label="Pitch check run" value={draft[roofFieldKey(index, "pitchCheckRun")] ?? ""} step={.25} onChange={(value) => setField(roofFieldKey(index, "pitchCheckRun"), value)} /></>}
+              </div>
+            </details>
             <label className="intervention-field roof-source-field"><span>Geometry source / provenance</span><input type="text" value={draft[roofFieldKey(index, "source")] ?? ""} placeholder="Adopted roof decision, plan sheet, field measure…" onChange={(event) => setField(roofFieldKey(index, "source"), event.target.value)} /></label>
           </article>)}
           <div className="shape-editor-actions"><button type="button" className="secondary-button" onClick={addZoneToSelectedRoof}>Add roof zone</button>

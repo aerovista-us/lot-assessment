@@ -59,7 +59,10 @@ export function CandidatePlan({ candidate, selectedComponentId, onSelectComponen
     {roofs.flatMap((roof) => {
       const validation = roofValidationById.get(roof.id);
       const roofClass = validation?.authoritative ? "roof-locked" : validation?.status === "FAIL_CLOSED_INVALID" ? "roof-invalid" : "roof-unlocked";
-      return roof.zones.map((zone) => {
+      const displayZones = Array.isArray((roof as unknown as { zones?: unknown }).zones)
+        ? (roof.zones ?? []).filter((zone) => Boolean(zone && typeof zone === "object"))
+        : [];
+      return displayZones.map((zone) => {
       if (!zone.ridgeA || !zone.ridgeB) return null;
       return <g key={`${roof.id}-${zone.id}`} data-component-id={roof.id}
         className={selectableClass(roof.id, `candidate-plan-roof ${roofClass}`)}

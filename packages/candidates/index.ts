@@ -246,15 +246,20 @@ export function cloneCandidateComponents(components: CandidateComponent[]): Cand
       return { ...component, points: component.points.map(clonePoint), movableControlPoints: component.movableControlPoints ? [...component.movableControlPoints] : undefined };
     }
     if (component.kind === "roof") {
-      return {
-        ...component,
-        zones: component.zones.map((zone) => ({
-          ...zone,
-          footprint: zone.footprint?.map(clonePoint),
-          ridgeA: zone.ridgeA ? clonePoint(zone.ridgeA) : null,
-          ridgeB: zone.ridgeB ? clonePoint(zone.ridgeB) : null
-        }))
-      };
+      const rawZones = (component as unknown as { zones?: unknown }).zones;
+      const zones = Array.isArray(rawZones)
+        ? rawZones.map((zone) => {
+            if (!zone || typeof zone !== "object" || Array.isArray(zone)) return zone;
+            const typed = zone as RoofZone;
+            return {
+              ...typed,
+              footprint: Array.isArray(typed.footprint) ? typed.footprint.map(clonePoint) : typed.footprint,
+              ridgeA: Array.isArray(typed.ridgeA) ? clonePoint(typed.ridgeA) : typed.ridgeA,
+              ridgeB: Array.isArray(typed.ridgeB) ? clonePoint(typed.ridgeB) : typed.ridgeB
+            };
+          })
+        : rawZones;
+      return { ...component, zones } as CandidateComponent;
     }
     if (component.kind === "annotation") {
       return { ...component, point: component.point ? clonePoint(component.point) : undefined };

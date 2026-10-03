@@ -21,7 +21,11 @@ import { ownerGeometryKey, validateRoofComponent } from "@/packages/roof-geometr
 export type EditableCandidateComponent = PlacementComponent | PathComponent | OpeningComponent | RoofComponent | (PolygonComponent & { kind: "pavement" });
 
 export function isInterventionEditable(component: CandidateComponent): component is EditableCandidateComponent {
-  if (component.locked) return false;
+  if (!component || typeof component !== "object" || component.locked) return false;
+  if (component.kind === "roof") {
+    const zones = (component as unknown as { zones?: unknown }).zones;
+    if (!Array.isArray(zones) || zones.some((zone) => !zone || typeof zone !== "object" || Array.isArray(zone))) return false;
+  }
   return ["home", "garage", "driveway", "route", "pavement", "opening", "roof"].includes(component.kind);
 }
 

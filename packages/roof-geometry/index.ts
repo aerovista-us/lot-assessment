@@ -398,24 +398,36 @@ export type RoofValidation = {
 };
 
 export function validateRoofComponent(roof: RoofComponent | null | undefined, owner: PlacementComponent | null | undefined): RoofValidation {
-  if (roof && !owner) {
-    return {
-      schemaVersion: ROOF_GEOMETRY_SCHEMA, roofId: roof.id,
-      ownerId: roof.ownerId, status: "FAIL_CLOSED_INVALID",
-      authoritative: false, safe: false, errors: ["roof owner placement is missing"], ownerGeometryCurrent: false, zones: []
-    };
-  }
+  const runtimeRoof = roof as unknown as Record<string, any> | null | undefined;
+  const roofId = typeof runtimeRoof?.id === "string" ? runtimeRoof.id : "invalid-roof";
+  const roofOwnerId = typeof runtimeRoof?.ownerId === "string" ? runtimeRoof.ownerId : owner?.id ?? "none";
+  const invalidStructure = (message: string): RoofValidation => ({
+    schemaVersion: ROOF_GEOMETRY_SCHEMA, roofId, ownerId: roofOwnerId,
+    status: "FAIL_CLOSED_INVALID", authoritative: false, safe: false,
+    errors: [message], ownerGeometryCurrent: false, zones: []
+  });
+
+  if (roof && !owner) return invalidStructure("roof owner placement is missing");
   if (!roof || !owner) {
     return {
-      schemaVersion: ROOF_GEOMETRY_SCHEMA, roofId: roof?.id ?? "none",
-      ownerId: roof?.ownerId ?? owner?.id ?? "none", status: "NO_MODEL",
+      schemaVersion: ROOF_GEOMETRY_SCHEMA, roofId: runtimeRoof?.id ?? "none",
+      ownerId: runtimeRoof?.ownerId ?? owner?.id ?? "none", status: "NO_MODEL",
       authoritative: false, safe: true, errors: [], ownerGeometryCurrent: false, zones: []
     };
+  }
+  if (!Array.isArray(runtimeRoof?.zones)) return invalidStructure("roof zones must be an array");
+  if (runtimeRoof.zones.some((zone: unknown) => !zone || typeof zone !== "object" || Array.isArray(zone))) {
+    return invalidStructure("roof zones contain a malformed zone record");
   }
 
   const currentKey = ownerGeometryKey(owner);
   const ownerGeometryCurrent = !roof.ownerGeometryKey || roof.ownerGeometryKey === currentKey;
-  const zones = roof.zones.map((zone) => solveGableZone(owner, zone));
+  let zones: SolvedRoofZone[];
+  try {
+    zones = runtimeRoof.zones.map((zone: RoofZone) => solveGableZone(owner, zone));
+  } catch {
+    return invalidStructure("roof zone structure is malformed and cannot be solved");
+  }
   const zoneErrors = zones.flatMap((zone) => zone.errors);
   const errors = [...zoneErrors];
   if (roof.status === "LOCKED" && !roof.ownerGeometryKey) errors.push("locked roof is missing ownerGeometryKey");
@@ -475,8 +487,10 @@ export function roofForOwner(components: ReadonlyArray<{ kind: string; ownerId?:
 }
 
 export function validateCandidateRoofs(components: ReadonlyArray<any>) {
-  const placements = components.filter((item): item is PlacementComponent => item.kind === "home" || item.kind === "garage");
-  const roofs = components.filter((item): item is RoofComponent => item.kind === "roof");
+  const placements = components.filter((item): item is PlacementComponent =>
+    Boolean(item && typeof item === "object" && (item.kind === "home" || item.kind === "garage")));
+  const roofs = components.filter((item): item is RoofComponent =>
+    Boolean(item && typeof item === "object" && item.kind === "roof"));
   const byOwner = new Map(placements.map((owner) => [owner.id, owner]));
   const roofsByOwner = new Map<string, RoofComponent[]>();
   for (const roof of roofs) roofsByOwner.set(roof.ownerId, [...(roofsByOwner.get(roof.ownerId) ?? []), roof]);

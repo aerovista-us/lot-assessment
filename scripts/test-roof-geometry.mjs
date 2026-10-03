@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { pondyCandidateRegistry } from "../projects/pondy-lot2/candidate-registry.ts";
+import { cloneCandidateComponents } from "../packages/candidates/index.ts";
 import { addRoofZone, editPlacementComponent, editPlacementVertex, editPlacementWallLength, editRoofZone, lockRoofComponent } from "../packages/candidates/intervention.ts";
 import { canonicalizeInterventionGeometry } from "../packages/canonical/intervention-geometry.ts";
 import { ownerGeometryKey, validateCandidateRoofs, validateRoofComponent, solveGableZone } from "../packages/roof-geometry/index.ts";
@@ -24,6 +25,22 @@ const orphanRoof = { ...duplicateRoof, id: "roof-orphan", ownerId: "missing-buil
 const orphanSummary = validateCandidateRoofs([...d4.components, orphanRoof]);
 assert.equal(orphanSummary.renderPolicy, "FAIL_CLOSED_INVALID");
 assert(orphanSummary.results.some((item) => item.errors.some((error) => /owner placement is missing/i.test(error))));
+
+const malformedMissingZones = { ...duplicateRoof, id: "roof-malformed-missing-zones" };
+delete malformedMissingZones.zones;
+const malformedMissingValidation = validateRoofComponent(malformedMissingZones, d4.components.find((item) => item.id === "home-a"));
+assert.equal(malformedMissingValidation.status, "FAIL_CLOSED_INVALID");
+assert(malformedMissingValidation.errors.some((error) => /zones must be an array/i.test(error)));
+
+const malformedNullZone = { ...duplicateRoof, id: "roof-malformed-null-zone", zones: [null] };
+const malformedNullValidation = validateRoofComponent(malformedNullZone, d4.components.find((item) => item.id === "home-a"));
+assert.equal(malformedNullValidation.status, "FAIL_CLOSED_INVALID");
+assert(malformedNullValidation.errors.some((error) => /malformed zone record/i.test(error)));
+
+const clonedMalformed = cloneCandidateComponents([malformedMissingZones, malformedNullZone]);
+assert.equal(clonedMalformed.length, 2, "malformed roof records must clone without crashing workspace branch/checkpoint operations");
+assert.equal(validateRoofComponent(clonedMalformed[0], d4.components.find((item) => item.id === "home-a")).status, "FAIL_CLOSED_INVALID");
+assert.equal(validateRoofComponent(clonedMalformed[1], d4.components.find((item) => item.id === "home-a")).status, "FAIL_CLOSED_INVALID");
 
 const baseHome = d4.components.find((item) => item.id === "home-a");
 assert(baseHome?.kind === "home");
@@ -248,6 +265,18 @@ const clearedProvenance = editRoofZone(candidate, "roof-home-a", "home-a-roof-zo
 assert.notEqual(clearedProvenance, candidate, "explicitly clearing provenance must be treated as a real roof edit");
 assert.throws(() => lockRoofComponent(clearedProvenance, "roof-home-a", "2026-10-03T06:00:01.850Z"), /provenance|required/i, "a cleared roof source must fail closed when re-locking");
 
+let checkedCandidate = editRoofZone(candidate, "roof-home-a", "home-a-roof-zone-1", { ridgeZCheckFt: 26.5625 }, "2026-10-03T06:00:01.860Z");
+checkedCandidate = lockRoofComponent(checkedCandidate, "roof-home-a", "2026-10-03T06:00:01.870Z");
+let checkedRoof = checkedCandidate.components.find((item) => item.id === "roof-home-a");
+assert(checkedRoof?.kind === "roof");
+assert(Math.abs((checkedRoof.zones[0].ridgeZCheckFt ?? 0) - 26.563) < 0.0001, "verification inputs follow the editor precision contract");
+const clearedCheckCandidate = editRoofZone(checkedCandidate, "roof-home-a", "home-a-roof-zone-1", { ridgeZCheckFt: null }, "2026-10-03T06:00:01.880Z");
+checkedRoof = clearedCheckCandidate.components.find((item) => item.id === "roof-home-a");
+assert(checkedRoof?.kind === "roof");
+assert.equal(checkedRoof.zones[0].ridgeZCheckFt, null, "optional ridge-Z verification must be clearable");
+const relockedAfterCheckClear = lockRoofComponent(clearedCheckCandidate, "roof-home-a", "2026-10-03T06:00:01.890Z");
+assert.equal(relockedAfterCheckClear.components.find((item) => item.id === "roof-home-a")?.status, "LOCKED");
+
 const moved = editPlacementComponent(candidate, "home-a", { x: 95.5 }, "2026-10-03T06:00:02.000Z");
 const staleRoof = moved.components.find((item) => item.id === "roof-home-a");
 assert(staleRoof?.kind === "roof");
@@ -320,6 +349,8 @@ console.log(JSON.stringify({
   missingRoofModelsFailToConceptOnly: noRoofSummary.missing === 4,
   duplicateRoofOwnersFailClosed: duplicateSummary.renderPolicy === "FAIL_CLOSED_INVALID",
   orphanRoofsFailClosed: orphanSummary.renderPolicy === "FAIL_CLOSED_INVALID",
+  malformedRoofArraysFailClosedWithoutCrash: malformedMissingValidation.status === "FAIL_CLOSED_INVALID" && malformedNullValidation.status === "FAIL_CLOSED_INVALID",
+  optionalVerificationChecksClearable: true,
   concaveCutoutBridgeRejected: concaveValidation.status === "FAIL_CLOSED_INVALID",
   balancedOverlapGapRejected: overlapBalanceValidation.errors.some((error) => /overlap in plan/i.test(error)),
   tinyPositiveOverlapRejected: tinyOverlapValidation.errors.some((error) => /overlap in plan/i.test(error)),
