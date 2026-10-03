@@ -2,10 +2,28 @@ import assert from "node:assert/strict";
 import { pondyCandidateRegistry } from "../projects/pondy-lot2/candidate-registry.ts";
 import { addRoofZone, editPlacementComponent, editRoofZone, lockRoofComponent } from "../packages/candidates/intervention.ts";
 import { canonicalizeInterventionGeometry } from "../packages/canonical/intervention-geometry.ts";
-import { validateRoofComponent, solveGableZone } from "../packages/roof-geometry/index.ts";
+import { validateCandidateRoofs, validateRoofComponent, solveGableZone } from "../packages/roof-geometry/index.ts";
 
 const d4 = pondyCandidateRegistry.candidates.find((candidate) => candidate.id === "pondy-d4");
 assert(d4);
+const d4RoofSummary = validateCandidateRoofs(d4.components);
+assert.equal(d4RoofSummary.missing, 0);
+assert.equal(d4RoofSummary.conceptOnly, 4);
+assert.equal(d4RoofSummary.renderPolicy, "CONCEPT_ONLY_REQUIRED");
+const noRoofSummary = validateCandidateRoofs(d4.components.filter((item) => item.kind !== "roof"));
+assert.equal(noRoofSummary.missing, 4);
+assert.equal(noRoofSummary.renderPolicy, "CONCEPT_ONLY_REQUIRED");
+
+const duplicateRoof = JSON.parse(JSON.stringify(d4.components.find((item) => item.id === "roof-home-a")));
+duplicateRoof.id = "roof-home-a-duplicate";
+const duplicateSummary = validateCandidateRoofs([...d4.components, duplicateRoof]);
+assert.equal(duplicateSummary.renderPolicy, "FAIL_CLOSED_INVALID");
+assert(duplicateSummary.results.some((item) => item.errors.some((error) => /multiple roof components/i.test(error))));
+
+const orphanRoof = { ...duplicateRoof, id: "roof-orphan", ownerId: "missing-building" };
+const orphanSummary = validateCandidateRoofs([...d4.components, orphanRoof]);
+assert.equal(orphanSummary.renderPolicy, "FAIL_CLOSED_INVALID");
+assert(orphanSummary.results.some((item) => item.errors.some((error) => /owner placement is missing/i.test(error))));
 
 let candidate = editRoofZone(d4, "roof-home-a", "home-a-roof-zone-1", {
   plateZFt: 20,
@@ -88,6 +106,10 @@ assert(noSource.errors.some((error) => /source/i.test(error)));
 
 console.log(JSON.stringify({
   schema: validation.schemaVersion,
+  d4RenderPolicy: d4RoofSummary.renderPolicy,
+  missingRoofModelsFailToConceptOnly: noRoofSummary.missing === 4,
+  duplicateRoofOwnersFailClosed: duplicateSummary.renderPolicy === "FAIL_CLOSED_INVALID",
+  orphanRoofsFailClosed: orphanSummary.renderPolicy === "FAIL_CLOSED_INVALID",
   status: validation.status,
   pitch: validation.zones[0].pitch12,
   ridgeZFt: validation.zones[0].ridgeZFt,

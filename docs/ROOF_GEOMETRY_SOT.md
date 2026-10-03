@@ -26,8 +26,10 @@ Roof geometry is a first-class candidate dependency. If the roof model is missin
 9. Multiple zones must tile the exact owner footprint with no area gaps or interior overlaps.
 10. Touching roof zones must agree in solved Z along their shared interface within tolerance; discontinuous roof surfaces fail closed.
 11. Every locked zone records its geometry source/provenance.
-12. Any building footprint edit automatically unlocks roofs owned by that building.
-13. Unsupported roof types remain concept-only until a validated solver exists.
+12. Every home/garage placement is roof-accounted: a missing roof component forces CONCEPT ONLY.
+13. More than one roof component for the same owner, or a roof whose owner placement is missing, fails closed as invalid geometry.
+14. Any building footprint edit automatically unlocks roofs owned by that building.
+15. Unsupported roof types remain concept-only until a validated solver exists.
 ## Workbench behavior
 
 The Intervention Editor now treats roof geometry as an editable candidate component.

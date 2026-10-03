@@ -339,6 +339,13 @@ export type RoofValidation = {
 };
 
 export function validateRoofComponent(roof: RoofComponent | null | undefined, owner: PlacementComponent | null | undefined): RoofValidation {
+  if (roof && !owner) {
+    return {
+      schemaVersion: ROOF_GEOMETRY_SCHEMA, roofId: roof.id,
+      ownerId: roof.ownerId, status: "FAIL_CLOSED_INVALID",
+      authoritative: false, safe: false, errors: ["roof owner placement is missing"], ownerGeometryCurrent: false, zones: []
+    };
+  }
   if (!roof || !owner) {
     return {
       schemaVersion: ROOF_GEOMETRY_SCHEMA, roofId: roof?.id ?? "none",
@@ -412,13 +419,41 @@ export function validateCandidateRoofs(components: ReadonlyArray<any>) {
   const placements = components.filter((item): item is PlacementComponent => item.kind === "home" || item.kind === "garage");
   const roofs = components.filter((item): item is RoofComponent => item.kind === "roof");
   const byOwner = new Map(placements.map((owner) => [owner.id, owner]));
-  const results = roofs.map((roof) => validateRoofComponent(roof, byOwner.get(roof.ownerId)));
+  const roofsByOwner = new Map<string, RoofComponent[]>();
+  for (const roof of roofs) roofsByOwner.set(roof.ownerId, [...(roofsByOwner.get(roof.ownerId) ?? []), roof]);
+  const results: RoofValidation[] = [];
+  for (const owner of placements) {
+    const owned = roofsByOwner.get(owner.id) ?? [];
+    if (owned.length <= 1) {
+      results.push(validateRoofComponent(owned[0], owner));
+      continue;
+    }
+    results.push({
+      schemaVersion: ROOF_GEOMETRY_SCHEMA,
+      roofId: owned.map((roof) => roof.id).join(","),
+      ownerId: owner.id,
+      status: "FAIL_CLOSED_INVALID",
+      authoritative: false,
+      safe: false,
+      errors: [`multiple roof components target the same owner: ${owned.map((roof) => roof.id).join(", ")}`],
+      ownerGeometryCurrent: false,
+      zones: []
+    });
+  }
+  for (const roof of roofs) if (!byOwner.has(roof.ownerId)) results.push(validateRoofComponent(roof, undefined));
+  const locked = results.filter((item) => item.status === "ROOF_GEOMETRY_LOCKED").length;
+  const conceptOnly = results.filter((item) => item.status === "CONCEPT_ONLY").length;
+  const missing = results.filter((item) => item.status === "NO_MODEL").length;
+  const invalid = results.filter((item) => item.status === "FAIL_CLOSED_INVALID").length;
   return {
     schemaVersion: ROOF_GEOMETRY_SCHEMA,
     results,
-    locked: results.filter((item) => item.status === "ROOF_GEOMETRY_LOCKED").length,
-    conceptOnly: results.filter((item) => item.status === "CONCEPT_ONLY").length,
-    invalid: results.filter((item) => item.status === "FAIL_CLOSED_INVALID").length,
-    safe: results.every((item) => item.safe)
+    requiredOwnerCount: placements.length,
+    locked, conceptOnly, missing, invalid,
+    safe: results.every((item) => item.safe),
+    renderPolicy: invalid > 0 ? "FAIL_CLOSED_INVALID" as const
+      : missing > 0 || conceptOnly > 0 ? "CONCEPT_ONLY_REQUIRED" as const
+      : placements.length > 0 ? "AUTHORITATIVE_ALLOWED" as const
+      : "NO_BUILDING_ROOFS_REQUIRED" as const
   };
 }

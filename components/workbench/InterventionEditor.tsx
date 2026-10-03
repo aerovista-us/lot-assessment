@@ -501,12 +501,12 @@ export function InterventionEditor({ candidate, repairContextCandidate, onSave, 
       <span className="mode-pill">{candidate.evidenceState} EVIDENCE</span>
     </div>
     <div className="candidate-warning-box intervention-truth-boundary"><b>Screening boundary</b><p>Evaluate exact edit is a fast screening layer for static geometry, enclosed parking and route hints. Run authoritative proof separately to test continuous stall-to-street circulation. Neither action replaces professional/AHJ review.</p></div>
-    <div className={`candidate-warning-box roof-contract-summary ${roofSummary.invalid ? "has-error" : roofSummary.locked && !roofSummary.conceptOnly ? "is-locked" : ""}`}><b>Roof geometry contract</b><p>{roofSummary.invalid
+    <div className={`candidate-warning-box roof-contract-summary ${roofSummary.invalid ? "has-error" : roofSummary.renderPolicy === "AUTHORITATIVE_ALLOWED" ? "is-locked" : ""}`}><b>Roof geometry contract</b><p>{roofSummary.invalid
       ? `${roofSummary.invalid} roof model(s) are invalid and fail closed. Authoritative roof output is prohibited.`
       : roofSummary.results.length === 0
-        ? "No roof model exists yet. Any roof shown in deliverables must remain explicitly conceptual."
-        : roofSummary.conceptOnly
-          ? `${roofSummary.conceptOnly} roof model(s) remain CONCEPT ONLY · ${roofSummary.locked} geometry-locked.`
+        ? "No building placements require a roof model in this candidate."
+        : roofSummary.missing || roofSummary.conceptOnly
+          ? `${roofSummary.missing} missing · ${roofSummary.conceptOnly} CONCEPT ONLY · ${roofSummary.locked} geometry-locked. Missing/unlocked roofs cannot be shown as authoritative.`
           : `${roofSummary.locked} roof model(s) are geometry-locked to their exact owner footprints.`}</p></div>
     {repairClasses.length > 0 && <div className="candidate-chip-row intervention-repairs">{repairClasses.map((repair) => <span key={repair}>{repair}</span>)}</div>}
     <div className="intervention-grid">

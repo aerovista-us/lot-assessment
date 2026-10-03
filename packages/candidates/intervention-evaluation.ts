@@ -214,10 +214,9 @@ function roofGate(candidate: CandidateRecord): GateEvaluation {
     return {
       id: "intervention-roof",
       label: "Roof geometry contract",
-      status: "WATCH",
-      summary: "No roof model is attached yet. Elevations/sections may show only clearly labeled concept roof graphics.",
-      blockerClass: "roof-geometry",
-      repairClasses: ["create-roof-model"]
+      status: "PASS",
+      summary: "No building placements require a roof model in this candidate.",
+      blockerClass: "roof-geometry"
     };
   }
   if (roofs.invalid > 0) {
@@ -231,14 +230,19 @@ function roofGate(candidate: CandidateRecord): GateEvaluation {
       repairClasses: ["unlock-roof", "edit-ridge", "edit-pitch", "revalidate-roof"]
     };
   }
-  if (roofs.conceptOnly > 0) {
+  if (roofs.missing > 0 || roofs.conceptOnly > 0) {
+    const pieces = [
+      roofs.missing ? `${roofs.missing} building(s) have no roof model` : null,
+      roofs.conceptOnly ? `${roofs.conceptOnly} roof model(s) remain CONCEPT ONLY` : null,
+      roofs.locked ? `${roofs.locked} geometry-locked` : null
+    ].filter(Boolean).join(" · ");
     return {
       id: "intervention-roof",
       label: "Roof geometry contract",
       status: "WATCH",
-      summary: `${roofs.conceptOnly} roof model(s) remain CONCEPT ONLY. They cannot be represented as authoritative ridge/slope geometry until locked through the roof solver.`,
+      summary: `${pieces}. Missing/unlocked roofs cannot be represented as authoritative ridge/slope geometry.`,
       blockerClass: "roof-geometry",
-      repairClasses: ["edit-ridge", "edit-pitch", "lock-roof"]
+      repairClasses: roofs.missing ? ["create-roof-model", "edit-ridge", "edit-pitch", "lock-roof"] : ["edit-ridge", "edit-pitch", "lock-roof"]
     };
   }
   return {
