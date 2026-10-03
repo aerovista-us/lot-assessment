@@ -369,7 +369,7 @@ export function editRoofZone(candidate: CandidateRecord, roofId: string, zoneId:
   const numeric = (value: number | null | undefined, fallback: number | null | undefined) =>
     value === undefined ? fallback ?? null : value === null ? null : round(value);
   const optionalNumeric = (value: number | null | undefined, fallback: number | null | undefined) =>
-    value === undefined ? fallback : value === null ? null : round(value);
+    value === undefined ? fallback : value === null ? (fallback === undefined ? undefined : null) : round(value);
   const zone = target.zones[zoneIndex];
   const authored: RoofZone = {
     ...zone,

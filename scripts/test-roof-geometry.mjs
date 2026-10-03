@@ -261,6 +261,22 @@ const noopRoofDraft = editRoofZone(candidate, "roof-home-a", "home-a-roof-zone-1
 }, "2026-10-03T06:00:01.750Z");
 assert.equal(noopRoofDraft, candidate, "saving an unchanged roof draft must preserve the locked candidate");
 
+const noopRoofDraftFromUi = editRoofZone(candidate, "roof-home-a", "home-a-roof-zone-1", {
+  footprint: null,
+  plateZFt: 20,
+  ridgeA: [94.5, 18.125],
+  ridgeB: [128, 18.125],
+  solveBy: "PITCH",
+  pitchRise: 6,
+  pitchRun: 12,
+  ridgeZFt: null,
+  ridgeZCheckFt: null,
+  pitchCheckRise: null,
+  pitchCheckRun: null,
+  source: "roof SOT self-test"
+}, "2026-10-03T06:00:01.775Z");
+assert.equal(noopRoofDraftFromUi, candidate, "blank optional verification controls must not turn an unchanged roof save into an edit");
+
 const clearedProvenance = editRoofZone(candidate, "roof-home-a", "home-a-roof-zone-1", { source: "" }, "2026-10-03T06:00:01.800Z");
 assert.notEqual(clearedProvenance, candidate, "explicitly clearing provenance must be treated as a real roof edit");
 assert.throws(() => lockRoofComponent(clearedProvenance, "roof-home-a", "2026-10-03T06:00:01.850Z"), /provenance|required/i, "a cleared roof source must fail closed when re-locking");
