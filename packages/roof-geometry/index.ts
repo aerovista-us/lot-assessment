@@ -439,7 +439,7 @@ export function validateRoofComponent(roof: RoofComponent | null | undefined, ow
     const ownerArea = polygonArea(ownerFootprint);
     const zoneArea = zones.reduce((sum, zone) => sum + polygonArea(zone.footprint), 0);
     const areaDelta = Math.abs(zoneArea - ownerArea);
-    if (areaDelta > 0.1) errors.push(`roof-zone coverage differs from owner footprint by ${areaDelta.toFixed(3)} sq ft`);
+    if (areaDelta > 1e-8) errors.push(`roof-zone coverage differs from owner footprint by ${areaDelta.toFixed(6)} sq ft`);
 
     if (zones.length > 1 && zones.every((zone) => zone.authoritative)) {
       const adjacency = Array.from({ length: zones.length }, () => new Set<number>());

@@ -23,7 +23,7 @@ Roof geometry is a first-class candidate dependency. If the roof model is missin
 6. Redundant values are verification checks only and disagreement outside tolerance fails the lock. If any optional pitch-check field is supplied, the check must be complete and finite; zero values are explicit data and are never skipped by truthiness.
 7. Centered-gable v1 requires each authoritative zone to be a true rectangle; the ridge must bisect the cross-span, align to a zone axis, terminate on the zone boundary, and span the full distance between gable ends.
 8. Irregular buildings use multiple explicit rectangular roof zones rather than stretching one generic gable over the footprint.
-9. Every roof-zone edge must remain inside or on the owner footprint for its full length using numerical precision, not drawing/display tolerance. A zone may not bridge a concave cutout or protrude beyond the owner, even by a sub-display-tolerance amount. Multiple zones must tile the exact owner footprint with no area gaps and no positive interior overlap.
+9. Every roof-zone edge must remain inside or on the owner footprint for its full length using numerical precision, not drawing/display tolerance. A zone may not bridge a concave cutout or protrude beyond the owner, even by a sub-display-tolerance amount. Zone union area must match the owner to numerical precision: no positive uncovered area and no positive interior overlap.
 10. Touching roof zones must agree in solved Z along their shared interface within tolerance; discontinuous roof surfaces fail closed.
 11. Every locked zone records its geometry source/provenance.
 12. Every home/garage placement is roof-accounted: a missing roof component forces CONCEPT ONLY.

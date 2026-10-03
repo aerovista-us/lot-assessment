@@ -142,6 +142,25 @@ const subToleranceOutsideValidation = validateRoofComponent(subToleranceOutsideR
 assert.equal(subToleranceOutsideValidation.status, "FAIL_CLOSED_INVALID");
 assert(subToleranceOutsideValidation.errors.some((error) => /extend outside the owner footprint/i.test(error)), "authoritative owner containment must not use display/plan tolerance");
 
+const tinyCoverageGapRoof = {
+  id: "roof-tiny-coverage-gap",
+  kind: "roof",
+  label: "Tiny coverage gap negative roof",
+  ownerId: overlapOwner.id,
+  status: "LOCKED",
+  ownerGeometryKey: ownerGeometryKey(overlapOwner),
+  zones: [{
+    id: "tiny-coverage-gap-zone", label: "Inset rectangle", status: "LOCKED", type: "gable",
+    footprint: [[0.005,0],[10,0],[10,10],[0.005,10]],
+    plateZFt: 8, ridgeA: [5.0025,0], ridgeB: [5.0025,10],
+    solveBy: "PITCH", pitchRise: 6, pitchRun: 12, ridgeZFt: null,
+    source: "tiny coverage gap negative test"
+  }]
+};
+const tinyCoverageGapValidation = validateRoofComponent(tinyCoverageGapRoof, overlapOwner);
+assert.equal(tinyCoverageGapValidation.status, "FAIL_CLOSED_INVALID");
+assert(tinyCoverageGapValidation.errors.some((error) => /coverage differs/i.test(error)), "any positive uncovered owner area must fail authoritative roof coverage");
+
 const zeroPitchCheckRoof = {
   id: "roof-zero-pitch-check",
   kind: "roof",
@@ -305,6 +324,7 @@ console.log(JSON.stringify({
   balancedOverlapGapRejected: overlapBalanceValidation.errors.some((error) => /overlap in plan/i.test(error)),
   tinyPositiveOverlapRejected: tinyOverlapValidation.errors.some((error) => /overlap in plan/i.test(error)),
   subToleranceExteriorZoneRejected: subToleranceOutsideValidation.status === "FAIL_CLOSED_INVALID",
+  tinyCoverageGapRejected: tinyCoverageGapValidation.errors.some((error) => /coverage differs/i.test(error)),
   zeroPitchCheckCompared: zeroPitchCheckValidation.errors.some((error) => /pitch check mismatch/i.test(error)),
   partialPitchCheckRejected: partialPitchCheckValidation.errors.some((error) => /requires both/i.test(error)),
   malformedExplicitFootprintRejected: malformedFootprintValidation.status === "FAIL_CLOSED_INVALID",
