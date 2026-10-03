@@ -179,6 +179,7 @@ export function editPlacementWallLength(candidate: CandidateRecord, componentId:
   const target = assertEditable(components[index]);
   if (target.kind !== "home" && target.kind !== "garage") throw new Error("Selected component is not a placement.");
   if (!target.resizable) throw new Error("This building is shape-locked.");
+  if (Math.abs(lengthDeltaFt) < 1e-9) return candidate;
   const identity = placementShapeIdentity(target);
   const polygon = identity.polygon;
   const wallIndex = resolvePlacementWallIndex(target, wallRef);
@@ -192,7 +193,9 @@ export function editPlacementWallLength(candidate: CandidateRecord, componentId:
   polygon[bIndex] = [round(b[0] + ux * half), round(b[1] + uy * half)];
   assertBuildingPolygon(polygon, expectedWinding);
   const bounds = polygonBounds(polygon);
-  components[index] = { ...target, ...bounds, polygon, polygonVertexIds: identity.vertexIds, rotationDeg: 0 };
+  const nextPlacement: PlacementComponent = { ...target, ...bounds, polygon, polygonVertexIds: identity.vertexIds, rotationDeg: 0 };
+  if (ownerGeometryKey(target) === ownerGeometryKey(nextPlacement)) return candidate;
+  components[index] = nextPlacement;
   invalidateOwnedRoofComponents(components, target.id, "Wall length changed; roof lock requires revalidation.");
   return staleCandidate(candidate, components, updatedAt);
 }
@@ -248,7 +251,9 @@ export function editPlacementVertex(candidate: CandidateRecord, componentId: str
   const polygon = identity.polygon.map(([x,y], i) => i === vertexIndex ? [round(point[0]), round(point[1])] as Point : [x,y] as Point);
   assertBuildingPolygon(polygon, expectedWinding);
   const bounds = polygonBounds(polygon);
-  components[index] = { ...target, ...bounds, polygon, polygonVertexIds: identity.vertexIds, rotationDeg: 0 };
+  const nextPlacement: PlacementComponent = { ...target, ...bounds, polygon, polygonVertexIds: identity.vertexIds, rotationDeg: 0 };
+  if (ownerGeometryKey(target) === ownerGeometryKey(nextPlacement)) return candidate;
+  components[index] = nextPlacement;
   invalidateOwnedRoofComponents(components, target.id, "Building corner changed; roof lock requires revalidation.");
   return staleCandidate(candidate, components, updatedAt);
 }
@@ -359,8 +364,10 @@ export function editRoofZone(candidate: CandidateRecord, roofId: string, zoneId:
     value === undefined ? fallback : value === null ? null : [round(value[0]), round(value[1])] as Point;
   const numeric = (value: number | null | undefined, fallback: number | null | undefined) =>
     value === undefined ? fallback ?? null : value === null ? null : round(value);
+  const optionalNumeric = (value: number | null | undefined, fallback: number | null | undefined) =>
+    value === undefined ? fallback : value === null ? null : round(value);
   const zone = target.zones[zoneIndex];
-  const next: RoofZone = {
+  const authored: RoofZone = {
     ...zone,
     label: edit.label ?? zone.label,
     footprint: edit.footprint === undefined ? zone.footprint : edit.footprint === null ? undefined : edit.footprint.map(([x,y]) => [round(x),round(y)] as Point),
@@ -371,12 +378,14 @@ export function editRoofZone(candidate: CandidateRecord, roofId: string, zoneId:
     pitchRise: numeric(edit.pitchRise, zone.pitchRise),
     pitchRun: numeric(edit.pitchRun, zone.pitchRun),
     ridgeZFt: numeric(edit.ridgeZFt, zone.ridgeZFt),
-    ridgeZCheckFt: numeric(edit.ridgeZCheckFt, zone.ridgeZCheckFt),
-    pitchCheckRise: numeric(edit.pitchCheckRise, zone.pitchCheckRise),
-    pitchCheckRun: numeric(edit.pitchCheckRun, zone.pitchCheckRun),
+    ridgeZCheckFt: optionalNumeric(edit.ridgeZCheckFt, zone.ridgeZCheckFt),
+    pitchCheckRise: optionalNumeric(edit.pitchCheckRise, zone.pitchCheckRise),
+    pitchCheckRun: optionalNumeric(edit.pitchCheckRun, zone.pitchCheckRun),
     source: edit.source ?? zone.source,
-    status: "UNLOCKED"
+    status: zone.status
   };
+  if (JSON.stringify(authored) === JSON.stringify(zone)) return candidate;
+  const next: RoofZone = { ...authored, status: "UNLOCKED" };
   const zones = target.zones.map((item, i) => i === zoneIndex ? next : { ...item, status: "UNLOCKED" as const });
   components[index] = { ...target, status: "UNLOCKED", ownerGeometryKey: undefined,
     staleReason: "Roof draft changed; validate and lock this exact geometry.", zones };

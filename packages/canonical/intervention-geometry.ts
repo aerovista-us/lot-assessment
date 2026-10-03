@@ -61,8 +61,7 @@ export function canonicalizeInterventionGeometry(candidate: CandidateRecord) {
   return { schemaVersion: CANONICAL_INTERVENTION_GEOMETRY_SCHEMA, candidateId: candidate.id, revisionLabel: candidate.revisionLabel, placements, pavement, paths, openings, roofs };
 }
 export type CanonicalInterventionGeometryV3 = ReturnType<typeof canonicalizeInterventionGeometry>;
-/** @deprecated Use CanonicalInterventionGeometryV3. Kept as a source-compatible alias during the v3 rollout. */
-export type CanonicalInterventionGeometryV2 = CanonicalInterventionGeometryV3;
+export type { CanonicalInterventionGeometryV2 } from "@/packages/canonical/intervention-v2";
 export function interventionGeometryRevision(candidate: CandidateRecord) {
   return JSON.stringify(canonicalizeInterventionGeometry(candidate));
 }

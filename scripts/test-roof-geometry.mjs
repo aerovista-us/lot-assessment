@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { pondyCandidateRegistry } from "../projects/pondy-lot2/candidate-registry.ts";
-import { addRoofZone, editPlacementComponent, editRoofZone, lockRoofComponent } from "../packages/candidates/intervention.ts";
+import { addRoofZone, editPlacementComponent, editPlacementVertex, editPlacementWallLength, editRoofZone, lockRoofComponent } from "../packages/candidates/intervention.ts";
 import { canonicalizeInterventionGeometry } from "../packages/canonical/intervention-geometry.ts";
 import { validateCandidateRoofs, validateRoofComponent, solveGableZone } from "../packages/roof-geometry/index.ts";
 
@@ -59,6 +59,19 @@ assert(noopRoof?.kind === "roof");
 assert.equal(noopRoof.status, "LOCKED", "no-op placement saves must preserve a valid roof lock");
 assert.equal(noopRoof.ownerGeometryKey, roof.ownerGeometryKey, "no-op placement saves must preserve the owner geometry binding");
 
+const noopRoofDraft = editRoofZone(candidate, "roof-home-a", "home-a-roof-zone-1", {
+  footprint: null,
+  plateZFt: 20,
+  ridgeA: [94.5, 18.125],
+  ridgeB: [128, 18.125],
+  solveBy: "PITCH",
+  pitchRise: 6,
+  pitchRun: 12,
+  ridgeZFt: null,
+  source: "roof SOT self-test"
+}, "2026-10-03T06:00:01.750Z");
+assert.equal(noopRoofDraft, candidate, "saving an unchanged roof draft must preserve the locked candidate");
+
 const moved = editPlacementComponent(candidate, "home-a", { x: 95.5 }, "2026-10-03T06:00:02.000Z");
 const staleRoof = moved.components.find((item) => item.id === "roof-home-a");
 assert(staleRoof?.kind === "roof");
@@ -104,6 +117,13 @@ const tiledValidation = validateRoofComponent(tiledRoof, tiledOwner);
 assert.equal(tiledValidation.status, "ROOF_GEOMETRY_LOCKED");
 assert.equal(tiledValidation.zones.length, 2);
 
+const zeroWallDrag = editPlacementWallLength(tiled, "home-b", 0, 0, "2026-10-03T06:01:03.250Z");
+assert.equal(zeroWallDrag, tiled, "zero-delta wall edits must preserve the locked candidate");
+const sameCorner = tiledOwner.polygon?.[0];
+assert(sameCorner);
+const zeroCornerDrag = editPlacementVertex(tiled, "home-b", 0, sameCorner, "2026-10-03T06:01:03.300Z");
+assert.equal(zeroCornerDrag, tiled, "no-op corner edits must preserve the locked candidate");
+
 const clearedFootprint = editRoofZone(tiled, "roof-home-b", "home-b-roof-zone-1", { footprint: null }, "2026-10-03T06:01:03.500Z");
 const clearedRoof = clearedFootprint.components.find((item) => item.id === "roof-home-b");
 assert(clearedRoof?.kind === "roof");
@@ -129,6 +149,9 @@ console.log(JSON.stringify({
   ridgeZFt: validation.zones[0].ridgeZFt,
   footprintDependencyInvalidation: true,
   noOpPlacementPreservesRoofLock: true,
+  noOpRoofDraftPreservesRoofLock: true,
+  zeroDeltaWallPreservesRoofLock: true,
+  noOpCornerPreservesRoofLock: true,
   explicitZoneFootprintClearable: true,
   offCenterRidgeRejected: true,
   irregularSingleZoneRejected: true,

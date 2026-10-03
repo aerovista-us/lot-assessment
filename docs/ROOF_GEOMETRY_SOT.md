@@ -36,7 +36,7 @@ The Intervention Editor now treats roof geometry as an editable candidate compon
 
 A roof draft may contain:
 - one or more rectangular gable zones,
-- an explicit 4-corner zone footprint when the owner footprint is irregular,
+- an explicit 4-corner zone footprint when the owner footprint is irregular (clear all four corners to return to owner-derived geometry),
 - plate/bearing elevation,
 - ridge endpoint A and B,
 - vertical authority,
@@ -65,7 +65,7 @@ The plan displays entered ridge lines from validation, not the stored status fla
 
 For accuracy, the first implementation is conservative:
 
-Any move, rotation, mirror, resize, wall-length edit, corner edit, point insertion, or point removal unlocks the owning roof.
+Any move, rotation, mirror, resize, wall-length edit, corner edit, point insertion, or point removal that actually changes the owner geometry unlocks the owning roof. Zero-delta/no-op saves return the untouched candidate and preserve a valid roof lock.
 
 The roof draft is preserved for reference, but it is no longer authoritative until it is revalidated and locked against the new footprint.
 
