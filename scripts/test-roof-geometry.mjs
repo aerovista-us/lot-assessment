@@ -123,6 +123,53 @@ const tinyOverlapValidation = validateRoofComponent(tinyOverlapRoof, tinyOverlap
 assert.equal(tinyOverlapValidation.status, "FAIL_CLOSED_INVALID");
 assert(tinyOverlapValidation.errors.some((error) => /overlap in plan/i.test(error)), "any positive interior overlap must fail even when it is smaller than plan-display tolerance");
 
+const subToleranceOutsideRoof = {
+  id: "roof-sub-tolerance-outside",
+  kind: "roof",
+  label: "Sub-tolerance outside negative roof",
+  ownerId: tinyOverlapOwner.id,
+  status: "LOCKED",
+  ownerGeometryKey: ownerGeometryKey(tinyOverlapOwner),
+  zones: [{
+    id: "sub-tolerance-outside-zone", label: "Shifted rectangle", status: "LOCKED", type: "gable",
+    footprint: [[0.01,0],[100.01,0],[100.01,10],[0.01,10]],
+    plateZFt: 8, ridgeA: [50.01,0], ridgeB: [50.01,10],
+    solveBy: "PITCH", pitchRise: 6, pitchRun: 12, ridgeZFt: null,
+    source: "strict containment negative test"
+  }]
+};
+const subToleranceOutsideValidation = validateRoofComponent(subToleranceOutsideRoof, tinyOverlapOwner);
+assert.equal(subToleranceOutsideValidation.status, "FAIL_CLOSED_INVALID");
+assert(subToleranceOutsideValidation.errors.some((error) => /extend outside the owner footprint/i.test(error)), "authoritative owner containment must not use display/plan tolerance");
+
+const zeroPitchCheckRoof = {
+  id: "roof-zero-pitch-check",
+  kind: "roof",
+  label: "Zero pitch check negative roof",
+  ownerId: overlapOwner.id,
+  status: "LOCKED",
+  ownerGeometryKey: ownerGeometryKey(overlapOwner),
+  zones: [{
+    id: "zero-pitch-check-zone", label: "RIDGE_Z checked gable", status: "LOCKED", type: "gable",
+    plateZFt: 8, ridgeA: [5,0], ridgeB: [5,10],
+    solveBy: "RIDGE_Z", pitchRise: null, pitchRun: null, ridgeZFt: 13,
+    pitchCheckRise: 0, pitchCheckRun: 12,
+    source: "zero pitch check negative test"
+  }]
+};
+const zeroPitchCheckValidation = validateRoofComponent(zeroPitchCheckRoof, overlapOwner);
+assert.equal(zeroPitchCheckValidation.status, "FAIL_CLOSED_INVALID");
+assert(zeroPitchCheckValidation.errors.some((error) => /pitch check mismatch/i.test(error)), "an explicit 0:12 verification check must be compared rather than skipped");
+
+const partialPitchCheckRoof = {
+  ...zeroPitchCheckRoof,
+  id: "roof-partial-pitch-check",
+  zones: [{ ...zeroPitchCheckRoof.zones[0], id: "partial-pitch-check-zone", pitchCheckRise: 6, pitchCheckRun: null }]
+};
+const partialPitchCheckValidation = validateRoofComponent(partialPitchCheckRoof, overlapOwner);
+assert.equal(partialPitchCheckValidation.status, "FAIL_CLOSED_INVALID");
+assert(partialPitchCheckValidation.errors.some((error) => /requires both/i.test(error)), "a partially supplied pitch verification check must fail closed");
+
 let candidate = editRoofZone(d4, "roof-home-a", "home-a-roof-zone-1", {
   plateZFt: 20,
   ridgeA: [94.5, 18.125],
@@ -257,6 +304,9 @@ console.log(JSON.stringify({
   concaveCutoutBridgeRejected: concaveValidation.status === "FAIL_CLOSED_INVALID",
   balancedOverlapGapRejected: overlapBalanceValidation.errors.some((error) => /overlap in plan/i.test(error)),
   tinyPositiveOverlapRejected: tinyOverlapValidation.errors.some((error) => /overlap in plan/i.test(error)),
+  subToleranceExteriorZoneRejected: subToleranceOutsideValidation.status === "FAIL_CLOSED_INVALID",
+  zeroPitchCheckCompared: zeroPitchCheckValidation.errors.some((error) => /pitch check mismatch/i.test(error)),
+  partialPitchCheckRejected: partialPitchCheckValidation.errors.some((error) => /requires both/i.test(error)),
   malformedExplicitFootprintRejected: malformedFootprintValidation.status === "FAIL_CLOSED_INVALID",
   clearableProvenanceFailsClosed: true,
   status: validation.status,

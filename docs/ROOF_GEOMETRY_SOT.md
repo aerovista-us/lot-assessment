@@ -20,10 +20,10 @@ Roof geometry is a first-class candidate dependency. If the roof model is missin
    - **PITCH** → derive ridge Z from horizontal run.
    - **RIDGE_Z** → derive pitch from horizontal run.
 5. Pitch and ridge Z may never both be independent authorities.
-6. Redundant values are verification checks only and disagreement outside tolerance fails the lock.
+6. Redundant values are verification checks only and disagreement outside tolerance fails the lock. If any optional pitch-check field is supplied, the check must be complete and finite; zero values are explicit data and are never skipped by truthiness.
 7. Centered-gable v1 requires each authoritative zone to be a true rectangle; the ridge must bisect the cross-span, align to a zone axis, terminate on the zone boundary, and span the full distance between gable ends.
 8. Irregular buildings use multiple explicit rectangular roof zones rather than stretching one generic gable over the footprint.
-9. Every roof-zone edge must remain inside or on the owner footprint for its full length. A zone may not bridge a concave cutout, even when the crossing occurs exactly at owner vertices or along collinear boundary segments. Multiple zones must tile the exact owner footprint with no area gaps and no positive interior overlap; display/plan tolerances never excuse real overlap.
+9. Every roof-zone edge must remain inside or on the owner footprint for its full length using numerical precision, not drawing/display tolerance. A zone may not bridge a concave cutout or protrude beyond the owner, even by a sub-display-tolerance amount. Multiple zones must tile the exact owner footprint with no area gaps and no positive interior overlap.
 10. Touching roof zones must agree in solved Z along their shared interface within tolerance; discontinuous roof surfaces fail closed.
 11. Every locked zone records its geometry source/provenance.
 12. Every home/garage placement is roof-accounted: a missing roof component forces CONCEPT ONLY.
@@ -55,7 +55,7 @@ The plan displays entered ridge lines from validation, not the stored status fla
 - the ridge does not span the full gable end-to-end distance,
 - a centered-gable ridge is off center or not parallel to a zone axis,
 - pitch/ridge elevation is invalid,
-- an optional verification value disagrees beyond tolerance,
+- an optional verification value is incomplete/invalid or disagrees beyond tolerance,
 - a zone edge leaves the owner footprint or bridges a concave cutout,
 - multiple zones leave gaps, overlap in plan, or are not edge-connected,
 - touching zones disagree in solved height along their shared interface,

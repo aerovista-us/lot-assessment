@@ -47,7 +47,7 @@ export function ownerGeometryKey(owner: PlacementComponent) {
   });
 }
 
-function pointOnSegment(point: Point, a: Point, b: Point, epsilon = ROOF_TOLERANCE.planFt) {
+function pointOnSegment(point: Point, a: Point, b: Point, epsilon: number = ROOF_TOLERANCE.planFt) {
   const vx = b[0] - a[0], vy = b[1] - a[1];
   const wx = point[0] - a[0], wy = point[1] - a[1];
   const cross = vx * wy - vy * wx;
@@ -55,9 +55,9 @@ function pointOnSegment(point: Point, a: Point, b: Point, epsilon = ROOF_TOLERAN
   const dot = wx * vx + wy * vy, len = vx * vx + vy * vy;
   return dot >= -epsilon && dot <= len + epsilon;
 }
-function pointInPolygon(point: Point, polygon: ReadonlyArray<Point>) {
+function pointInPolygon(point: Point, polygon: ReadonlyArray<Point>, boundaryEpsilon: number = ROOF_TOLERANCE.planFt) {
   for (let i = 0; i < polygon.length; i += 1) {
-    if (pointOnSegment(point, polygon[i], polygon[(i + 1) % polygon.length])) return true;
+    if (pointOnSegment(point, polygon[i], polygon[(i + 1) % polygon.length], boundaryEpsilon)) return true;
   }
   let inside = false;
   for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i, i += 1) {
@@ -83,8 +83,8 @@ function dot(a: Point, b: Point) {
 function cross2(a: Point, b: Point) {
   return a[0] * b[1] - a[1] * b[0];
 }
-function pointOnBoundary(point: Point, polygon: ReadonlyArray<Point>) {
-  return polygon.some((a, index) => pointOnSegment(point, a, polygon[(index + 1) % polygon.length]));
+function pointOnBoundary(point: Point, polygon: ReadonlyArray<Point>, epsilon: number = ROOF_TOLERANCE.planFt) {
+  return polygon.some((a, index) => pointOnSegment(point, a, polygon[(index + 1) % polygon.length], epsilon));
 }
 function rectangleCheck(polygon: ReadonlyArray<Point>) {
   if (polygon.length !== 4) return { ok: false, detail: `expected 4 vertices, received ${polygon.length}` };
@@ -138,7 +138,7 @@ function segmentBoundaryParameters(a: Point, b: Point, c: Point, d: Point) {
   }
   return parameters;
 }
-function segmentContainedInPolygon(a: Point, b: Point, polygon: ReadonlyArray<Point>) {
+function segmentContainedInPolygon(a: Point, b: Point, polygon: ReadonlyArray<Point>, containmentEpsilon: number = 1e-8) {
   const parameters = [0, 1];
   for (let i = 0; i < polygon.length; i += 1) {
     parameters.push(...segmentBoundaryParameters(a, b, polygon[i], polygon[(i + 1) % polygon.length]));
@@ -150,13 +150,14 @@ function segmentContainedInPolygon(a: Point, b: Point, polygon: ReadonlyArray<Po
     if (end - start <= 1e-9) continue;
     const t = (start + end) / 2;
     const midpoint: Point = [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
-    if (!pointInPolygon(midpoint, polygon)) return false;
+    if (!pointInPolygon(midpoint, polygon, containmentEpsilon)) return false;
   }
   return true;
 }
 function polygonContained(inner: ReadonlyArray<Point>, outer: ReadonlyArray<Point>) {
-  if (!inner.every((point) => pointInPolygon(point, outer))) return false;
-  return inner.every((point, index) => segmentContainedInPolygon(point, inner[(index + 1) % inner.length], outer));
+  const containmentEpsilon = 1e-8;
+  if (!inner.every((point) => pointInPolygon(point, outer, containmentEpsilon))) return false;
+  return inner.every((point, index) => segmentContainedInPolygon(point, inner[(index + 1) % inner.length], outer, containmentEpsilon));
 }
 function convexPolygonsInteriorOverlap(a: ReadonlyArray<Point>, b: ReadonlyArray<Point>) {
   const axes: Point[] = [];
@@ -353,9 +354,14 @@ export function solveGableZone(owner: PlacementComponent, zone: RoofZone): Solve
       ridgeZFt = zone.ridgeZFt as number;
       ratio = (ridgeZFt - (zone.plateZFt as number)) / runFt;
     }
-    const check = pitchRatio(zone.pitchCheckRise ?? null, zone.pitchCheckRun ?? null);
-    if (check && ratio != null && Math.abs(check - ratio) > ROOF_TOLERANCE.pitchRatio) {
-      errors.push(`pitch check mismatch: solved ${pitch12Label(ratio)} vs check ${pitch12Label(check)}`);
+    const hasPitchCheck = zone.pitchCheckRise != null || zone.pitchCheckRun != null;
+    if (hasPitchCheck) {
+      const check = pitchRatio(zone.pitchCheckRise ?? null, zone.pitchCheckRun ?? null);
+      if (check == null) {
+        errors.push("pitch check requires both a finite rise and a positive run");
+      } else if (ratio != null && Math.abs(check - ratio) > ROOF_TOLERANCE.pitchRatio) {
+        errors.push(`pitch check mismatch: solved ${pitch12Label(ratio)} vs check ${pitch12Label(check)}`);
+      }
     }
   } else {
     errors.push("solveBy must be PITCH or RIDGE_Z");
