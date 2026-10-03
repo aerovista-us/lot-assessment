@@ -43,18 +43,20 @@ function canonicalRoofZone(value: unknown, index: number) {
   }
   const zone = value as Record<string, unknown>;
   const rawFootprint = zone.footprint;
-  const footprint = rawFootprint == null
-    ? null
+  const footprintState = rawFootprint === undefined
+    ? "OWNER_DERIVED"
     : Array.isArray(rawFootprint)
-      ? rawFootprint.map(canonicalPoint)
-      : null;
-  const footprintMalformed = rawFootprint != null && (!Array.isArray(rawFootprint) || footprint?.some((point) => point === null));
+      ? "EXPLICIT"
+      : "MALFORMED";
+  const footprint = Array.isArray(rawFootprint) ? rawFootprint.map(canonicalPoint) : null;
+  const footprintMalformed = rawFootprint !== undefined && (!Array.isArray(rawFootprint) || (footprint ?? []).some((point) => point === null));
   return {
     id: typeof zone.id === "string" ? zone.id : `__malformed-zone-${index}`,
     label: typeof zone.label === "string" ? zone.label : null,
     status: typeof zone.status === "string" ? zone.status : null,
     type: typeof zone.type === "string" ? zone.type : null,
     malformed: typeof zone.id !== "string" || footprintMalformed,
+    footprintState,
     footprint,
     plateZFt: typeof zone.plateZFt === "number" && Number.isFinite(zone.plateZFt) ? rounded(zone.plateZFt) : null,
     ridgeA: canonicalPoint(zone.ridgeA),

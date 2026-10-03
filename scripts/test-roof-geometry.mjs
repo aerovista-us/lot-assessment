@@ -47,6 +47,29 @@ const malformedCanonicalRoof = malformedCanonical.roofs.find((item) => item.id =
 assert(malformedCanonicalRoof, "malformed roofs must remain representable in canonical intervention geometry");
 assert(malformedCanonicalRoof.zones.some((zone) => zone.malformed), "canonical intervention geometry must mark malformed roof zones instead of throwing");
 
+const malformedOwnerEditCandidate = {
+  ...d4,
+  components: [...d4.components.filter((item) => item.id !== "roof-home-a"), malformedMissingZones]
+};
+const malformedOwnerEdited = editPlacementComponent(malformedOwnerEditCandidate, "home-a", { x: 95 }, "2026-10-03T05:59:59.000Z");
+const malformedOwnerEditedRoof = malformedOwnerEdited.components.find((item) => item.id === "roof-malformed-missing-zones");
+assert(malformedOwnerEditedRoof?.kind === "roof");
+assert.equal(malformedOwnerEditedRoof.status, "UNLOCKED", "owner edits must invalidate malformed roofs without throwing");
+assert.equal(validateRoofComponent(malformedOwnerEditedRoof, malformedOwnerEdited.components.find((item) => item.id === "home-a")).status, "FAIL_CLOSED_INVALID");
+
+const ownerDerivedCanonical = canonicalizeInterventionGeometry(d4);
+const explicitNullComponents = cloneCandidateComponents(d4.components);
+const explicitNullRoof = explicitNullComponents.find((item) => item.id === "roof-home-a");
+assert(explicitNullRoof?.kind === "roof");
+explicitNullRoof.zones[0].footprint = null;
+const explicitNullCanonical = canonicalizeInterventionGeometry({ ...d4, components: explicitNullComponents });
+const ownerDerivedZone = ownerDerivedCanonical.roofs.find((item) => item.id === "roof-home-a")?.zones[0];
+const explicitNullZone = explicitNullCanonical.roofs.find((item) => item.id === "roof-home-a")?.zones[0];
+assert.equal(ownerDerivedZone?.footprintState, "OWNER_DERIVED");
+assert.equal(explicitNullZone?.footprintState, "MALFORMED");
+assert.equal(explicitNullZone?.malformed, true);
+assert.notEqual(JSON.stringify(ownerDerivedCanonical), JSON.stringify(explicitNullCanonical), "absent owner-derived footprint and explicit null footprint must produce different canonical revisions");
+
 const baseHome = d4.components.find((item) => item.id === "home-a");
 assert(baseHome?.kind === "home");
 const concaveOwner = {
@@ -407,6 +430,8 @@ console.log(JSON.stringify({
   orphanRoofsFailClosed: orphanSummary.renderPolicy === "FAIL_CLOSED_INVALID",
   malformedRoofArraysFailClosedWithoutCrash: malformedMissingValidation.status === "FAIL_CLOSED_INVALID" && malformedNullValidation.status === "FAIL_CLOSED_INVALID",
   malformedRoofCanonicalizationSafe: Boolean(malformedCanonicalRoof?.zones.some((zone) => zone.malformed)),
+  malformedRoofOwnerInvalidationSafe: malformedOwnerEditedRoof?.status === "UNLOCKED",
+  nullFootprintCanonicalizedDistinctly: explicitNullZone?.footprintState === "MALFORMED",
   interfaceSlopeBreakpointsChecked: interfaceBreakValidation.errors.some((error) => /vertically discontinuous/i.test(error)),
   optionalVerificationChecksClearable: true,
   concaveCutoutBridgeRejected: concaveValidation.status === "FAIL_CLOSED_INVALID",

@@ -44,13 +44,19 @@ function invalidateOwnedRoofComponents(components: CandidateComponent[], ownerId
   for (let index = 0; index < components.length; index += 1) {
     const component = components[index];
     if (component.kind !== "roof" || component.ownerId !== ownerId) continue;
+    const rawZones = (component as unknown as { zones?: unknown }).zones;
+    const zones = Array.isArray(rawZones)
+      ? rawZones.map((zone) => zone && typeof zone === "object" && !Array.isArray(zone)
+          ? { ...zone, status: "UNLOCKED" }
+          : zone)
+      : rawZones;
     components[index] = {
       ...component,
       status: "UNLOCKED",
       ownerGeometryKey: undefined,
       staleReason: reason,
-      zones: component.zones.map((zone) => ({ ...zone, status: "UNLOCKED" }))
-    } satisfies RoofComponent;
+      zones
+    } as CandidateComponent;
   }
 }
 
