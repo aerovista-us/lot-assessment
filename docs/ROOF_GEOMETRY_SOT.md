@@ -23,7 +23,7 @@ Roof geometry is a first-class candidate dependency. If the roof model is missin
 6. Redundant values are verification checks only and disagreement outside tolerance fails the lock.
 7. Centered-gable v1 requires each authoritative zone to be a true rectangle; the ridge must bisect the cross-span, align to a zone axis, terminate on the zone boundary, and span the full distance between gable ends.
 8. Irregular buildings use multiple explicit rectangular roof zones rather than stretching one generic gable over the footprint.
-9. Multiple zones must tile the exact owner footprint with no area gaps or interior overlaps.
+9. Every roof-zone edge must remain inside or on the owner footprint for its full length. A zone may not bridge a concave cutout, even when the crossing occurs exactly at owner vertices or along collinear boundary segments. Multiple zones must tile the exact owner footprint with no area gaps or interior overlaps.
 10. Touching roof zones must agree in solved Z along their shared interface within tolerance; discontinuous roof surfaces fail closed.
 11. Every locked zone records its geometry source/provenance.
 12. Every home/garage placement is roof-accounted: a missing roof component forces CONCEPT ONLY.
@@ -41,7 +41,7 @@ A roof draft may contain:
 - ridge endpoint A and B,
 - vertical authority,
 - pitch rise/run or ridge elevation,
-- geometry source/provenance.
+- geometry source/provenance; explicitly clearing a source keeps it cleared and prevents authoritative locking until a valid source is entered.
 
 The plan displays entered ridge lines from validation, not the stored status flag alone:
 - dashed purple = unlocked / concept-only,
@@ -56,6 +56,7 @@ The plan displays entered ridge lines from validation, not the stored status fla
 - a centered-gable ridge is off center or not parallel to a zone axis,
 - pitch/ridge elevation is invalid,
 - an optional verification value disagrees beyond tolerance,
+- a zone edge leaves the owner footprint or bridges a concave cutout,
 - multiple zones leave gaps, overlap in plan, or are not edge-connected,
 - touching zones disagree in solved height along their shared interface,
 - geometry provenance is missing,

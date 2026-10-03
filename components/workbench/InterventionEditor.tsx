@@ -272,7 +272,7 @@ export function InterventionEditor({ candidate, repairContextCandidate, onSave, 
             pitchRise: nullableNumberValue(draft[roofFieldKey(i, "pitchRise")], zone.pitchRise),
             pitchRun: nullableNumberValue(draft[roofFieldKey(i, "pitchRun")], zone.pitchRun),
             ridgeZFt: nullableNumberValue(draft[roofFieldKey(i, "ridgeZFt")], zone.ridgeZFt),
-            source: draft[roofFieldKey(i, "source")]?.trim() || zone.source
+            source: (draft[roofFieldKey(i, "source")] ?? zone.source ?? "").trim()
           });
         }
       }

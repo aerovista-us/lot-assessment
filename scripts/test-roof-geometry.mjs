@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { pondyCandidateRegistry } from "../projects/pondy-lot2/candidate-registry.ts";
 import { addRoofZone, editPlacementComponent, editPlacementVertex, editPlacementWallLength, editRoofZone, lockRoofComponent } from "../packages/candidates/intervention.ts";
 import { canonicalizeInterventionGeometry } from "../packages/canonical/intervention-geometry.ts";
-import { validateCandidateRoofs, validateRoofComponent, solveGableZone } from "../packages/roof-geometry/index.ts";
+import { ownerGeometryKey, validateCandidateRoofs, validateRoofComponent, solveGableZone } from "../packages/roof-geometry/index.ts";
 
 const d4 = pondyCandidateRegistry.candidates.find((candidate) => candidate.id === "pondy-d4");
 assert(d4);
@@ -24,6 +24,34 @@ const orphanRoof = { ...duplicateRoof, id: "roof-orphan", ownerId: "missing-buil
 const orphanSummary = validateCandidateRoofs([...d4.components, orphanRoof]);
 assert.equal(orphanSummary.renderPolicy, "FAIL_CLOSED_INVALID");
 assert(orphanSummary.results.some((item) => item.errors.some((error) => /owner placement is missing/i.test(error))));
+
+const baseHome = d4.components.find((item) => item.id === "home-a");
+assert(baseHome?.kind === "home");
+const concaveOwner = {
+  ...baseHome,
+  id: "concave-owner",
+  label: "Concave U owner",
+  x: 0, y: 0, widthFt: 10, depthFt: 10, rotationDeg: 0,
+  polygon: [[0,0],[10,0],[10,10],[7,10],[7,3],[3,3],[3,10],[0,10]]
+};
+const spanningConcaveRoof = {
+  id: "roof-concave-owner",
+  kind: "roof",
+  label: "Concave owner negative roof",
+  ownerId: concaveOwner.id,
+  status: "LOCKED",
+  ownerGeometryKey: ownerGeometryKey(concaveOwner),
+  zones: [{
+    id: "concave-zone-1", label: "Invalid bridge rectangle", status: "LOCKED", type: "gable",
+    footprint: [[0,2.8],[10,2.8],[10,10],[0,10]],
+    plateZFt: 8, ridgeA: [0,6.4], ridgeB: [10,6.4],
+    solveBy: "PITCH", pitchRise: 6, pitchRun: 12, ridgeZFt: null,
+    source: "concave containment negative test"
+  }]
+};
+const concaveValidation = validateRoofComponent(spanningConcaveRoof, concaveOwner);
+assert.equal(concaveValidation.status, "FAIL_CLOSED_INVALID");
+assert(concaveValidation.errors.some((error) => /extend outside the owner footprint/i.test(error)), "roof zones may not bridge a concave owner cutout even when crossings land on owner vertices");
 
 let candidate = editRoofZone(d4, "roof-home-a", "home-a-roof-zone-1", {
   plateZFt: 20,
@@ -71,6 +99,10 @@ const noopRoofDraft = editRoofZone(candidate, "roof-home-a", "home-a-roof-zone-1
   source: "roof SOT self-test"
 }, "2026-10-03T06:00:01.750Z");
 assert.equal(noopRoofDraft, candidate, "saving an unchanged roof draft must preserve the locked candidate");
+
+const clearedProvenance = editRoofZone(candidate, "roof-home-a", "home-a-roof-zone-1", { source: "" }, "2026-10-03T06:00:01.800Z");
+assert.notEqual(clearedProvenance, candidate, "explicitly clearing provenance must be treated as a real roof edit");
+assert.throws(() => lockRoofComponent(clearedProvenance, "roof-home-a", "2026-10-03T06:00:01.850Z"), /provenance|required/i, "a cleared roof source must fail closed when re-locking");
 
 const moved = editPlacementComponent(candidate, "home-a", { x: 95.5 }, "2026-10-03T06:00:02.000Z");
 const staleRoof = moved.components.find((item) => item.id === "roof-home-a");
@@ -144,6 +176,8 @@ console.log(JSON.stringify({
   missingRoofModelsFailToConceptOnly: noRoofSummary.missing === 4,
   duplicateRoofOwnersFailClosed: duplicateSummary.renderPolicy === "FAIL_CLOSED_INVALID",
   orphanRoofsFailClosed: orphanSummary.renderPolicy === "FAIL_CLOSED_INVALID",
+  concaveCutoutBridgeRejected: concaveValidation.status === "FAIL_CLOSED_INVALID",
+  clearableProvenanceFailsClosed: true,
   status: validation.status,
   pitch: validation.zones[0].pitch12,
   ridgeZFt: validation.zones[0].ridgeZFt,

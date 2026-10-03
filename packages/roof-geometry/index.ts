@@ -114,14 +114,49 @@ function properSegmentsIntersect(a: Point, b: Point, c: Point, d: Point) {
 function strictlyInside(point: Point, polygon: ReadonlyArray<Point>) {
   return pointInPolygon(point, polygon) && !pointOnBoundary(point, polygon);
 }
-function polygonContained(inner: ReadonlyArray<Point>, outer: ReadonlyArray<Point>) {
-  if (!inner.every((point) => pointInPolygon(point, outer))) return false;
-  for (let i = 0; i < inner.length; i += 1) {
-    for (let j = 0; j < outer.length; j += 1) {
-      if (properSegmentsIntersect(inner[i], inner[(i + 1) % inner.length], outer[j], outer[(j + 1) % outer.length])) return false;
+function segmentBoundaryParameters(a: Point, b: Point, c: Point, d: Point) {
+  const r = subtract(b, a), s = subtract(d, c);
+  const denominator = cross2(r, s);
+  const cMinusA = subtract(c, a);
+  const epsilon = 1e-9;
+  const parameters: number[] = [];
+  const clampParameter = (value: number) => Math.max(0, Math.min(1, value));
+  if (Math.abs(denominator) <= epsilon) {
+    if (Math.abs(cross2(cMinusA, r)) > epsilon) return parameters;
+    const lengthSq = dot(r, r);
+    if (lengthSq <= epsilon) return parameters;
+    for (const point of [c, d]) {
+      const t = dot(subtract(point, a), r) / lengthSq;
+      if (t >= -epsilon && t <= 1 + epsilon) parameters.push(clampParameter(t));
     }
+    return parameters;
+  }
+  const t = cross2(cMinusA, s) / denominator;
+  const u = cross2(cMinusA, r) / denominator;
+  if (t >= -epsilon && t <= 1 + epsilon && u >= -epsilon && u <= 1 + epsilon) {
+    parameters.push(clampParameter(t));
+  }
+  return parameters;
+}
+function segmentContainedInPolygon(a: Point, b: Point, polygon: ReadonlyArray<Point>) {
+  const parameters = [0, 1];
+  for (let i = 0; i < polygon.length; i += 1) {
+    parameters.push(...segmentBoundaryParameters(a, b, polygon[i], polygon[(i + 1) % polygon.length]));
+  }
+  parameters.sort((left, right) => left - right);
+  const unique = parameters.filter((value, index) => index === 0 || Math.abs(value - parameters[index - 1]) > 1e-8);
+  for (let i = 0; i < unique.length - 1; i += 1) {
+    const start = unique[i], end = unique[i + 1];
+    if (end - start <= 1e-9) continue;
+    const t = (start + end) / 2;
+    const midpoint: Point = [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+    if (!pointInPolygon(midpoint, polygon)) return false;
   }
   return true;
+}
+function polygonContained(inner: ReadonlyArray<Point>, outer: ReadonlyArray<Point>) {
+  if (!inner.every((point) => pointInPolygon(point, outer))) return false;
+  return inner.every((point, index) => segmentContainedInPolygon(point, inner[(index + 1) % inner.length], outer));
 }
 function polygonsInteriorOverlap(a: ReadonlyArray<Point>, b: ReadonlyArray<Point>) {
   for (let i = 0; i < a.length; i += 1) {
