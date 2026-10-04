@@ -236,9 +236,10 @@ export function pitch12Label(ratio: number | null) {
 }
 
 function zoneFootprint(owner: PlacementComponent, zone: RoofZone) {
-  if (zone.footprint === undefined) return placementPolygon(owner);
-  if (!Array.isArray(zone.footprint)) return [];
-  return zone.footprint.map(([x, y]) => [x, y] as Point);
+  const rawFootprint = (zone as unknown as { footprint?: unknown }).footprint;
+  if (rawFootprint === undefined) return placementPolygon(owner);
+  if (!Array.isArray(rawFootprint) || !rawFootprint.every(finitePoint)) return [];
+  return rawFootprint.map(([x, y]) => [x, y] as Point);
 }
 
 export type SolvedRoofZone = {
@@ -316,6 +317,10 @@ export function solveGableZone(owner: PlacementComponent, zone: RoofZone): Solve
   }
 
   const errors: string[] = [], checks: SolvedRoofZone["checks"] = [];
+  const rawFootprint = (zone as unknown as { footprint?: unknown }).footprint;
+  const explicitFootprintValid = rawFootprint === undefined
+    || (Array.isArray(rawFootprint) && rawFootprint.every(finitePoint));
+  if (!explicitFootprintValid) errors.push("explicit roof-zone footprint must contain only finite numeric [x, y] points");
   if (zone.type !== "gable") errors.push(`Unsupported roof type ${zone.type}`);
   if (!zone.source?.trim()) errors.push("roof geometry source / provenance is required");
   if (!Number.isFinite(zone.plateZFt)) errors.push("plateZFt is required");
@@ -458,7 +463,12 @@ export function validateRoofComponent(roof: RoofComponent | null | undefined, ow
     return invalidStructure("roof zones contain a malformed zone record");
   }
 
-  const currentKey = ownerGeometryKey(owner);
+  let currentKey: string;
+  try {
+    currentKey = ownerGeometryKey(owner);
+  } catch {
+    return invalidStructure("roof owner geometry is malformed");
+  }
   const ownerGeometryCurrent = !roof.ownerGeometryKey || roof.ownerGeometryKey === currentKey;
   let zones: SolvedRoofZone[];
   try {

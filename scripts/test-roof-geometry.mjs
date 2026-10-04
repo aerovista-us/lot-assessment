@@ -298,6 +298,19 @@ const malformedFootprintValidation = validateRoofComponent(malformedFootprintRoo
 assert.equal(malformedFootprintValidation.status, "FAIL_CLOSED_INVALID");
 assert(malformedFootprintValidation.errors.some((error) => /expected 4 vertices/i.test(error)), "an explicitly present malformed roof footprint must not inherit the owner footprint");
 
+const stringFootprintRoof = {
+  ...roof,
+  zones: [{ ...roof.zones[0], footprint: [["94.5", "5"], ["128", "5"], ["128", "31.25"], ["94.5", "31.25"]] }]
+};
+const stringFootprintValidation = validateRoofComponent(stringFootprintRoof, owner);
+assert.equal(stringFootprintValidation.status, "FAIL_CLOSED_INVALID");
+assert(stringFootprintValidation.errors.some((error) => /finite numeric \[x, y\] points/i.test(error)), "string footprint coordinates must not be numerically coerced");
+
+const malformedOwner = { ...owner, rotationDeg: "n/a" };
+const malformedOwnerValidation = validateRoofComponent(roof, malformedOwner);
+assert.equal(malformedOwnerValidation.status, "FAIL_CLOSED_INVALID");
+assert(malformedOwnerValidation.errors.some((error) => /owner geometry is malformed/i.test(error)), "malformed owner geometry must fail closed instead of throwing");
+
 const stringRidgeRoof = {
   ...roof,
   zones: [{ ...roof.zones[0], ridgeA: ["94.5", "18.125"], ridgeB: ["128", "18.125"] }]
@@ -458,6 +471,8 @@ console.log(JSON.stringify({
   zeroPitchCheckCompared: zeroPitchCheckValidation.errors.some((error) => /pitch check mismatch/i.test(error)),
   partialPitchCheckRejected: partialPitchCheckValidation.errors.some((error) => /requires both/i.test(error)),
   malformedExplicitFootprintRejected: malformedFootprintValidation.status === "FAIL_CLOSED_INVALID",
+  nonnumericFootprintCoordinatesRejected: stringFootprintValidation.status === "FAIL_CLOSED_INVALID",
+  malformedOwnerGeometryFailsClosed: malformedOwnerValidation.status === "FAIL_CLOSED_INVALID",
   nonnumericRidgeCoordinatesRejected: stringRidgeValidation.status === "FAIL_CLOSED_INVALID",
   malformedRidgeZCheckRejected: malformedRidgeCheckValidation.status === "FAIL_CLOSED_INVALID",
   clearableProvenanceFailsClosed: true,
