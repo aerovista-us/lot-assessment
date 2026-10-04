@@ -1,5 +1,31 @@
 import type { AssessmentEvidence } from "@/packages/evidence";
 import { gate } from "@/packages/audit";
+import { validateCandidateRoofs } from "@/packages/roof-geometry";
+import { pondyCandidateRegistry } from "@/projects/pondy-lot2/candidate-registry";
+
+const d4Candidate = pondyCandidateRegistry.candidates.find((candidate) => candidate.id === "pondy-d4");
+if (!d4Candidate) throw new Error("Pondy Design 4 candidate is required for public evidence.");
+
+const d4RoofSummary = validateCandidateRoofs(d4Candidate.components);
+const d4RoofAuthoritative =
+  d4RoofSummary.renderPolicy === "AUTHORITATIVE_ALLOWED" &&
+  d4RoofSummary.invalid === 0 &&
+  d4RoofSummary.missing === 0 &&
+  d4RoofSummary.conceptOnly === 0 &&
+  d4RoofSummary.locked === d4RoofSummary.requiredOwnerCount;
+
+const d4HomeARoof = d4RoofSummary.results.find((result) => result.ownerId === "home-a");
+const d4GarageRoof = d4RoofSummary.results.find((result) => result.ownerId === "garage-a")
+  ?? d4RoofSummary.results.find((result) => result.ownerId === "garage-b");
+const d4RoofPitches = new Set(
+  d4RoofSummary.results.flatMap((result) => result.zones.map((zone) => zone.pitch12).filter(Boolean))
+);
+const d4RoofPitch = d4RoofAuthoritative && d4RoofPitches.size === 1
+  ? [...d4RoofPitches][0]!
+  : "WITHHELD";
+const d4RoofAssumption = d4RoofAuthoritative
+  ? `Current roof geometry is ${d4RoofSummary.locked}/${d4RoofSummary.requiredOwnerCount} locked to the exact Design 4 owner footprints under the validated ${d4RoofPitch} design-development gable decision; this is not structural, drainage, snow-load, energy, or permit approval.`
+  : `Roof authority is fail-closed: ${d4RoofSummary.locked}/${d4RoofSummary.requiredOwnerCount} current building roofs are geometry-locked, with ${d4RoofSummary.invalid} invalid, ${d4RoofSummary.missing} missing, and ${d4RoofSummary.conceptOnly} concept-only. Authoritative roof output remains withheld.`;
 
 export const pondyDesign4Evidence: AssessmentEvidence = {
   schemaVersion: "lotscope-assessment-evidence-v1",
@@ -17,7 +43,8 @@ export const pondyDesign4Evidence: AssessmentEvidence = {
     "Both detached garage plates remain exactly 22 ft × 22 ft with 20 ft concept overhead openings.",
     "Pennsylvania Street is the only modeled vehicle-access origin.",
     "Accessory setbacks are planning assumptions and not parcel-specific zoning approval.",
-    "The modeled pavement envelope is a design-development concept, not civil certification."
+    "The modeled pavement envelope is a design-development concept, not civil certification.",
+    d4RoofAssumption
   ],
   gates: [
     gate({
@@ -73,6 +100,25 @@ export const pondyDesign4Evidence: AssessmentEvidence = {
       status: "PASS",
       summary: "Shared-world openings and polygon-derived exterior faces pass the current architectural consistency checks.",
       publicSummary: "Plans, openings, elevations, and axon are using coordinated geometry rather than separate hand-drawn assumptions."
+    }),
+    gate({
+      id: "roof-geometry",
+      label: "Authoritative roof geometry",
+      status: d4RoofAuthoritative ? "PASS" : "FAIL",
+      summary: d4RoofAuthoritative
+        ? `All ${d4RoofSummary.locked} required Design 4 roofs are geometry-locked to their exact current owner footprints; current validated pitch authority is ${d4RoofPitch}.`
+        : `Roof authority is not complete: ${d4RoofSummary.locked}/${d4RoofSummary.requiredOwnerCount} locked · ${d4RoofSummary.invalid} invalid · ${d4RoofSummary.missing} missing · ${d4RoofSummary.conceptOnly} concept-only. Authoritative roof output fails closed.`,
+      publicSummary: d4RoofAuthoritative
+        ? `All ${d4RoofSummary.locked} current building roofs have validated ridge and slope geometry tied to the exact Design 4 footprints.`
+        : "Authoritative roof geometry is currently withheld because one or more roof models are missing, unlocked, stale, or invalid.",
+      metrics: [
+        { id: "roof-lock-count", label: "Geometry-locked roofs", value: d4RoofSummary.locked },
+        { id: "roof-required-count", label: "Required roofs", value: d4RoofSummary.requiredOwnerCount },
+        { id: "roof-invalid-count", label: "Invalid roofs", value: d4RoofSummary.invalid },
+        { id: "home-a-ridge", label: "Home A ridge elevation", value: d4RoofAuthoritative ? d4HomeARoof?.zones[0]?.ridgeZFt ?? null : null, unit: "ft" },
+        { id: "garage-ridge", label: "Garage ridge elevation", value: d4RoofAuthoritative ? d4GarageRoof?.zones[0]?.ridgeZFt ?? null : null, unit: "ft" },
+        { id: "roof-pitch", label: "Current roof pitch", value: d4RoofPitch }
+      ]
     }),
     gate({
       id: "pavement-envelope",
@@ -133,7 +179,7 @@ export const pondyDesign4Evidence: AssessmentEvidence = {
   trace: {
     sourceProject: "aerovista-us/PondyFlats",
     sourceRevision: "D4-REAR22-v0.3 + multi-tool repair snapshot",
-    engineRevision: "pondy-d4-multitool-repair-v1 / lotscope-evidence-v1",
-    generatedAt: "2026-09-13T16:17:02.958Z",
+    engineRevision: "pondy-d4-multitool-repair-v1 / lotscope-evidence-v1 / lotscope-roof-geometry-v1",
+    generatedAt: "2026-10-04T18:45:00.000Z",
   }
 };

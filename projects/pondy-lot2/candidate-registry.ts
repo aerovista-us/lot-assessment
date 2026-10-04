@@ -5,7 +5,8 @@ import {
   type CandidateComponent,
   type CandidateEvaluation,
   type CandidateRecord,
-  type CandidateRegistry
+  type CandidateRegistry,
+  type RoofComponent
 } from "@/packages/candidates";
 
 const CREATED_AT = "2026-09-13T20:57:07.605Z";
@@ -52,6 +53,73 @@ function d4SiteComponents(): CandidateComponent[] {
   ];
 }
 
+const D4_ROOF_LOCK_SOURCE = "Pondy Design 4 roof lock 2026-10-04: roof footprints from exact D4 owner geometry; 20 ft home / 11 ft garage plate datums from Pondy D4 architecture model; 6:12 design-development gable pitch selected for the coordinated roof study.";
+
+function d4CurrentComponents(): CandidateComponent[] {
+  return d4SiteComponents().map((component) => {
+    if (component.kind !== "roof") return component;
+    if (component.id === "roof-home-b") return {
+      ...component,
+      status: "LOCKED",
+      staleReason: undefined,
+      ownerGeometryKey: `{"id":"home-b","rotationDeg":0,"polygon":[[54,5],[94.5,5],[94.5,31.25],[72.5,31.25],[72.5,22],[54,22]]}`,
+      zones: [
+        {
+          id: "home-b-roof-zone-1", label: "Home B main east-west gable", status: "LOCKED", type: "gable",
+          footprint: [[54,5],[94.5,5],[94.5,22],[54,22]],
+          plateZFt: 20, ridgeA: [54,13.5], ridgeB: [94.5,13.5],
+          solveBy: "PITCH", pitchRise: 6, pitchRun: 12, ridgeZFt: null, ridgeZCheckFt: 24.25,
+          source: D4_ROOF_LOCK_SOURCE
+        },
+        {
+          id: "home-b-roof-zone-2", label: "Home B south-finger east-west gable", status: "LOCKED", type: "gable",
+          footprint: [[72.5,22],[94.5,22],[94.5,31.25],[72.5,31.25]],
+          plateZFt: 20, ridgeA: [72.5,26.625], ridgeB: [94.5,26.625],
+          solveBy: "PITCH", pitchRise: 6, pitchRun: 12, ridgeZFt: null, ridgeZCheckFt: 22.3125,
+          source: D4_ROOF_LOCK_SOURCE
+        }
+      ]
+    } satisfies RoofComponent;
+    if (component.id === "roof-home-a") return {
+      ...component,
+      status: "LOCKED",
+      staleReason: undefined,
+      ownerGeometryKey: `{"id":"home-a","rotationDeg":0,"polygon":[[94.5,5],[128,5],[128,31.25],[94.5,31.25]]}`,
+      zones: [{
+        id: "home-a-roof-zone-1", label: "Home A main east-west gable", status: "LOCKED", type: "gable",
+        plateZFt: 20, ridgeA: [94.5,18.125], ridgeB: [128,18.125],
+        solveBy: "PITCH", pitchRise: 6, pitchRun: 12, ridgeZFt: null, ridgeZCheckFt: 26.5625,
+        source: D4_ROOF_LOCK_SOURCE
+      }]
+    } satisfies RoofComponent;
+    if (component.id === "roof-garage-b") return {
+      ...component,
+      status: "LOCKED",
+      staleReason: undefined,
+      ownerGeometryKey: `{"id":"garage-b","rotationDeg":0,"polygon":[[5,5],[27,5],[27,27],[5,27]]}`,
+      zones: [{
+        id: "garage-b-roof-zone-1", label: "Garage B north-south gable", status: "LOCKED", type: "gable",
+        plateZFt: 11, ridgeA: [16,5], ridgeB: [16,27],
+        solveBy: "PITCH", pitchRise: 6, pitchRun: 12, ridgeZFt: null, ridgeZCheckFt: 16.5,
+        source: D4_ROOF_LOCK_SOURCE + " Garage ridge runs north-south so primary roof drainage is east/west rather than into the 2 ft inter-garage gap."
+      }]
+    } satisfies RoofComponent;
+    if (component.id === "roof-garage-a") return {
+      ...component,
+      status: "LOCKED",
+      staleReason: undefined,
+      ownerGeometryKey: `{"id":"garage-a","rotationDeg":0,"polygon":[[5,29],[27,29],[27,51],[5,51]]}`,
+      zones: [{
+        id: "garage-a-roof-zone-1", label: "Garage A north-south gable", status: "LOCKED", type: "gable",
+        plateZFt: 11, ridgeA: [16,29], ridgeB: [16,51],
+        solveBy: "PITCH", pitchRise: 6, pitchRun: 12, ridgeZFt: null, ridgeZCheckFt: 16.5,
+        source: D4_ROOF_LOCK_SOURCE + " Garage ridge runs north-south so primary roof drainage is east/west rather than into the 2 ft inter-garage gap."
+      }]
+    } satisfies RoofComponent;
+    return component;
+  });
+}
+
 const d4Evaluation: CandidateEvaluation = {
   id: "eval-pondy-d4-20260913",
   candidateId: "pondy-d4",
@@ -69,6 +137,25 @@ const d4Evaluation: CandidateEvaluation = {
     { id: "outbound", label: "Independent outbound circulation", status: "FAIL", summary: "No compared repair strategy has yet demonstrated stall-to-Pennsylvania outbound travel.", blockerClass: "circulation", repairClasses: ["reshape-drive", "rotate-garage", "local-pavement-flare", "translate-garage"] },
     { id: "b-south-door", label: "B-South door clearance", status: "WATCH", summary: "Current worst door margin is 0.073 ft.", blockerClass: "clearance", repairClasses: ["reshape-drive", "rotate-garage", "edit-opening"] },
     { id: "accessory-zoning", label: "Accessory zoning", status: "PROFESSIONAL_REVIEW", summary: "Parcel-specific detached-garage interpretation remains open." }
+  ]
+};
+
+
+const d4RoofLockEvaluation: CandidateEvaluation = {
+  ...d4Evaluation,
+  id: "eval-pondy-d4-roof-lock-20261004",
+  createdAt: "2026-10-04T18:45:00.000Z",
+  engineVersion: "pondy-d4-multitool-repair-v1 / lotscope-evidence-v1 / lotscope-roof-geometry-v1",
+  summary: "All four Design 4 roof owners are geometry-locked to the exact current footprints under one 6:12 design-development roof decision; independent outbound circulation remains open and B-South remains marginal.",
+  gates: [
+    ...d4Evaluation.gates,
+    {
+      id: "roof-geometry",
+      label: "Authoritative roof geometry",
+      status: "PASS",
+      summary: "Home A, Home B, Garage A, and Garage B are 4/4 geometry-locked with exact owner dependency, explicit ridge lines, plate datums, 6:12 pitch authority, and provenance.",
+      blockerClass: "architecture"
+    }
   ]
 };
 
@@ -121,7 +208,7 @@ const d4bEvaluation: CandidateEvaluation = {
   ]
 };
 
-const d4Classification = classifyCandidate(d4Evaluation);
+const d4Classification = classifyCandidate(d4RoofLockEvaluation);
 const d4Candidate: CandidateRecord = {
   schemaVersion: CANDIDATE_SCHEMA_VERSION,
   id: "pondy-d4",
@@ -136,14 +223,14 @@ const d4Candidate: CandidateRecord = {
   status: d4Classification.status,
   evidenceState: "CURRENT",
   classificationReason: d4Classification.reason,
-  components: d4SiteComponents(),
-  evaluationHistory: [d4Evaluation],
-  currentEvaluationId: d4Evaluation.id,
+  components: d4CurrentComponents(),
+  evaluationHistory: [d4Evaluation, d4RoofLockEvaluation],
+  currentEvaluationId: d4RoofLockEvaluation.id,
   lineage: { parentCandidateId: null, rootCandidateId: "pondy-d4", relation: "ROOT" },
   tags: ["design-4", "shared-drive", "detached-garages", "outbound-open"],
-  staffNotes: ["Machine status remains authoritative; this candidate is intervention-worthy but not a circulation PASS.", "2026-09-29 source reconciliation: PondyFlats main 881d539710d9711761042133de86388d680926f1; merged D4 evidence blob fb4f879435a1ec9fab8c7f1c0392893fc30d675d. Geometry metrics match; independent outbound remains open."],
+  staffNotes: ["Machine status remains authoritative; this candidate is intervention-worthy but not a circulation PASS.", "2026-09-29 source reconciliation: PondyFlats main 881d539710d9711761042133de86388d680926f1; merged D4 evidence blob fb4f879435a1ec9fab8c7f1c0392893fc30d675d. Geometry metrics match; independent outbound remains open.", "2026-10-04 roof lock: 4/4 current building roofs geometry-locked under lotscope-roof-geometry-v1. Home roofs use 20 ft plate datum; detached garages use 11 ft plate datum; all use 6:12 PITCH authority. Garage ridges run north-south to avoid concentrating primary roof drainage into the approximately 2 ft inter-garage gap."],
   createdAt: "2026-09-13T16:17:02.958Z",
-  updatedAt: "2026-09-29T00:00:00.000Z"
+  updatedAt: "2026-10-04T18:45:00.000Z"
 };
 
 const d4bClassification = classifyCandidate(d4bEvaluation);
@@ -188,6 +275,7 @@ export const pondyCandidateRegistry: CandidateRegistry = {
   candidates: [d4Candidate, d4bCandidate],
   checkpoints: [
     { id: "cp-d4-authoritative-20260913", candidateId: "pondy-d4", label: "Design 4 before rotated-garage intervention", createdAt: "2026-09-13T20:50:00.000Z", componentSnapshot: d4SiteComponents(), currentEvaluationId: d4Evaluation.id },
+    { id: "cp-d4-roof-lock-20261004", candidateId: "pondy-d4", label: "Design 4 · 4/4 authoritative roof geometry lock", createdAt: "2026-10-04T18:45:00.000Z", componentSnapshot: d4CurrentComponents(), currentEvaluationId: d4RoofLockEvaluation.id },
     { id: "cp-d4b-rot35b-20260913", candidateId: "pondy-d4b-rot35b", label: "Design 4B  -  35 deg southeast-biased study", createdAt: CREATED_AT, componentSnapshot: d4bComponents(), currentEvaluationId: d4bEvaluation.id }
   ]
 };

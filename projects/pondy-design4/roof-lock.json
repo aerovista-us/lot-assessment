@@ -1,0 +1,240 @@
+{
+  "schemaVersion": "lotscope-pondy-d4-roof-lock-v1",
+  "candidateId": "pondy-d4",
+  "designId": "design-4",
+  "sourceRegistry": "projects/pondy-lot2/candidate-registry.ts",
+  "roofGeometrySchema": "lotscope-roof-geometry-v1",
+  "lockedAt": "2026-10-04T18:45:00.000Z",
+  "renderPolicy": "AUTHORITATIVE_ALLOWED",
+  "locked": 4,
+  "required": 4,
+  "invalid": 0,
+  "roofs": [
+    {
+      "id": "roof-home-b",
+      "ownerId": "home-b",
+      "status": "ROOF_GEOMETRY_LOCKED",
+      "authoritative": true,
+      "ownerGeometryKey": "{\"id\":\"home-b\",\"rotationDeg\":0,\"polygon\":[[54,5],[94.5,5],[94.5,31.25],[72.5,31.25],[72.5,22],[54,22]]}",
+      "zones": [
+        {
+          "id": "home-b-roof-zone-1",
+          "label": "Home B main east-west gable",
+          "footprint": [
+            [
+              54,
+              5
+            ],
+            [
+              94.5,
+              5
+            ],
+            [
+              94.5,
+              22
+            ],
+            [
+              54,
+              22
+            ]
+          ],
+          "plateZFt": 20,
+          "ridgeA": [
+            54,
+            13.5
+          ],
+          "ridgeB": [
+            94.5,
+            13.5
+          ],
+          "ridgeZFt": 24.25,
+          "runFt": 8.5,
+          "pitch12": "6:12",
+          "solveBy": "PITCH",
+          "pitchRise": 6,
+          "pitchRun": 12,
+          "source": "Pondy Design 4 roof lock 2026-10-04: roof footprints from exact D4 owner geometry; 20 ft home / 11 ft garage plate datums from Pondy D4 architecture model; 6:12 design-development gable pitch selected for the coordinated roof study."
+        },
+        {
+          "id": "home-b-roof-zone-2",
+          "label": "Home B south-finger east-west gable",
+          "footprint": [
+            [
+              72.5,
+              22
+            ],
+            [
+              94.5,
+              22
+            ],
+            [
+              94.5,
+              31.25
+            ],
+            [
+              72.5,
+              31.25
+            ]
+          ],
+          "plateZFt": 20,
+          "ridgeA": [
+            72.5,
+            26.625
+          ],
+          "ridgeB": [
+            94.5,
+            26.625
+          ],
+          "ridgeZFt": 22.3125,
+          "runFt": 4.625,
+          "pitch12": "6:12",
+          "solveBy": "PITCH",
+          "pitchRise": 6,
+          "pitchRun": 12,
+          "source": "Pondy Design 4 roof lock 2026-10-04: roof footprints from exact D4 owner geometry; 20 ft home / 11 ft garage plate datums from Pondy D4 architecture model; 6:12 design-development gable pitch selected for the coordinated roof study."
+        }
+      ]
+    },
+    {
+      "id": "roof-home-a",
+      "ownerId": "home-a",
+      "status": "ROOF_GEOMETRY_LOCKED",
+      "authoritative": true,
+      "ownerGeometryKey": "{\"id\":\"home-a\",\"rotationDeg\":0,\"polygon\":[[94.5,5],[128,5],[128,31.25],[94.5,31.25]]}",
+      "zones": [
+        {
+          "id": "home-a-roof-zone-1",
+          "label": "Home A main east-west gable",
+          "footprint": [
+            [
+              94.5,
+              5
+            ],
+            [
+              128,
+              5
+            ],
+            [
+              128,
+              31.25
+            ],
+            [
+              94.5,
+              31.25
+            ]
+          ],
+          "plateZFt": 20,
+          "ridgeA": [
+            94.5,
+            18.125
+          ],
+          "ridgeB": [
+            128,
+            18.125
+          ],
+          "ridgeZFt": 26.5625,
+          "runFt": 13.125,
+          "pitch12": "6:12",
+          "solveBy": "PITCH",
+          "pitchRise": 6,
+          "pitchRun": 12,
+          "source": "Pondy Design 4 roof lock 2026-10-04: roof footprints from exact D4 owner geometry; 20 ft home / 11 ft garage plate datums from Pondy D4 architecture model; 6:12 design-development gable pitch selected for the coordinated roof study."
+        }
+      ]
+    },
+    {
+      "id": "roof-garage-b",
+      "ownerId": "garage-b",
+      "status": "ROOF_GEOMETRY_LOCKED",
+      "authoritative": true,
+      "ownerGeometryKey": "{\"id\":\"garage-b\",\"rotationDeg\":0,\"polygon\":[[5,5],[27,5],[27,27],[5,27]]}",
+      "zones": [
+        {
+          "id": "garage-b-roof-zone-1",
+          "label": "Garage B north-south gable",
+          "footprint": [
+            [
+              5,
+              5
+            ],
+            [
+              27,
+              5
+            ],
+            [
+              27,
+              27
+            ],
+            [
+              5,
+              27
+            ]
+          ],
+          "plateZFt": 11,
+          "ridgeA": [
+            16,
+            5
+          ],
+          "ridgeB": [
+            16,
+            27
+          ],
+          "ridgeZFt": 16.5,
+          "runFt": 11,
+          "pitch12": "6:12",
+          "solveBy": "PITCH",
+          "pitchRise": 6,
+          "pitchRun": 12,
+          "source": "Pondy Design 4 roof lock 2026-10-04: roof footprints from exact D4 owner geometry; 20 ft home / 11 ft garage plate datums from Pondy D4 architecture model; 6:12 design-development gable pitch selected for the coordinated roof study. Garage ridge runs north-south so primary roof drainage is east/west rather than into the 2 ft inter-garage gap."
+        }
+      ]
+    },
+    {
+      "id": "roof-garage-a",
+      "ownerId": "garage-a",
+      "status": "ROOF_GEOMETRY_LOCKED",
+      "authoritative": true,
+      "ownerGeometryKey": "{\"id\":\"garage-a\",\"rotationDeg\":0,\"polygon\":[[5,29],[27,29],[27,51],[5,51]]}",
+      "zones": [
+        {
+          "id": "garage-a-roof-zone-1",
+          "label": "Garage A north-south gable",
+          "footprint": [
+            [
+              5,
+              29
+            ],
+            [
+              27,
+              29
+            ],
+            [
+              27,
+              51
+            ],
+            [
+              5,
+              51
+            ]
+          ],
+          "plateZFt": 11,
+          "ridgeA": [
+            16,
+            29
+          ],
+          "ridgeB": [
+            16,
+            51
+          ],
+          "ridgeZFt": 16.5,
+          "runFt": 11,
+          "pitch12": "6:12",
+          "solveBy": "PITCH",
+          "pitchRise": 6,
+          "pitchRun": 12,
+          "source": "Pondy Design 4 roof lock 2026-10-04: roof footprints from exact D4 owner geometry; 20 ft home / 11 ft garage plate datums from Pondy D4 architecture model; 6:12 design-development gable pitch selected for the coordinated roof study. Garage ridge runs north-south so primary roof drainage is east/west rather than into the 2 ft inter-garage gap."
+        }
+      ]
+    }
+  ]
+}

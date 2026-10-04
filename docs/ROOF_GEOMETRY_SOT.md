@@ -113,8 +113,15 @@ Those forms must remain CONCEPT ONLY until a corresponding solver and tests are 
 
 ## Pondy Design 4
 
-Pondy Design 4 is the first regression fixture.
+Pondy Design 4 is the first regression fixture and the first project with a complete authoritative roof lock.
 
-Its four roof components are intentionally present but **UNLOCKED**. No Design 4 pitch, ridge direction, ridge elevation, or plate/bearing datum is currently borrowed from older Pondy designs.
+As of 2026-10-04, all four current building roofs are **4/4 GEOMETRY-LOCKED** against the exact Design 4 owner footprints. No ridge or pitch value was copied from Designs 1–3.
 
-That means Design 4 can show schematic roof overlays, but LotScope/Workbench will not call them geometry-locked until exact roof decisions are entered and validated through this contract.
+The locked design-development roof decision is:
+- Home A: one centered east-west gable, 20 ft plate datum, 6:12 pitch, ridge Z 26.5625 ft.
+- Home B: two explicit rectangular east-west gable zones that exactly tile the irregular shell, 20 ft plate datum, 6:12 pitch, ridge Z values 24.25 ft and 22.3125 ft.
+- Garage A and Garage B: centered north-south gables, 11 ft plate datum, 6:12 pitch, ridge Z 16.5 ft. The ridge orientation keeps the primary roof slopes east/west rather than directing both garage roofs into the approximately 2 ft inter-garage gap.
+
+The current lock is a geometry/design-development authority, not zoning, structural, drainage, snow-load, energy, or permit approval. Any owner footprint move, rotation, mirror, resize, wall edit, corner edit, or deflection edit invalidates the affected roof lock until it is revalidated.
+
+The exact cross-repository handoff artifact is generated at `projects/pondy-design4/roof-lock.json` with `npm run export:pondy-d4-roof`.
