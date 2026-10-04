@@ -70,6 +70,22 @@ assert.equal(explicitNullZone?.footprintState, "MALFORMED");
 assert.equal(explicitNullZone?.malformed, true);
 assert.notEqual(JSON.stringify(ownerDerivedCanonical), JSON.stringify(explicitNullCanonical), "absent owner-derived footprint and explicit null footprint must produce different canonical revisions");
 
+const twoCoordinateComponents = cloneCandidateComponents(d4.components);
+const twoCoordinateRoof = twoCoordinateComponents.find((item) => item.id === "roof-home-a");
+assert(twoCoordinateRoof?.kind === "roof");
+twoCoordinateRoof.zones[0].ridgeA = [94.5, 18.125];
+const twoCoordinateCanonical = canonicalizeInterventionGeometry({ ...d4, components: twoCoordinateComponents });
+
+const extraCoordinateComponents = cloneCandidateComponents(d4.components);
+const extraCoordinateRoof = extraCoordinateComponents.find((item) => item.id === "roof-home-a");
+assert(extraCoordinateRoof?.kind === "roof");
+extraCoordinateRoof.zones[0].ridgeA = [94.5, 18.125, 999];
+const extraCoordinateCanonical = canonicalizeInterventionGeometry({ ...d4, components: extraCoordinateComponents });
+const extraCoordinateZone = extraCoordinateCanonical.roofs.find((item) => item.id === "roof-home-a")?.zones[0];
+assert.equal(extraCoordinateZone?.ridgeA, null, "canonical points with extra coordinates must be marked malformed rather than truncated");
+assert.equal(extraCoordinateZone?.malformed, true, "extra-coordinate ridge points must mark canonical roof state malformed");
+assert.notEqual(JSON.stringify(twoCoordinateCanonical), JSON.stringify(extraCoordinateCanonical), "extra-coordinate points must change the canonical revision from a valid two-coordinate point");
+
 const baseHome = d4.components.find((item) => item.id === "home-a");
 assert(baseHome?.kind === "home");
 const concaveOwner = {
@@ -430,6 +446,22 @@ const tiledValidation = validateRoofComponent(tiledRoof, tiledOwner);
 assert.equal(tiledValidation.status, "ROOF_GEOMETRY_LOCKED");
 assert.equal(tiledValidation.zones.length, 2);
 
+const duplicateZoneIdRoof = {
+  ...tiledRoof,
+  zones: tiledRoof.zones.map((zone) => ({ ...zone, id: "home-b-roof-zone-1" }))
+};
+const duplicateZoneIdValidation = validateRoofComponent(duplicateZoneIdRoof, tiledOwner);
+assert.equal(duplicateZoneIdValidation.status, "FAIL_CLOSED_INVALID");
+assert(duplicateZoneIdValidation.errors.some((error) => /duplicate ids/i.test(error)), "duplicate roof-zone IDs must fail closed before authoritative validation");
+
+const missingZoneIdRoof = {
+  ...tiledRoof,
+  zones: tiledRoof.zones.map((zone, index) => index === 0 ? { ...zone, id: "" } : zone)
+};
+const missingZoneIdValidation = validateRoofComponent(missingZoneIdRoof, tiledOwner);
+assert.equal(missingZoneIdValidation.status, "FAIL_CLOSED_INVALID");
+assert(missingZoneIdValidation.errors.some((error) => /non-empty string ids/i.test(error)), "missing roof-zone IDs must fail closed before authoritative validation");
+
 const zeroWallDrag = editPlacementWallLength(tiled, "home-b", 0, 0, "2026-10-03T06:01:03.250Z");
 assert.equal(zeroWallDrag, tiled, "zero-delta wall edits must preserve the locked candidate");
 const sameCorner = tiledOwner.polygon?.[0];
@@ -461,6 +493,9 @@ console.log(JSON.stringify({
   malformedRoofCanonicalizationSafe: Boolean(malformedCanonicalRoof?.zones.some((zone) => zone.malformed)),
   malformedRoofOwnerInvalidationSafe: malformedOwnerEditedRoof?.status === "UNLOCKED",
   nullFootprintCanonicalizedDistinctly: explicitNullZone?.footprintState === "MALFORMED",
+  extraCoordinateCanonicalPointRejected: extraCoordinateZone?.ridgeA === null,
+  duplicateZoneIdsRejected: duplicateZoneIdValidation.status === "FAIL_CLOSED_INVALID",
+  missingZoneIdsRejected: missingZoneIdValidation.status === "FAIL_CLOSED_INVALID",
   interfaceSlopeBreakpointsChecked: interfaceBreakValidation.errors.some((error) => /vertically discontinuous/i.test(error)),
   optionalVerificationChecksClearable: true,
   concaveCutoutBridgeRejected: concaveValidation.status === "FAIL_CLOSED_INVALID",

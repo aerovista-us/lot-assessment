@@ -462,6 +462,16 @@ export function validateRoofComponent(roof: RoofComponent | null | undefined, ow
   if (runtimeRoof.zones.some((zone: unknown) => !zone || typeof zone !== "object" || Array.isArray(zone))) {
     return invalidStructure("roof zones contain a malformed zone record");
   }
+  const zoneIds = runtimeRoof.zones.map((zone: Record<string, unknown>) =>
+    typeof zone.id === "string" && zone.id.trim() ? zone.id : null);
+  if (zoneIds.some((id: string | null) => id === null)) {
+    return invalidStructure("roof zones require non-empty string ids");
+  }
+  const duplicateZoneIds = [...new Set(zoneIds.filter((id: string | null): id is string =>
+    id !== null && zoneIds.filter((candidate: string | null) => candidate === id).length > 1))];
+  if (duplicateZoneIds.length) {
+    return invalidStructure(`roof zones contain duplicate ids: ${duplicateZoneIds.join(", ")}`);
+  }
 
   let currentKey: string;
   try {

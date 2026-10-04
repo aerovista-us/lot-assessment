@@ -34,7 +34,7 @@ function nullable(value: number | null | undefined) {
   return value == null ? null : rounded(value);
 }
 function canonicalPoint(value: unknown) {
-  if (!Array.isArray(value) || value.length < 2 || !Number.isFinite(value[0]) || !Number.isFinite(value[1])) return null;
+  if (!Array.isArray(value) || value.length !== 2 || !Number.isFinite(value[0]) || !Number.isFinite(value[1])) return null;
   return [rounded(Number(value[0])), rounded(Number(value[1]))] as [number, number];
 }
 function canonicalRoofZone(value: unknown, index: number) {
@@ -50,17 +50,21 @@ function canonicalRoofZone(value: unknown, index: number) {
       : "MALFORMED";
   const footprint = Array.isArray(rawFootprint) ? rawFootprint.map(canonicalPoint) : null;
   const footprintMalformed = rawFootprint !== undefined && (!Array.isArray(rawFootprint) || (footprint ?? []).some((point) => point === null));
+  const ridgeA = canonicalPoint(zone.ridgeA);
+  const ridgeB = canonicalPoint(zone.ridgeB);
+  const ridgeAMalformed = zone.ridgeA != null && ridgeA === null;
+  const ridgeBMalformed = zone.ridgeB != null && ridgeB === null;
   return {
     id: typeof zone.id === "string" ? zone.id : `__malformed-zone-${index}`,
     label: typeof zone.label === "string" ? zone.label : null,
     status: typeof zone.status === "string" ? zone.status : null,
     type: typeof zone.type === "string" ? zone.type : null,
-    malformed: typeof zone.id !== "string" || footprintMalformed,
+    malformed: typeof zone.id !== "string" || footprintMalformed || ridgeAMalformed || ridgeBMalformed,
     footprintState,
     footprint,
     plateZFt: typeof zone.plateZFt === "number" && Number.isFinite(zone.plateZFt) ? rounded(zone.plateZFt) : null,
-    ridgeA: canonicalPoint(zone.ridgeA),
-    ridgeB: canonicalPoint(zone.ridgeB),
+    ridgeA,
+    ridgeB,
     solveBy: typeof zone.solveBy === "string" ? zone.solveBy : null,
     pitchRise: typeof zone.pitchRise === "number" && Number.isFinite(zone.pitchRise) ? rounded(zone.pitchRise) : null,
     pitchRun: typeof zone.pitchRun === "number" && Number.isFinite(zone.pitchRun) ? rounded(zone.pitchRun) : null,
