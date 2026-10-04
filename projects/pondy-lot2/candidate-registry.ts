@@ -5,7 +5,8 @@ import {
   type CandidateComponent,
   type CandidateEvaluation,
   type CandidateRecord,
-  type CandidateRegistry
+  type CandidateRegistry,
+  type RoofComponent
 } from "@/packages/candidates";
 
 const CREATED_AT = "2026-09-13T20:57:07.605Z";
@@ -56,6 +57,7 @@ const D4_ROOF_LOCK_SOURCE = "Pondy Design 4 roof lock 2026-10-04: roof footprint
 
 function d4CurrentComponents(): CandidateComponent[] {
   return d4SiteComponents().map((component) => {
+    if (component.kind !== "roof") return component;
     if (component.id === "roof-home-b") return {
       ...component,
       status: "LOCKED",
@@ -77,7 +79,7 @@ function d4CurrentComponents(): CandidateComponent[] {
           source: D4_ROOF_LOCK_SOURCE
         }
       ]
-    } satisfies CandidateComponent;
+    } satisfies RoofComponent;
     if (component.id === "roof-home-a") return {
       ...component,
       status: "LOCKED",
@@ -89,7 +91,7 @@ function d4CurrentComponents(): CandidateComponent[] {
         solveBy: "PITCH", pitchRise: 6, pitchRun: 12, ridgeZFt: null, ridgeZCheckFt: 26.5625,
         source: D4_ROOF_LOCK_SOURCE
       }]
-    } satisfies CandidateComponent;
+    } satisfies RoofComponent;
     if (component.id === "roof-garage-b") return {
       ...component,
       status: "LOCKED",
@@ -101,7 +103,7 @@ function d4CurrentComponents(): CandidateComponent[] {
         solveBy: "PITCH", pitchRise: 6, pitchRun: 12, ridgeZFt: null, ridgeZCheckFt: 16.5,
         source: D4_ROOF_LOCK_SOURCE + " Garage ridge runs north-south so primary roof drainage is east/west rather than into the 2 ft inter-garage gap."
       }]
-    } satisfies CandidateComponent;
+    } satisfies RoofComponent;
     if (component.id === "roof-garage-a") return {
       ...component,
       status: "LOCKED",
@@ -113,7 +115,7 @@ function d4CurrentComponents(): CandidateComponent[] {
         solveBy: "PITCH", pitchRise: 6, pitchRun: 12, ridgeZFt: null, ridgeZCheckFt: 16.5,
         source: D4_ROOF_LOCK_SOURCE + " Garage ridge runs north-south so primary roof drainage is east/west rather than into the 2 ft inter-garage gap."
       }]
-    } satisfies CandidateComponent;
+    } satisfies RoofComponent;
     return component;
   });
 }
