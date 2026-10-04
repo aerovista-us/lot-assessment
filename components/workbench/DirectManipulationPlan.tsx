@@ -382,7 +382,7 @@ export function DirectManipulationPlan({ candidate, selectedComponentId, disable
         className={selectableClass(roof, `candidate-plan-roof ${roofClass}`)}
         onPointerDown={click(roof)}>
         <line x1={zone.ridgeA[0]} y1={zone.ridgeA[1]} x2={zone.ridgeB[0]} y2={zone.ridgeB[1]} />
-        <text x={(zone.ridgeA[0] + zone.ridgeB[0]) / 2} y={(zone.ridgeA[1] + zone.ridgeB[1]) / 2 - 1.2}>{zone.label}</text>
+        <text x={(zone.ridgeA[0] + zone.ridgeB[0]) / 2} y={(zone.ridgeA[1] + zone.ridgeB[1]) / 2 - 1.2}>{typeof zone.label === "string" ? zone.label : "Roof zone"}</text>
       </g>;
     });
     })}

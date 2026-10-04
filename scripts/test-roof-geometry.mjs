@@ -86,6 +86,31 @@ assert.equal(extraCoordinateZone?.ridgeA, null, "canonical points with extra coo
 assert.equal(extraCoordinateZone?.malformed, true, "extra-coordinate ridge points must mark canonical roof state malformed");
 assert.notEqual(JSON.stringify(twoCoordinateCanonical), JSON.stringify(extraCoordinateCanonical), "extra-coordinate points must change the canonical revision from a valid two-coordinate point");
 
+const microShiftBaseComponents = cloneCandidateComponents(d4.components);
+const microShiftBaseRoof = microShiftBaseComponents.find((item) => item.id === "roof-home-a");
+const microShiftOwner = microShiftBaseComponents.find((item) => item.id === "home-a");
+assert(microShiftBaseRoof?.kind === "roof");
+assert(microShiftOwner?.kind === "home");
+const ownerFootprint = microShiftOwner.polygon ?? [
+  [microShiftOwner.x, microShiftOwner.y],
+  [microShiftOwner.x + microShiftOwner.widthFt, microShiftOwner.y],
+  [microShiftOwner.x + microShiftOwner.widthFt, microShiftOwner.y + microShiftOwner.depthFt],
+  [microShiftOwner.x, microShiftOwner.y + microShiftOwner.depthFt]
+];
+microShiftBaseRoof.zones[0].footprint = ownerFootprint.map(([x, y]) => [x, y]);
+const microShiftBaseCanonical = canonicalizeInterventionGeometry({ ...d4, components: microShiftBaseComponents });
+
+const microShiftChangedComponents = cloneCandidateComponents(microShiftBaseComponents);
+const microShiftChangedRoof = microShiftChangedComponents.find((item) => item.id === "roof-home-a");
+assert(microShiftChangedRoof?.kind === "roof");
+microShiftChangedRoof.zones[0].footprint[0][0] += 0.00001;
+const microShiftChangedCanonical = canonicalizeInterventionGeometry({ ...d4, components: microShiftChangedComponents });
+assert.notEqual(
+  JSON.stringify(microShiftBaseCanonical),
+  JSON.stringify(microShiftChangedCanonical),
+  "solver-significant 0.00001 ft roof coordinate changes must change the canonical intervention revision"
+);
+
 const baseHome = d4.components.find((item) => item.id === "home-a");
 assert(baseHome?.kind === "home");
 const concaveOwner = {

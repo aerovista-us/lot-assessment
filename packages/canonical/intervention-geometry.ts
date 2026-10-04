@@ -8,6 +8,11 @@ function rounded(value: number) {
   return Math.round((value + Number.EPSILON) * 10000) / 10000;
 }
 
+function roundedRoof(value: number) {
+  if (!Number.isFinite(value)) throw new Error("canonical roof geometry must be finite");
+  return Math.round((value + Number.EPSILON) * 10000000000) / 10000000000;
+}
+
 function canonicalPlacement(item: PlacementComponent) {
   const shape = placementShapeIdentity(item);
   return {
@@ -33,13 +38,13 @@ function canonicalOpening(item: OpeningComponent) {
 function canonicalOptionalFinite(value: unknown) {
   if (value == null) return { state: "ABSENT" as const, value: null };
   if (typeof value === "number" && Number.isFinite(value)) {
-    return { state: "FINITE" as const, value: rounded(value) };
+    return { state: "FINITE" as const, value: roundedRoof(value) };
   }
   return { state: "MALFORMED" as const, value: null };
 }
 function canonicalPoint(value: unknown) {
   if (!Array.isArray(value) || value.length !== 2 || !Number.isFinite(value[0]) || !Number.isFinite(value[1])) return null;
-  return [rounded(Number(value[0])), rounded(Number(value[1]))] as [number, number];
+  return [roundedRoof(Number(value[0])), roundedRoof(Number(value[1]))] as [number, number];
 }
 function canonicalRoofZone(value: unknown, index: number) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -70,13 +75,13 @@ function canonicalRoofZone(value: unknown, index: number) {
     malformed: typeof zone.id !== "string" || footprintMalformed || ridgeAMalformed || ridgeBMalformed || optionalCheckMalformed,
     footprintState,
     footprint,
-    plateZFt: typeof zone.plateZFt === "number" && Number.isFinite(zone.plateZFt) ? rounded(zone.plateZFt) : null,
+    plateZFt: typeof zone.plateZFt === "number" && Number.isFinite(zone.plateZFt) ? roundedRoof(zone.plateZFt) : null,
     ridgeA,
     ridgeB,
     solveBy: typeof zone.solveBy === "string" ? zone.solveBy : null,
-    pitchRise: typeof zone.pitchRise === "number" && Number.isFinite(zone.pitchRise) ? rounded(zone.pitchRise) : null,
-    pitchRun: typeof zone.pitchRun === "number" && Number.isFinite(zone.pitchRun) ? rounded(zone.pitchRun) : null,
-    ridgeZFt: typeof zone.ridgeZFt === "number" && Number.isFinite(zone.ridgeZFt) ? rounded(zone.ridgeZFt) : null,
+    pitchRise: typeof zone.pitchRise === "number" && Number.isFinite(zone.pitchRise) ? roundedRoof(zone.pitchRise) : null,
+    pitchRun: typeof zone.pitchRun === "number" && Number.isFinite(zone.pitchRun) ? roundedRoof(zone.pitchRun) : null,
+    ridgeZFt: typeof zone.ridgeZFt === "number" && Number.isFinite(zone.ridgeZFt) ? roundedRoof(zone.ridgeZFt) : null,
     ridgeZCheckFtState: ridgeZCheck.state,
     ridgeZCheckFt: ridgeZCheck.value,
     pitchCheckRiseState: pitchCheckRise.state,
