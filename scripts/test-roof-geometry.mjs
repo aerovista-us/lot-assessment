@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { pondyCandidateRegistry } from "../projects/pondy-lot2/candidate-registry.ts";
 import { cloneCandidateComponents } from "../packages/candidates/index.ts";
-import { addRoofZone, editPlacementComponent, editPlacementVertex, editPlacementWallLength, editRoofZone, lockRoofComponent } from "../packages/candidates/intervention.ts";
+import { editPlacementComponent, editPlacementVertex, editPlacementWallLength, editRoofZone, lockRoofComponent } from "../packages/candidates/intervention.ts";
 import { canonicalizeInterventionGeometry } from "../packages/canonical/intervention-geometry.ts";
 import { ownerGeometryKey, validateCandidateRoofs, validateRoofComponent, solveGableZone } from "../packages/roof-geometry/index.ts";
 
@@ -9,8 +10,33 @@ const d4 = pondyCandidateRegistry.candidates.find((candidate) => candidate.id ==
 assert(d4);
 const d4RoofSummary = validateCandidateRoofs(d4.components);
 assert.equal(d4RoofSummary.missing, 0);
-assert.equal(d4RoofSummary.conceptOnly, 4);
-assert.equal(d4RoofSummary.renderPolicy, "CONCEPT_ONLY_REQUIRED");
+assert.equal(d4RoofSummary.conceptOnly, 0);
+assert.equal(d4RoofSummary.invalid, 0);
+assert.equal(d4RoofSummary.locked, 4);
+assert.equal(d4RoofSummary.renderPolicy, "AUTHORITATIVE_ALLOWED");
+for (const result of d4RoofSummary.results) {
+  assert.equal(result.status, "ROOF_GEOMETRY_LOCKED");
+  assert.equal(result.authoritative, true);
+  assert.equal(result.ownerGeometryCurrent, true);
+}
+
+const roofHandoff = JSON.parse(readFileSync(new URL("../projects/pondy-design4/roof-lock.json", import.meta.url), "utf8"));
+assert.equal(roofHandoff.schemaVersion, "lotscope-pondy-d4-roof-lock-v1");
+assert.equal(roofHandoff.candidateId, d4.id);
+assert.equal(roofHandoff.locked, 4);
+assert.equal(roofHandoff.required, 4);
+assert.equal(roofHandoff.invalid, 0);
+assert.equal(roofHandoff.renderPolicy, "AUTHORITATIVE_ALLOWED");
+for (const result of d4RoofSummary.results) {
+  const handoffRoof = roofHandoff.roofs.find((item) => item.id === result.roofId);
+  const liveRoof = d4.components.find((item) => item.kind === "roof" && item.id === result.roofId);
+  assert(handoffRoof && liveRoof?.kind === "roof");
+  assert.equal(handoffRoof.ownerGeometryKey, liveRoof.ownerGeometryKey);
+  assert.deepEqual(
+    handoffRoof.zones.map((zone) => ({ id: zone.id, plateZFt: zone.plateZFt, ridgeA: zone.ridgeA, ridgeB: zone.ridgeB, ridgeZFt: zone.ridgeZFt, pitch12: zone.pitch12 })),
+    result.zones.map((zone) => ({ id: zone.zoneId, plateZFt: zone.plateZFt, ridgeA: zone.ridgeA, ridgeB: zone.ridgeB, ridgeZFt: zone.ridgeZFt, pitch12: zone.pitch12 }))
+  );
+}
 const noRoofSummary = validateCandidateRoofs(d4.components.filter((item) => item.kind !== "roof"));
 assert.equal(noRoofSummary.missing, 4);
 assert.equal(noRoofSummary.renderPolicy, "CONCEPT_ONLY_REQUIRED");
@@ -317,6 +343,9 @@ let candidate = editRoofZone(d4, "roof-home-a", "home-a-roof-zone-1", {
   solveBy: "PITCH",
   pitchRise: 6,
   pitchRun: 12,
+  ridgeZCheckFt: null,
+  pitchCheckRise: null,
+  pitchCheckRun: null,
   source: "roof SOT self-test"
 }, "2026-10-03T06:00:00.000Z");
 
@@ -483,24 +512,27 @@ const oneZoneIrregular = solveGableZone(ownerB, {
 assert.equal(oneZoneIrregular.authoritative, false);
 assert(oneZoneIrregular.errors.some((error) => /rectangular roof zone/i.test(error)));
 
-let tiled = editRoofZone(d4, "roof-home-b", "home-b-roof-zone-1", {
-  footprint: [[54,5],[94.5,5],[94.5,22],[54,22]],
-  plateZFt: 20, ridgeA: [54,13.5], ridgeB: [94.5,13.5],
-  solveBy: "PITCH", pitchRise: 6, pitchRun: 12, source: "Home B tile self-test"
-}, "2026-10-03T06:01:00.000Z");
-tiled = addRoofZone(tiled, "roof-home-b", "South finger gable", "2026-10-03T06:01:01.000Z");
-tiled = editRoofZone(tiled, "roof-home-b", "home-b-roof-zone-2", {
-  footprint: [[72.5,22],[94.5,22],[94.5,31.25],[72.5,31.25]],
-  plateZFt: 20, ridgeA: [72.5,26.625], ridgeB: [94.5,26.625],
-  solveBy: "PITCH", pitchRise: 6, pitchRun: 12, source: "Home B tile self-test"
-}, "2026-10-03T06:01:02.000Z");
-tiled = lockRoofComponent(tiled, "roof-home-b", "2026-10-03T06:01:03.000Z");
+const tiled = d4;
 const tiledRoof = tiled.components.find((item) => item.id === "roof-home-b");
 const tiledOwner = tiled.components.find((item) => item.id === "home-b");
 assert(tiledRoof?.kind === "roof" && tiledOwner?.kind === "home");
 const tiledValidation = validateRoofComponent(tiledRoof, tiledOwner);
 assert.equal(tiledValidation.status, "ROOF_GEOMETRY_LOCKED");
 assert.equal(tiledValidation.zones.length, 2);
+assert.deepEqual(tiledValidation.zones.map((zone) => zone.pitch12), ["6:12", "6:12"]);
+assert(Math.abs((tiledValidation.zones[0].ridgeZFt ?? 0) - 24.25) < 0.001);
+assert(Math.abs((tiledValidation.zones[1].ridgeZFt ?? 0) - 22.3125) < 0.001);
+
+const lockedHomeA = d4RoofSummary.results.find((result) => result.ownerId === "home-a");
+const lockedGarageA = d4RoofSummary.results.find((result) => result.ownerId === "garage-a");
+const lockedGarageB = d4RoofSummary.results.find((result) => result.ownerId === "garage-b");
+assert(lockedHomeA && lockedGarageA && lockedGarageB);
+assert.equal(lockedHomeA.zones[0].pitch12, "6:12");
+assert(Math.abs((lockedHomeA.zones[0].ridgeZFt ?? 0) - 26.5625) < 0.001);
+for (const garage of [lockedGarageA, lockedGarageB]) {
+  assert.equal(garage.zones[0].pitch12, "6:12");
+  assert(Math.abs((garage.zones[0].ridgeZFt ?? 0) - 16.5) < 0.001);
+}
 
 const duplicateZoneIdRoof = {
   ...tiledRoof,
@@ -531,7 +563,8 @@ assert(clearedRoof?.kind === "roof");
 assert.equal(clearedRoof.zones.find((zone) => zone.id === "home-b-roof-zone-1")?.footprint, undefined, "explicit roof-zone footprint must be clearable back to owner-derived geometry");
 
 const discontinuous = editRoofZone(tiled, "roof-home-b", "home-b-roof-zone-2", {
-  plateZFt: 21
+  plateZFt: 21,
+  ridgeZCheckFt: null
 }, "2026-10-03T06:01:04.000Z");
 assert.throws(() => lockRoofComponent(discontinuous, "roof-home-b", "2026-10-03T06:01:05.000Z"), /discontinuous/i);
 
@@ -542,6 +575,8 @@ assert(noSource.errors.some((error) => /source/i.test(error)));
 console.log(JSON.stringify({
   schema: validation.schemaVersion,
   d4RenderPolicy: d4RoofSummary.renderPolicy,
+  d4AuthoritativeRoofLock: d4RoofSummary.locked === 4 && d4RoofSummary.invalid === 0,
+  d4RoofHandoffMatchesRegistry: roofHandoff.locked === 4 && roofHandoff.renderPolicy === "AUTHORITATIVE_ALLOWED",
   missingRoofModelsFailToConceptOnly: noRoofSummary.missing === 4,
   duplicateRoofOwnersFailClosed: duplicateSummary.renderPolicy === "FAIL_CLOSED_INVALID",
   orphanRoofsFailClosed: orphanSummary.renderPolicy === "FAIL_CLOSED_INVALID",

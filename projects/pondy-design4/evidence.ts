@@ -17,7 +17,8 @@ export const pondyDesign4Evidence: AssessmentEvidence = {
     "Both detached garage plates remain exactly 22 ft × 22 ft with 20 ft concept overhead openings.",
     "Pennsylvania Street is the only modeled vehicle-access origin.",
     "Accessory setbacks are planning assumptions and not parcel-specific zoning approval.",
-    "The modeled pavement envelope is a design-development concept, not civil certification."
+    "The modeled pavement envelope is a design-development concept, not civil certification.",
+    "Current roof geometry is 4/4 locked to the exact Design 4 owner footprints under a 6:12 design-development gable decision; this is not structural, drainage, snow-load, energy, or permit approval."
   ],
   gates: [
     gate({
@@ -73,6 +74,20 @@ export const pondyDesign4Evidence: AssessmentEvidence = {
       status: "PASS",
       summary: "Shared-world openings and polygon-derived exterior faces pass the current architectural consistency checks.",
       publicSummary: "Plans, openings, elevations, and axon are using coordinated geometry rather than separate hand-drawn assumptions."
+    }),
+    gate({
+      id: "roof-geometry",
+      label: "Authoritative roof geometry",
+      status: "PASS",
+      summary: "Home A, Home B, Garage A, and Garage B are all geometry-locked to their exact current owner footprints. Home roofs use a 20 ft plate datum; garage roofs use an 11 ft plate datum; all current zones use 6:12 PITCH authority.",
+      publicSummary: "All four current building roofs now have validated ridge and slope geometry tied to the exact Design 4 footprints.",
+      metrics: [
+        { id: "roof-lock-count", label: "Geometry-locked roofs", value: 4 },
+        { id: "roof-required-count", label: "Required roofs", value: 4 },
+        { id: "home-a-ridge", label: "Home A ridge elevation", value: 26.5625, unit: "ft" },
+        { id: "garage-ridge", label: "Garage ridge elevation", value: 16.5, unit: "ft" },
+        { id: "roof-pitch", label: "Current roof pitch", value: "6:12" }
+      ]
     }),
     gate({
       id: "pavement-envelope",
@@ -133,7 +148,7 @@ export const pondyDesign4Evidence: AssessmentEvidence = {
   trace: {
     sourceProject: "aerovista-us/PondyFlats",
     sourceRevision: "D4-REAR22-v0.3 + multi-tool repair snapshot",
-    engineRevision: "pondy-d4-multitool-repair-v1 / lotscope-evidence-v1",
-    generatedAt: "2026-09-13T16:17:02.958Z",
+    engineRevision: "pondy-d4-multitool-repair-v1 / lotscope-evidence-v1 / lotscope-roof-geometry-v1",
+    generatedAt: "2026-10-04T18:45:00.000Z",
   }
 };

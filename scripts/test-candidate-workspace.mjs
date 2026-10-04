@@ -27,7 +27,7 @@ state = branched.state;
 assert.equal(branched.candidate.status, "DRAFT");
 assert.equal(branched.candidate.evidenceState, "STALE");
 assert.equal(branched.candidate.currentEvaluationId, null);
-assert.equal(parent.currentEvaluationId, "eval-pondy-d4-20260913");
+assert.equal(parent.currentEvaluationId, "eval-pondy-d4-roof-lock-20261004");
 assert.notStrictEqual(branched.candidate.components, parent.components);
 
 const checkpoint = createWorkspaceCheckpoint(branched.candidate, "before edit", "2026-09-18T10:02:00.000Z");
