@@ -25,6 +25,7 @@ export type CandidateComponentKind =
   | "garage"
   | "stall"
   | "opening"
+  | "roof"
   | "pavement"
   | "driveway"
   | "route"
@@ -74,6 +75,35 @@ export type OpeningComponent = ComponentBase & {
   offsetFt: number;
 };
 
+export type RoofVerticalAuthority = "PITCH" | "RIDGE_Z";
+export type RoofZone = {
+  id: string;
+  label: string;
+  status: "UNLOCKED" | "LOCKED";
+  type: "gable";
+  footprint?: Point[];
+  plateZFt: number | null;
+  ridgeA: Point | null;
+  ridgeB: Point | null;
+  solveBy: RoofVerticalAuthority;
+  pitchRise: number | null;
+  pitchRun: number | null;
+  ridgeZFt: number | null;
+  ridgeZCheckFt?: number | null;
+  pitchCheckRise?: number | null;
+  pitchCheckRun?: number | null;
+  source?: string;
+};
+
+export type RoofComponent = ComponentBase & {
+  kind: "roof";
+  ownerId: string;
+  status: "UNLOCKED" | "LOCKED";
+  zones: RoofZone[];
+  ownerGeometryKey?: string;
+  staleReason?: string;
+};
+
 export type PathComponent = ComponentBase & {
   kind: "driveway" | "route";
   garageId?: string;
@@ -88,7 +118,7 @@ export type AnnotationComponent = ComponentBase & {
   text: string;
 };
 
-export type CandidateComponent = PolygonComponent | PlacementComponent | StallComponent | OpeningComponent | PathComponent | AnnotationComponent;
+export type CandidateComponent = PolygonComponent | PlacementComponent | StallComponent | OpeningComponent | RoofComponent | PathComponent | AnnotationComponent;
 
 export type GateEvaluation = {
   id: string;
@@ -214,6 +244,22 @@ export function cloneCandidateComponents(components: CandidateComponent[]): Cand
     }
     if (component.kind === "driveway" || component.kind === "route") {
       return { ...component, points: component.points.map(clonePoint), movableControlPoints: component.movableControlPoints ? [...component.movableControlPoints] : undefined };
+    }
+    if (component.kind === "roof") {
+      const rawZones = (component as unknown as { zones?: unknown }).zones;
+      const zones = Array.isArray(rawZones)
+        ? rawZones.map((zone) => {
+            if (!zone || typeof zone !== "object" || Array.isArray(zone)) return zone;
+            const typed = zone as RoofZone;
+            return {
+              ...typed,
+              footprint: Array.isArray(typed.footprint) ? typed.footprint.map(clonePoint) : typed.footprint,
+              ridgeA: Array.isArray(typed.ridgeA) ? clonePoint(typed.ridgeA) : typed.ridgeA,
+              ridgeB: Array.isArray(typed.ridgeB) ? clonePoint(typed.ridgeB) : typed.ridgeB
+            };
+          })
+        : rawZones;
+      return { ...component, zones } as CandidateComponent;
     }
     if (component.kind === "annotation") {
       return { ...component, point: component.point ? clonePoint(component.point) : undefined };
