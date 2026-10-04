@@ -347,6 +347,28 @@ const canonical = canonicalizeInterventionGeometry(candidate);
 assert.equal(canonical.schemaVersion, "lotscope-intervention-geometry-v3");
 assert.equal(canonical.roofs.find((item) => item.id === "roof-home-a")?.status, "LOCKED");
 
+const malformedRidgeCheckCandidate = {
+  ...candidate,
+  components: candidate.components.map((item) => item.id === "roof-home-a" ? malformedRidgeCheckRoof : item)
+};
+const malformedRidgeCheckCanonical = canonicalizeInterventionGeometry(malformedRidgeCheckCandidate);
+const malformedRidgeCheckCanonicalZone = malformedRidgeCheckCanonical.roofs.find((item) => item.id === "roof-home-a")?.zones[0];
+assert.equal(malformedRidgeCheckCanonicalZone?.ridgeZCheckFtState, "MALFORMED");
+assert.equal(malformedRidgeCheckCanonicalZone?.malformed, true);
+assert.notEqual(JSON.stringify(canonical), JSON.stringify(malformedRidgeCheckCanonical), "malformed ridge-Z check presence must change the canonical revision");
+
+const malformedPitchCheckComponents = cloneCandidateComponents(candidate.components);
+const malformedPitchCheckRoof = malformedPitchCheckComponents.find((item) => item.id === "roof-home-a");
+assert(malformedPitchCheckRoof?.kind === "roof");
+malformedPitchCheckRoof.zones[0].pitchCheckRise = "bad";
+malformedPitchCheckRoof.zones[0].pitchCheckRun = { bad: true };
+const malformedPitchCheckCanonical = canonicalizeInterventionGeometry({ ...candidate, components: malformedPitchCheckComponents });
+const malformedPitchCheckCanonicalZone = malformedPitchCheckCanonical.roofs.find((item) => item.id === "roof-home-a")?.zones[0];
+assert.equal(malformedPitchCheckCanonicalZone?.pitchCheckRiseState, "MALFORMED");
+assert.equal(malformedPitchCheckCanonicalZone?.pitchCheckRunState, "MALFORMED");
+assert.equal(malformedPitchCheckCanonicalZone?.malformed, true);
+assert.notEqual(JSON.stringify(canonical), JSON.stringify(malformedPitchCheckCanonical), "malformed pitch-check presence must change the canonical revision");
+
 const noop = editPlacementComponent(candidate, "home-a", {
   x: owner.x, y: owner.y, widthFt: owner.widthFt, depthFt: owner.depthFt, rotationDeg: owner.rotationDeg ?? 0
 }, "2026-10-03T06:00:01.500Z");
@@ -510,6 +532,9 @@ console.log(JSON.stringify({
   malformedOwnerGeometryFailsClosed: malformedOwnerValidation.status === "FAIL_CLOSED_INVALID",
   nonnumericRidgeCoordinatesRejected: stringRidgeValidation.status === "FAIL_CLOSED_INVALID",
   malformedRidgeZCheckRejected: malformedRidgeCheckValidation.status === "FAIL_CLOSED_INVALID",
+  malformedOptionalChecksChangeCanonicalRevision: malformedRidgeCheckCanonicalZone?.ridgeZCheckFtState === "MALFORMED"
+    && malformedPitchCheckCanonicalZone?.pitchCheckRiseState === "MALFORMED"
+    && malformedPitchCheckCanonicalZone?.pitchCheckRunState === "MALFORMED",
   clearableProvenanceFailsClosed: true,
   status: validation.status,
   pitch: validation.zones[0].pitch12,

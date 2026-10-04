@@ -30,8 +30,12 @@ function canonicalPath(item: PathComponent) {
 function canonicalOpening(item: OpeningComponent) {
   return { id:item.id, ownerId:item.ownerId, wall:item.wall, openingWidthFt:rounded(item.openingWidthFt), offsetFt:rounded(item.offsetFt) };
 }
-function nullable(value: number | null | undefined) {
-  return value == null ? null : rounded(value);
+function canonicalOptionalFinite(value: unknown) {
+  if (value == null) return { state: "ABSENT" as const, value: null };
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return { state: "FINITE" as const, value: rounded(value) };
+  }
+  return { state: "MALFORMED" as const, value: null };
 }
 function canonicalPoint(value: unknown) {
   if (!Array.isArray(value) || value.length !== 2 || !Number.isFinite(value[0]) || !Number.isFinite(value[1])) return null;
@@ -54,12 +58,16 @@ function canonicalRoofZone(value: unknown, index: number) {
   const ridgeB = canonicalPoint(zone.ridgeB);
   const ridgeAMalformed = zone.ridgeA != null && ridgeA === null;
   const ridgeBMalformed = zone.ridgeB != null && ridgeB === null;
+  const ridgeZCheck = canonicalOptionalFinite(zone.ridgeZCheckFt);
+  const pitchCheckRise = canonicalOptionalFinite(zone.pitchCheckRise);
+  const pitchCheckRun = canonicalOptionalFinite(zone.pitchCheckRun);
+  const optionalCheckMalformed = [ridgeZCheck, pitchCheckRise, pitchCheckRun].some((check) => check.state === "MALFORMED");
   return {
     id: typeof zone.id === "string" ? zone.id : `__malformed-zone-${index}`,
     label: typeof zone.label === "string" ? zone.label : null,
     status: typeof zone.status === "string" ? zone.status : null,
     type: typeof zone.type === "string" ? zone.type : null,
-    malformed: typeof zone.id !== "string" || footprintMalformed || ridgeAMalformed || ridgeBMalformed,
+    malformed: typeof zone.id !== "string" || footprintMalformed || ridgeAMalformed || ridgeBMalformed || optionalCheckMalformed,
     footprintState,
     footprint,
     plateZFt: typeof zone.plateZFt === "number" && Number.isFinite(zone.plateZFt) ? rounded(zone.plateZFt) : null,
@@ -69,9 +77,12 @@ function canonicalRoofZone(value: unknown, index: number) {
     pitchRise: typeof zone.pitchRise === "number" && Number.isFinite(zone.pitchRise) ? rounded(zone.pitchRise) : null,
     pitchRun: typeof zone.pitchRun === "number" && Number.isFinite(zone.pitchRun) ? rounded(zone.pitchRun) : null,
     ridgeZFt: typeof zone.ridgeZFt === "number" && Number.isFinite(zone.ridgeZFt) ? rounded(zone.ridgeZFt) : null,
-    ridgeZCheckFt: typeof zone.ridgeZCheckFt === "number" && Number.isFinite(zone.ridgeZCheckFt) ? rounded(zone.ridgeZCheckFt) : null,
-    pitchCheckRise: typeof zone.pitchCheckRise === "number" && Number.isFinite(zone.pitchCheckRise) ? rounded(zone.pitchCheckRise) : null,
-    pitchCheckRun: typeof zone.pitchCheckRun === "number" && Number.isFinite(zone.pitchCheckRun) ? rounded(zone.pitchCheckRun) : null,
+    ridgeZCheckFtState: ridgeZCheck.state,
+    ridgeZCheckFt: ridgeZCheck.value,
+    pitchCheckRiseState: pitchCheckRise.state,
+    pitchCheckRise: pitchCheckRise.value,
+    pitchCheckRunState: pitchCheckRun.state,
+    pitchCheckRun: pitchCheckRun.value,
     source: typeof zone.source === "string" ? zone.source : null
   };
 }
