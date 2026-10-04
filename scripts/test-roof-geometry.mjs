@@ -298,6 +298,22 @@ const malformedFootprintValidation = validateRoofComponent(malformedFootprintRoo
 assert.equal(malformedFootprintValidation.status, "FAIL_CLOSED_INVALID");
 assert(malformedFootprintValidation.errors.some((error) => /expected 4 vertices/i.test(error)), "an explicitly present malformed roof footprint must not inherit the owner footprint");
 
+const stringRidgeRoof = {
+  ...roof,
+  zones: [{ ...roof.zones[0], ridgeA: ["94.5", "18.125"], ridgeB: ["128", "18.125"] }]
+};
+const stringRidgeValidation = validateRoofComponent(stringRidgeRoof, owner);
+assert.equal(stringRidgeValidation.status, "FAIL_CLOSED_INVALID");
+assert(stringRidgeValidation.errors.some((error) => /finite numeric world coordinates/i.test(error)), "string ridge coordinates must never be coerced into authoritative geometry");
+
+const malformedRidgeCheckRoof = {
+  ...roof,
+  zones: [{ ...roof.zones[0], ridgeZCheckFt: "n/a" }]
+};
+const malformedRidgeCheckValidation = validateRoofComponent(malformedRidgeCheckRoof, owner);
+assert.equal(malformedRidgeCheckValidation.status, "FAIL_CLOSED_INVALID");
+assert(malformedRidgeCheckValidation.errors.some((error) => /ridgeZCheckFt must be a finite number/i.test(error)), "malformed optional ridge-Z verification evidence must fail closed");
+
 const canonical = canonicalizeInterventionGeometry(candidate);
 assert.equal(canonical.schemaVersion, "lotscope-intervention-geometry-v3");
 assert.equal(canonical.roofs.find((item) => item.id === "roof-home-a")?.status, "LOCKED");
@@ -442,6 +458,8 @@ console.log(JSON.stringify({
   zeroPitchCheckCompared: zeroPitchCheckValidation.errors.some((error) => /pitch check mismatch/i.test(error)),
   partialPitchCheckRejected: partialPitchCheckValidation.errors.some((error) => /requires both/i.test(error)),
   malformedExplicitFootprintRejected: malformedFootprintValidation.status === "FAIL_CLOSED_INVALID",
+  nonnumericRidgeCoordinatesRejected: stringRidgeValidation.status === "FAIL_CLOSED_INVALID",
+  malformedRidgeZCheckRejected: malformedRidgeCheckValidation.status === "FAIL_CLOSED_INVALID",
   clearableProvenanceFailsClosed: true,
   status: validation.status,
   pitch: validation.zones[0].pitch12,

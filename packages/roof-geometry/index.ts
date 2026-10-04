@@ -30,6 +30,14 @@ function rounded(value: number) {
   if (!Number.isFinite(value)) throw new Error("roof geometry must be finite");
   return Math.round((value + Number.EPSILON) * 10000) / 10000;
 }
+function finitePoint(value: unknown): value is Point {
+  return Array.isArray(value)
+    && value.length === 2
+    && typeof value[0] === "number"
+    && Number.isFinite(value[0])
+    && typeof value[1] === "number"
+    && Number.isFinite(value[1]);
+}
 
 export function placementPolygon(owner: PlacementComponent): Point[] {
   const polygon = placementShapeIdentity(owner).polygon.map(([x, y]) => [x, y] as Point);
@@ -311,10 +319,15 @@ export function solveGableZone(owner: PlacementComponent, zone: RoofZone): Solve
   if (zone.type !== "gable") errors.push(`Unsupported roof type ${zone.type}`);
   if (!zone.source?.trim()) errors.push("roof geometry source / provenance is required");
   if (!Number.isFinite(zone.plateZFt)) errors.push("plateZFt is required");
-  if (!zone.ridgeA || !zone.ridgeB) errors.push("ridgeA and ridgeB world points are required");
+  const ridgeAValid = finitePoint(zone.ridgeA);
+  const ridgeBValid = finitePoint(zone.ridgeB);
+  if (!ridgeAValid || !ridgeBValid) errors.push("ridgeA and ridgeB must each be two finite numeric world coordinates");
+  if (zone.ridgeZCheckFt != null && !Number.isFinite(zone.ridgeZCheckFt)) {
+    errors.push("ridgeZCheckFt must be a finite number when supplied");
+  }
   const rectangular = rectangleCheck(footprint);
   if (!rectangular.ok) errors.push(`Centered-gable v1 requires a rectangular roof zone: ${rectangular.detail}`);
-  if (errors.length || !zone.ridgeA || !zone.ridgeB || !Number.isFinite(zone.plateZFt)) {
+  if (errors.length || !ridgeAValid || !ridgeBValid || !Number.isFinite(zone.plateZFt)) {
     return {
       zoneId: zone.id, status: "INVALID", authoritative: false, errors, footprint,
       plateZFt: zone.plateZFt, ridgeA: zone.ridgeA, ridgeB: zone.ridgeB,
@@ -322,7 +335,9 @@ export function solveGableZone(owner: PlacementComponent, zone: RoofZone): Solve
     };
   }
 
-  const unit = normalize(subtract(zone.ridgeB, zone.ridgeA));
+  const ridgeA = zone.ridgeA as Point;
+  const ridgeB = zone.ridgeB as Point;
+  const unit = normalize(subtract(ridgeB, ridgeA));
   if (!unit) errors.push("ridge line has zero length");
   if (!unit) return {
     zoneId: zone.id, status: "INVALID", authoritative: false, errors, footprint,
@@ -331,13 +346,13 @@ export function solveGableZone(owner: PlacementComponent, zone: RoofZone): Solve
   };
 
   const normal: Point = [-unit[1], unit[0]];
-  const ridgeCross = dot(zone.ridgeA, normal);
+  const ridgeCross = dot(ridgeA, normal);
   const projections = footprint.map((point) => dot(point, normal));
   const low = Math.min(...projections), high = Math.max(...projections);
   const runLow = ridgeCross - low, runHigh = high - ridgeCross;
   const centered = Math.abs(runLow - runHigh) <= ROOF_TOLERANCE.centerFt;
-  const endpointsInside = pointInPolygon(zone.ridgeA, footprint) && pointInPolygon(zone.ridgeB, footprint);
-  const endpointsOnBoundary = pointOnBoundary(zone.ridgeA, footprint) && pointOnBoundary(zone.ridgeB, footprint);
+  const endpointsInside = pointInPolygon(ridgeA, footprint) && pointInPolygon(ridgeB, footprint);
+  const endpointsOnBoundary = pointOnBoundary(ridgeA, footprint) && pointOnBoundary(ridgeB, footprint);
   const edges = footprint.map((point, index) => subtract(footprint[(index + 1) % footprint.length], point));
   const ridgeParallelToZone = edges.some((edge) => {
     const edgeUnit = normalize(edge);
@@ -345,7 +360,7 @@ export function solveGableZone(owner: PlacementComponent, zone: RoofZone): Solve
   });
   const ridgeAxis = footprint.map((point) => dot(point, unit));
   const axisLow = Math.min(...ridgeAxis), axisHigh = Math.max(...ridgeAxis);
-  const endpointAxis = [dot(zone.ridgeA, unit), dot(zone.ridgeB, unit)].sort((a, b) => a - b);
+  const endpointAxis = [dot(ridgeA, unit), dot(ridgeB, unit)].sort((a, b) => a - b);
   const fullRidgeSpan = Math.abs(endpointAxis[0] - axisLow) <= ROOF_TOLERANCE.centerFt
     && Math.abs(endpointAxis[1] - axisHigh) <= ROOF_TOLERANCE.centerFt;
   if (runLow <= ROOF_TOLERANCE.planFt || runHigh <= ROOF_TOLERANCE.planFt) {
