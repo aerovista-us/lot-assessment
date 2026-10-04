@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { pondyCandidateRegistry } from "../projects/pondy-lot2/candidate-registry.ts";
+import { pondyDesign4Evidence } from "../projects/pondy-design4/evidence.ts";
 import { cloneCandidateComponents } from "../packages/candidates/index.ts";
 import { editPlacementComponent, editPlacementVertex, editPlacementWallLength, editRoofZone, lockRoofComponent } from "../packages/candidates/intervention.ts";
 import { canonicalizeInterventionGeometry } from "../packages/canonical/intervention-geometry.ts";
@@ -19,6 +20,13 @@ for (const result of d4RoofSummary.results) {
   assert.equal(result.authoritative, true);
   assert.equal(result.ownerGeometryCurrent, true);
 }
+
+const publicRoofGate = pondyDesign4Evidence.gates.find((gate) => gate.id === "roof-geometry");
+assert(publicRoofGate, "public Design 4 evidence must expose a roof-geometry gate");
+assert.equal(publicRoofGate.status, d4RoofSummary.renderPolicy === "AUTHORITATIVE_ALLOWED" ? "PASS" : "FAIL");
+assert.equal(publicRoofGate.metrics?.find((metric) => metric.id === "roof-lock-count")?.value, d4RoofSummary.locked);
+assert.equal(publicRoofGate.metrics?.find((metric) => metric.id === "roof-required-count")?.value, d4RoofSummary.requiredOwnerCount);
+assert.equal(publicRoofGate.metrics?.find((metric) => metric.id === "roof-invalid-count")?.value, d4RoofSummary.invalid);
 
 const roofHandoff = JSON.parse(readFileSync(new URL("../projects/pondy-design4/roof-lock.json", import.meta.url), "utf8"));
 assert.equal(roofHandoff.schemaVersion, "lotscope-pondy-d4-roof-lock-v1");
@@ -577,6 +585,7 @@ console.log(JSON.stringify({
   d4RenderPolicy: d4RoofSummary.renderPolicy,
   d4AuthoritativeRoofLock: d4RoofSummary.locked === 4 && d4RoofSummary.invalid === 0,
   d4RoofHandoffMatchesRegistry: roofHandoff.locked === 4 && roofHandoff.renderPolicy === "AUTHORITATIVE_ALLOWED",
+  d4PublicEvidenceMatchesValidator: publicRoofGate.status === "PASS" && publicRoofGate.metrics?.find((metric) => metric.id === "roof-lock-count")?.value === d4RoofSummary.locked,
   missingRoofModelsFailToConceptOnly: noRoofSummary.missing === 4,
   duplicateRoofOwnersFailClosed: duplicateSummary.renderPolicy === "FAIL_CLOSED_INVALID",
   orphanRoofsFailClosed: orphanSummary.renderPolicy === "FAIL_CLOSED_INVALID",
