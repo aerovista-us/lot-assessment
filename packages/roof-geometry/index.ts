@@ -330,6 +330,12 @@ export function solveGableZone(owner: PlacementComponent, zone: RoofZone): Solve
   if (zone.ridgeZCheckFt != null && !Number.isFinite(zone.ridgeZCheckFt)) {
     errors.push("ridgeZCheckFt must be a finite number when supplied");
   }
+  if (zone.pitchCheckRise != null && !Number.isFinite(zone.pitchCheckRise)) {
+    errors.push("pitchCheckRise must be a finite number when supplied");
+  }
+  if (zone.pitchCheckRun != null && !Number.isFinite(zone.pitchCheckRun)) {
+    errors.push("pitchCheckRun must be a finite number when supplied");
+  }
   const rectangular = rectangleCheck(footprint);
   if (!rectangular.ok) errors.push(`Centered-gable v1 requires a rectangular roof zone: ${rectangular.detail}`);
   if (errors.length || !ridgeAValid || !ridgeBValid || !Number.isFinite(zone.plateZFt)) {

@@ -343,6 +343,15 @@ const malformedRidgeCheckValidation = validateRoofComponent(malformedRidgeCheckR
 assert.equal(malformedRidgeCheckValidation.status, "FAIL_CLOSED_INVALID");
 assert(malformedRidgeCheckValidation.errors.some((error) => /ridgeZCheckFt must be a finite number/i.test(error)), "malformed optional ridge-Z verification evidence must fail closed");
 
+const malformedPitchChecksOnPitchRoof = {
+  ...roof,
+  zones: [{ ...roof.zones[0], pitchCheckRise: "bad", pitchCheckRun: { bad: true } }]
+};
+const malformedPitchChecksOnPitchValidation = validateRoofComponent(malformedPitchChecksOnPitchRoof, owner);
+assert.equal(malformedPitchChecksOnPitchValidation.status, "FAIL_CLOSED_INVALID");
+assert(malformedPitchChecksOnPitchValidation.errors.some((error) => /pitchCheckRise must be a finite number/i.test(error)), "malformed pitch-check rise must fail closed even when PITCH is the authoritative solve mode");
+assert(malformedPitchChecksOnPitchValidation.errors.some((error) => /pitchCheckRun must be a finite number/i.test(error)), "malformed pitch-check run must fail closed even when PITCH is the authoritative solve mode");
+
 const canonical = canonicalizeInterventionGeometry(candidate);
 assert.equal(canonical.schemaVersion, "lotscope-intervention-geometry-v3");
 assert.equal(canonical.roofs.find((item) => item.id === "roof-home-a")?.status, "LOCKED");
@@ -532,6 +541,7 @@ console.log(JSON.stringify({
   malformedOwnerGeometryFailsClosed: malformedOwnerValidation.status === "FAIL_CLOSED_INVALID",
   nonnumericRidgeCoordinatesRejected: stringRidgeValidation.status === "FAIL_CLOSED_INVALID",
   malformedRidgeZCheckRejected: malformedRidgeCheckValidation.status === "FAIL_CLOSED_INVALID",
+  malformedPitchChecksRejectedInPitchMode: malformedPitchChecksOnPitchValidation.status === "FAIL_CLOSED_INVALID",
   malformedOptionalChecksChangeCanonicalRevision: malformedRidgeCheckCanonicalZone?.ridgeZCheckFtState === "MALFORMED"
     && malformedPitchCheckCanonicalZone?.pitchCheckRiseState === "MALFORMED"
     && malformedPitchCheckCanonicalZone?.pitchCheckRunState === "MALFORMED",
