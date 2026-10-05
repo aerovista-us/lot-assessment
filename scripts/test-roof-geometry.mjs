@@ -9,11 +9,21 @@ const d4 = pondyCandidateRegistry.candidates.find((candidate) => candidate.id ==
 assert(d4);
 const d4RoofSummary = validateCandidateRoofs(d4.components);
 assert.equal(d4RoofSummary.missing, 0);
-assert.equal(d4RoofSummary.conceptOnly, 4);
-assert.equal(d4RoofSummary.renderPolicy, "CONCEPT_ONLY_REQUIRED");
+assert.equal(d4RoofSummary.locked, 4);
+assert.equal(d4RoofSummary.conceptOnly, 0);
+assert.equal(d4RoofSummary.renderPolicy, "AUTHORITATIVE_ALLOWED");
 const noRoofSummary = validateCandidateRoofs(d4.components.filter((item) => item.kind !== "roof"));
 assert.equal(noRoofSummary.missing, 4);
 assert.equal(noRoofSummary.renderPolicy, "CONCEPT_ONLY_REQUIRED");
+
+const d4Draft = {
+  ...d4,
+  components: cloneCandidateComponents(d4.components).map((item) => {
+    if (item.kind !== "roof") return item;
+    const zones = item.id === "roof-home-b" ? item.zones.slice(0, 1) : item.zones;
+    return { ...item, status: "UNLOCKED", ownerGeometryKey: undefined, zones: zones.map((zone) => ({ ...zone, status: "UNLOCKED" })) };
+  })
+};
 
 const duplicateRoof = JSON.parse(JSON.stringify(d4.components.find((item) => item.id === "roof-home-a")));
 duplicateRoof.id = "roof-home-a-duplicate";
@@ -310,7 +320,7 @@ const interfaceBreakValidation = validateRoofComponent(interfaceBreakRoof, inter
 assert.equal(interfaceBreakValidation.status, "FAIL_CLOSED_INVALID");
 assert(interfaceBreakValidation.errors.some((error) => /vertically discontinuous/i.test(error)), "shared interfaces must sample every ridge/slope breakpoint, not only endpoints and midpoint");
 
-let candidate = editRoofZone(d4, "roof-home-a", "home-a-roof-zone-1", {
+let candidate = editRoofZone(d4Draft, "roof-home-a", "home-a-roof-zone-1", {
   plateZFt: 20,
   ridgeA: [94.5, 18.125],
   ridgeB: [128, 18.125],
@@ -483,7 +493,7 @@ const oneZoneIrregular = solveGableZone(ownerB, {
 assert.equal(oneZoneIrregular.authoritative, false);
 assert(oneZoneIrregular.errors.some((error) => /rectangular roof zone/i.test(error)));
 
-let tiled = editRoofZone(d4, "roof-home-b", "home-b-roof-zone-1", {
+let tiled = editRoofZone(d4Draft, "roof-home-b", "home-b-roof-zone-1", {
   footprint: [[54,5],[94.5,5],[94.5,22],[54,22]],
   plateZFt: 20, ridgeA: [54,13.5], ridgeB: [94.5,13.5],
   solveBy: "PITCH", pitchRise: 6, pitchRun: 12, source: "Home B tile self-test"
@@ -542,6 +552,7 @@ assert(noSource.errors.some((error) => /source/i.test(error)));
 console.log(JSON.stringify({
   schema: validation.schemaVersion,
   d4RenderPolicy: d4RoofSummary.renderPolicy,
+  d4AuthoritativeRoofsLocked: d4RoofSummary.locked === 4,
   missingRoofModelsFailToConceptOnly: noRoofSummary.missing === 4,
   duplicateRoofOwnersFailClosed: duplicateSummary.renderPolicy === "FAIL_CLOSED_INVALID",
   orphanRoofsFailClosed: orphanSummary.renderPolicy === "FAIL_CLOSED_INVALID",
