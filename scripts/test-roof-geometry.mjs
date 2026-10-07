@@ -60,6 +60,23 @@ assert(crossGableJunction.overlapAreaSqFt > 0, "a genuine valley requires overla
 assert(crossGableJunction.segments.some((segment) => segment.kind === "VALLEY"), "cross-gable fixture must produce at least one derived valley");
 assert(crossGableJunction.segments.every((segment) => segment.residualFt <= 0.02), "derived junction endpoints must reconcile both roof planes");
 
+const homeBCrossGableRoof = {
+  ...homeBRoof,
+  status: "LOCKED",
+  staleReason: undefined,
+  junctionMode: "PLANE_ENVELOPE",
+  ownerGeometryKey: ownerGeometryKey(homeB),
+  zones: [
+    { ...homeBRoof.zones[0], status: "LOCKED" },
+    { ...homeBCrossGableZone, status: "LOCKED" }
+  ]
+};
+const homeBCrossGableValidation = validateRoofComponent(homeBCrossGableRoof, homeB);
+assert.equal(homeBCrossGableValidation.status, "ROOF_GEOMETRY_LOCKED", "a solved two-gable plane envelope should be eligible for authoritative lock");
+assert.equal(homeBCrossGableValidation.authoritative, true);
+assert.equal(homeBCrossGableValidation.junctions.length, 1);
+assert(homeBCrossGableValidation.junctions[0].segments.some((segment) => segment.kind === "VALLEY"));
+
 const d4b = pondyCandidateRegistry.candidates.find((candidate) => candidate.id === "pondy-d4b-rot35b");
 assert(d4b);
 const d4bRoofSummary = validateCandidateRoofs(d4b.components);
