@@ -10,10 +10,10 @@ const d4 = pondyCandidateRegistry.candidates.find((candidate) => candidate.id ==
 assert(d4);
 const d4RoofSummary = validateCandidateRoofs(d4.components);
 assert.equal(d4RoofSummary.missing, 0);
-assert.equal(d4RoofSummary.locked, 3);
-assert.equal(d4RoofSummary.conceptOnly, 1);
-assert.equal(d4RoofSummary.renderPolicy, "CONCEPT_ONLY_REQUIRED");
-assert(d4RoofSummary.results.some((item) => item.ownerId === "home-b" && item.status === "CONCEPT_ONLY"), "Home B must remain concept-only until its internal roof junction has a supported solver");
+assert.equal(d4RoofSummary.locked, 4);
+assert.equal(d4RoofSummary.conceptOnly, 0);
+assert.equal(d4RoofSummary.renderPolicy, "AUTHORITATIVE_ALLOWED");
+assert(d4RoofSummary.results.some((item) => item.ownerId === "home-b" && item.status === "ROOF_GEOMETRY_LOCKED"), "Home B must lock only through the solved cross-gable plane envelope");
 const noRoofSummary = validateCandidateRoofs(d4.components.filter((item) => item.kind !== "roof"));
 assert.equal(noRoofSummary.missing, 4);
 assert.equal(noRoofSummary.renderPolicy, "CONCEPT_ONLY_REQUIRED");
@@ -40,52 +40,43 @@ const currentHomeBJunction = solveGableJunction(
   junctionInput(homeB, homeBRoof.zones[1])
 );
 assert.equal(currentHomeBJunction.status, "SOLVED");
-assert.equal(currentHomeBJunction.kind, "BOX_GUTTER", "the currently authored Home B seam is a box gutter, not a valley");
-assert(currentHomeBJunction.segments.every((segment) => segment.residualFt <= 0.02));
+assert(currentHomeBJunction.overlapAreaSqFt > 0, "the authored Home B cross-gable must overlap in plan");
+assert(currentHomeBJunction.segments.some((segment) => segment.kind === "VALLEY"), "the authored Home B cross-gable must derive a genuine valley");
+assert(currentHomeBJunction.segments.every((segment) => segment.residualFt <= 0.02), "derived Home B junction endpoints must reconcile both roof planes");
 
-const homeBCrossGableZone = {
+const homeBValidation = validateRoofComponent(homeBRoof, homeB);
+assert.equal(homeBValidation.status, "ROOF_GEOMETRY_LOCKED");
+assert.equal(homeBValidation.authoritative, true);
+assert.equal(homeBValidation.junctions.length, 1);
+assert(homeBValidation.junctions[0].segments.some((segment) => segment.kind === "VALLEY"));
+
+const homeBBoxGutterZone = {
   ...homeBRoof.zones[1],
-  id: "home-b-roof-zone-2-cross-gable-fixture",
-  footprint: [[72.5,13.5],[94.5,13.5],[94.5,31.25],[72.5,31.25]],
-  ridgeA: [83.5,13.5],
-  ridgeB: [83.5,31.25],
-  source: "junction solver cross-gable acceptance fixture"
+  id: "home-b-roof-zone-2-box-gutter-fixture",
+  footprint: [[72.5,22],[94.5,22],[94.5,31.25],[72.5,31.25]],
+  ridgeA: [72.5,26.625],
+  ridgeB: [94.5,26.625],
+  source: "legacy Home B eave-to-eave box-gutter regression fixture"
 };
-const crossGableJunction = solveGableJunction(
+const legacyHomeBSeam = solveGableJunction(
   junctionInput(homeB, homeBRoof.zones[0]),
-  junctionInput(homeB, homeBCrossGableZone)
+  junctionInput(homeB, homeBBoxGutterZone)
 );
-assert.equal(crossGableJunction.status, "SOLVED");
-assert(crossGableJunction.overlapAreaSqFt > 0, "a genuine valley requires overlapping roof-plane domains");
-assert(crossGableJunction.segments.some((segment) => segment.kind === "VALLEY"), "cross-gable fixture must produce at least one derived valley");
-assert(crossGableJunction.segments.every((segment) => segment.residualFt <= 0.02), "derived junction endpoints must reconcile both roof planes");
+assert.equal(legacyHomeBSeam.status, "SOLVED");
+assert.equal(legacyHomeBSeam.kind, "BOX_GUTTER", "the previous Home B seam must remain classified as a box gutter, not a valley");
 
-const homeBCrossGableRoof = {
+const fakeEnvelopeOnLegacySeam = validateRoofComponent({
   ...homeBRoof,
   status: "LOCKED",
-  staleReason: undefined,
   junctionMode: "PLANE_ENVELOPE",
   ownerGeometryKey: ownerGeometryKey(homeB),
   zones: [
     { ...homeBRoof.zones[0], status: "LOCKED" },
-    { ...homeBCrossGableZone, status: "LOCKED" }
+    { ...homeBBoxGutterZone, status: "LOCKED" }
   ]
-};
-const homeBCrossGableValidation = validateRoofComponent(homeBCrossGableRoof, homeB);
-assert.equal(homeBCrossGableValidation.status, "ROOF_GEOMETRY_LOCKED", "a solved two-gable plane envelope should be eligible for authoritative lock");
-assert.equal(homeBCrossGableValidation.authoritative, true);
-assert.equal(homeBCrossGableValidation.junctions.length, 1);
-assert(homeBCrossGableValidation.junctions[0].segments.some((segment) => segment.kind === "VALLEY"));
-
-const fakeEnvelopeOnCurrentSeam = validateRoofComponent({
-  ...homeBRoof,
-  status: "LOCKED",
-  junctionMode: "PLANE_ENVELOPE",
-  ownerGeometryKey: ownerGeometryKey(homeB),
-  zones: homeBRoof.zones.map((zone) => ({ ...zone, status: "LOCKED" }))
 }, homeB);
-assert.equal(fakeEnvelopeOnCurrentSeam.status, "FAIL_CLOSED_INVALID");
-assert(fakeEnvelopeOnCurrentSeam.errors.some((error) => /positive roof-zone overlap|box gutter/i.test(error)), "switching the current eave seam to PLANE_ENVELOPE must not manufacture a valley");
+assert.equal(fakeEnvelopeOnLegacySeam.status, "FAIL_CLOSED_INVALID");
+assert(fakeEnvelopeOnLegacySeam.errors.some((error) => /positive roof-zone overlap|box gutter/i.test(error)), "switching the legacy eave seam to PLANE_ENVELOPE must not manufacture a valley");
 
 const monotonicCrossingA = {
   zoneId: "monotonic-a",
@@ -107,9 +98,9 @@ const tiledCanonical = canonicalizeInterventionGeometry(d4);
 const junctionModeComponents = cloneCandidateComponents(d4.components);
 const junctionModeRoof = junctionModeComponents.find((item) => item.id === "roof-home-b");
 assert(junctionModeRoof?.kind === "roof");
-junctionModeRoof.junctionMode = "PLANE_ENVELOPE";
-const envelopeCanonical = canonicalizeInterventionGeometry({ ...d4, components: junctionModeComponents });
-assert.notEqual(JSON.stringify(tiledCanonical), JSON.stringify(envelopeCanonical), "junction mode must participate in canonical geometry revision identity");
+junctionModeRoof.junctionMode = "TILED";
+const tiledModeCanonical = canonicalizeInterventionGeometry({ ...d4, components: junctionModeComponents });
+assert.notEqual(JSON.stringify(tiledCanonical), JSON.stringify(tiledModeCanonical), "junction mode must participate in canonical geometry revision identity");
 
 const d4b = pondyCandidateRegistry.candidates.find((candidate) => candidate.id === "pondy-d4b-rot35b");
 assert(d4b);
