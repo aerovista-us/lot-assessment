@@ -4,6 +4,7 @@ import { cloneCandidateComponents } from "../packages/candidates/index.ts";
 import { addRoofZone, editPlacementComponent, editPlacementVertex, editPlacementWallLength, editRoofZone, lockRoofComponent } from "../packages/candidates/intervention.ts";
 import { canonicalizeInterventionGeometry } from "../packages/canonical/intervention-geometry.ts";
 import { ownerGeometryKey, validateCandidateRoofs, validateRoofComponent, solveGableZone } from "../packages/roof-geometry/index.ts";
+import { solveGableJunction } from "../packages/roof-geometry/junctions.ts";
 
 const d4 = pondyCandidateRegistry.candidates.find((candidate) => candidate.id === "pondy-d4");
 assert(d4);
@@ -16,6 +17,48 @@ assert(d4RoofSummary.results.some((item) => item.ownerId === "home-b" && item.st
 const noRoofSummary = validateCandidateRoofs(d4.components.filter((item) => item.kind !== "roof"));
 assert.equal(noRoofSummary.missing, 4);
 assert.equal(noRoofSummary.renderPolicy, "CONCEPT_ONLY_REQUIRED");
+
+const homeB = d4.components.find((item) => item.id === "home-b");
+const homeBRoof = d4.components.find((item) => item.id === "roof-home-b");
+assert(homeB?.kind === "home" && homeBRoof?.kind === "roof");
+
+function junctionInput(owner, zone) {
+  const solved = solveGableZone(owner, { ...zone, status: "LOCKED" });
+  assert.equal(solved.authoritative, true, `${zone.id} must solve before junction analysis`);
+  return {
+    zoneId: solved.zoneId,
+    footprint: solved.footprint,
+    ridgeA: solved.ridgeA,
+    ridgeB: solved.ridgeB,
+    ridgeZFt: solved.ridgeZFt,
+    pitchRatio: solved.pitchRatio
+  };
+}
+
+const currentHomeBJunction = solveGableJunction(
+  junctionInput(homeB, homeBRoof.zones[0]),
+  junctionInput(homeB, homeBRoof.zones[1])
+);
+assert.equal(currentHomeBJunction.status, "SOLVED");
+assert.equal(currentHomeBJunction.kind, "BOX_GUTTER", "the currently authored Home B seam is a box gutter, not a valley");
+assert(currentHomeBJunction.segments.every((segment) => segment.residualFt <= 0.02));
+
+const homeBCrossGableZone = {
+  ...homeBRoof.zones[1],
+  id: "home-b-roof-zone-2-cross-gable-fixture",
+  footprint: [[72.5,13.5],[94.5,13.5],[94.5,31.25],[72.5,31.25]],
+  ridgeA: [83.5,13.5],
+  ridgeB: [83.5,31.25],
+  source: "junction solver cross-gable acceptance fixture"
+};
+const crossGableJunction = solveGableJunction(
+  junctionInput(homeB, homeBRoof.zones[0]),
+  junctionInput(homeB, homeBCrossGableZone)
+);
+assert.equal(crossGableJunction.status, "SOLVED");
+assert(crossGableJunction.overlapAreaSqFt > 0, "a genuine valley requires overlapping roof-plane domains");
+assert(crossGableJunction.segments.some((segment) => segment.kind === "VALLEY"), "cross-gable fixture must produce at least one derived valley");
+assert(crossGableJunction.segments.every((segment) => segment.residualFt <= 0.02), "derived junction endpoints must reconcile both roof planes");
 
 const d4b = pondyCandidateRegistry.candidates.find((candidate) => candidate.id === "pondy-d4b-rot35b");
 assert(d4b);
