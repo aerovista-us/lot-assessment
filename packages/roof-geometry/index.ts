@@ -531,17 +531,17 @@ export function validateRoofComponent(roof: RoofComponent | null | undefined, ow
           const unsupportedLowSeam = sharedSegments.some(([start, end]) => {
             const midpoint: Point = [(start[0] + end[0]) / 2, (start[1] + end[1]) / 2];
             if (pointOnBoundary(midpoint, ownerFootprint)) return false;
-            const za = roofZoneHeightAt(zones[i], midpoint);
-            const zb = roofZoneHeightAt(zones[j], midpoint);
-            const plateA = zones[i].plateZFt;
-            const plateB = zones[j].plateZFt;
-            return za != null && zb != null
-              && plateA != null && plateB != null
-              && Math.abs(za - plateA) <= ROOF_TOLERANCE.zFt
-              && Math.abs(zb - plateB) <= ROOF_TOLERANCE.zFt;
+            if (!zones[i].ridgeA || !zones[i].ridgeB || !zones[j].ridgeA || !zones[j].ridgeB) return false;
+            const sharedAxis = normalize(subtract(end, start));
+            const ridgeAxisA = normalize(subtract(zones[i].ridgeB, zones[i].ridgeA));
+            const ridgeAxisB = normalize(subtract(zones[j].ridgeB, zones[j].ridgeA));
+            if (!sharedAxis || !ridgeAxisA || !ridgeAxisB) return false;
+            const sharedIsEaveA = Math.abs(cross2(sharedAxis, ridgeAxisA)) <= 0.002;
+            const sharedIsEaveB = Math.abs(cross2(sharedAxis, ridgeAxisB)) <= 0.002;
+            return sharedIsEaveA && sharedIsEaveB;
           });
           if (unsupportedLowSeam) {
-            errors.push(`roof-zone interface ${zones[i].zoneId} / ${zones[j].zoneId} forms an unsupported internal low seam/valley at plate height`);
+            errors.push(`roof-zone interface ${zones[i].zoneId} / ${zones[j].zoneId} forms an unsupported internal eave-to-eave low seam/valley`);
           }
         }
       }
