@@ -103,6 +103,22 @@ const monotonicCrossing = solveGableJunction(monotonicCrossingA, monotonicCrossi
 assert.equal(monotonicCrossing.status, "UNSUPPORTED", "non-extremum plane crossings must not be mislabeled as valleys or ridges");
 assert.equal(monotonicCrossing.segments.length, 0);
 
+const buriedSameRidgeA = {
+  zoneId: "buried-same-ridge-a",
+  footprint: [[0,0],[10,0],[10,10],[0,10]],
+  ridgeA: [0,5], ridgeB: [10,5],
+  ridgeZFt: 5, pitchRatio: 0.5
+};
+const buriedSameRidgeB = {
+  zoneId: "buried-same-ridge-b",
+  footprint: [[0,0],[10,0],[10,10],[0,10]],
+  ridgeA: [0,5], ridgeB: [10,5],
+  ridgeZFt: 5, pitchRatio: 0.2
+};
+const buriedSameRidge = solveGableJunction(buriedSameRidgeA, buriedSameRidgeB);
+assert.equal(buriedSameRidge.status, "UNSUPPORTED", "coincident equality lines must fail when the same roof owns the upper envelope on both sides");
+assert.equal(buriedSameRidge.segments.length, 0);
+
 const tiledCanonical = canonicalizeInterventionGeometry(d4);
 const junctionModeComponents = cloneCandidateComponents(d4.components);
 const junctionModeRoof = junctionModeComponents.find((item) => item.id === "roof-home-b");
