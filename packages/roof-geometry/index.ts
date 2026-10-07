@@ -510,7 +510,7 @@ export function roofPlanSegments(validation: RoofValidation): RoofPlanSegment[] 
 
   const derived = junctionSegments.map((segment): RoofPlanSegment => ({
     id: segment.id,
-    kind: segment.kind,
+    kind: segment.kind === "VALLEY" ? "VALLEY" : "RIDGE",
     a: segment.a,
     b: segment.b,
     derived: true
