@@ -533,7 +533,7 @@ let toleranceBypass = editRoofZone(tiled, "roof-home-b", "home-b-roof-zone-1", {
 toleranceBypass = editRoofZone(toleranceBypass, "roof-home-b", "home-b-roof-zone-2", {
   ridgeA: [72.5,26.611], ridgeB: [94.5,26.611], pitchRise: 24, pitchRun: 12
 }, "2026-10-03T06:01:03.020Z");
-assert.throws(() => lockRoofComponent(toleranceBypass, "roof-home-b", "2026-10-03T06:01:03.030Z"), /unsupported internal eave-to-eave low seam\/valley/i, "low-seam rejection must not be bypassable through centering/Z tolerances");
+assert.throws(() => lockRoofComponent(toleranceBypass, "roof-home-b", "2026-10-03T06:01:03.030Z"), /unsupported internal low seam\/valley/i, "low-seam rejection must not be bypassable through centering/Z tolerances");
 
 const duplicateZoneIdRoof = {
   ...tiledRoof,
