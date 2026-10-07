@@ -76,6 +76,7 @@ export type OpeningComponent = ComponentBase & {
 };
 
 export type RoofVerticalAuthority = "PITCH" | "RIDGE_Z";
+export type RoofJunctionMode = "TILED" | "PLANE_ENVELOPE";
 export type RoofZone = {
   id: string;
   label: string;
@@ -102,6 +103,7 @@ export type RoofComponent = ComponentBase & {
   zones: RoofZone[];
   ownerGeometryKey?: string;
   staleReason?: string;
+  junctionMode?: RoofJunctionMode;
 };
 
 export type PathComponent = ComponentBase & {
