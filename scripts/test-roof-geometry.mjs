@@ -527,6 +527,14 @@ assert.equal(tiledValidation.status, "FAIL_CLOSED_INVALID");
 assert(tiledValidation.errors.some((error) => /unsupported internal low seam\/valley/i.test(error)));
 assert.throws(() => lockRoofComponent(tiled, "roof-home-b", "2026-10-03T06:01:03.000Z"), /unsupported internal low seam\/valley/i);
 
+let toleranceBypass = editRoofZone(tiled, "roof-home-b", "home-b-roof-zone-1", {
+  ridgeA: [54,13.514], ridgeB: [94.5,13.514], pitchRise: 24, pitchRun: 12
+}, "2026-10-03T06:01:03.010Z");
+toleranceBypass = editRoofZone(toleranceBypass, "roof-home-b", "home-b-roof-zone-2", {
+  ridgeA: [72.5,26.611], ridgeB: [94.5,26.611], pitchRise: 24, pitchRun: 12
+}, "2026-10-03T06:01:03.020Z");
+assert.throws(() => lockRoofComponent(toleranceBypass, "roof-home-b", "2026-10-03T06:01:03.030Z"), /unsupported internal eave-to-eave low seam\/valley/i, "low-seam rejection must not be bypassable through centering/Z tolerances");
+
 const duplicateZoneIdRoof = {
   ...tiledRoof,
   zones: tiledRoof.zones.map((zone) => ({ ...zone, id: "home-b-roof-zone-1" }))
@@ -611,6 +619,7 @@ console.log(JSON.stringify({
   offCenterRidgeRejected: true,
   irregularSingleZoneRejected: true,
   unsupportedInternalLowSeamRejected: tiledValidation.status === "FAIL_CLOSED_INVALID",
+  lowSeamToleranceBypassRejected: true,
   discontinuousZoneInterfaceRejected: true,
   provenanceRequired: true,
   canonicalRoofGeometry: true
