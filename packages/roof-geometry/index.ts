@@ -531,10 +531,12 @@ export function validateRoofComponent(roof: RoofComponent | null | undefined, ow
           const unsupportedLowSeam = sharedSegments.some(([start, end]) => {
             const midpoint: Point = [(start[0] + end[0]) / 2, (start[1] + end[1]) / 2];
             if (pointOnBoundary(midpoint, ownerFootprint)) return false;
-            if (!zones[i].ridgeA || !zones[i].ridgeB || !zones[j].ridgeA || !zones[j].ridgeB) return false;
+            const ridgeAA = zones[i].ridgeA, ridgeAB = zones[i].ridgeB;
+            const ridgeBA = zones[j].ridgeA, ridgeBB = zones[j].ridgeB;
+            if (!ridgeAA || !ridgeAB || !ridgeBA || !ridgeBB) return false;
             const sharedAxis = normalize(subtract(end, start));
-            const ridgeAxisA = normalize(subtract(zones[i].ridgeB, zones[i].ridgeA));
-            const ridgeAxisB = normalize(subtract(zones[j].ridgeB, zones[j].ridgeA));
+            const ridgeAxisA = normalize(subtract(ridgeAB, ridgeAA));
+            const ridgeAxisB = normalize(subtract(ridgeBB, ridgeBA));
             if (!sharedAxis || !ridgeAxisA || !ridgeAxisB) return false;
             const sharedIsEaveA = Math.abs(cross2(sharedAxis, ridgeAxisA)) <= 0.002;
             const sharedIsEaveB = Math.abs(cross2(sharedAxis, ridgeAxisB)) <= 0.002;
