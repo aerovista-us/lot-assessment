@@ -501,60 +501,96 @@ export function validateRoofComponent(roof: RoofComponent | null | undefined, ow
   if (roof.status === "LOCKED" && !zones.length) errors.push("locked roof requires at least one roof zone");
   if (roof.status === "LOCKED" && zones.some((zone) => !zone.authoritative)) errors.push("all locked roof zones must validate");
 
+  const junctionMode = roof.junctionMode ?? "TILED";
+  const junctions: RoofJunctionSolution[] = [];
+
   if (roof.status === "LOCKED" && zones.length) {
     const ownerFootprint = placementPolygon(owner);
     const outside = zones.filter((zone) => !polygonContained(zone.footprint, ownerFootprint)).map((zone) => zone.zoneId);
     if (outside.length) errors.push(`roof zone(s) extend outside the owner footprint: ${outside.join(", ")}`);
 
-    const overlaps: string[] = [];
-    for (let i = 0; i < zones.length; i += 1) {
-      for (let j = i + 1; j < zones.length; j += 1) {
-        if (polygonsInteriorOverlap(zones[i].footprint, zones[j].footprint)) overlaps.push(`${zones[i].zoneId} / ${zones[j].zoneId}`);
-      }
-    }
-    if (overlaps.length) errors.push(`roof zones overlap in plan: ${overlaps.join(", ")}`);
+    const ownerArea = Math.abs(polygonArea(ownerFootprint));
+    const zoneArea = zones.reduce((sum, zone) => sum + Math.abs(polygonArea(zone.footprint)), 0);
 
-    const ownerArea = polygonArea(ownerFootprint);
-    const zoneArea = zones.reduce((sum, zone) => sum + polygonArea(zone.footprint), 0);
-    const areaDelta = Math.abs(zoneArea - ownerArea);
-    if (areaDelta > 1e-8) errors.push(`roof-zone coverage differs from owner footprint by ${areaDelta.toFixed(6)} sq ft`);
-
-    if (zones.length > 1 && zones.every((zone) => zone.authoritative)) {
-      const adjacency = Array.from({ length: zones.length }, () => new Set<number>());
-      for (let i = 0; i < zones.length; i += 1) {
-        for (let j = i + 1; j < zones.length; j += 1) {
-          const interfaceCheck = zoneInterfaceCheck(zones[i], zones[j]);
-          if (!interfaceCheck.adjacent) continue;
-          adjacency[i].add(j); adjacency[j].add(i);
-          if (!interfaceCheck.continuous) {
-            errors.push(`roof-zone interface ${zones[i].zoneId} / ${zones[j].zoneId} is vertically discontinuous${interfaceCheck.maxDeltaFt == null ? "" : ` by ${interfaceCheck.maxDeltaFt.toFixed(3)} ft`}`);
+    if (junctionMode === "PLANE_ENVELOPE") {
+      if (zones.length !== 2) {
+        errors.push("PLANE_ENVELOPE v1 requires exactly two roof zones");
+      } else if (zones.every((zone) => zone.authoritative && zone.ridgeA && zone.ridgeB && zone.ridgeZFt != null && zone.pitchRatio != null)) {
+        const toInput = (zone: SolvedRoofZone): JunctionZoneInput => ({
+          zoneId: zone.zoneId,
+          footprint: zone.footprint,
+          ridgeA: zone.ridgeA as Point,
+          ridgeB: zone.ridgeB as Point,
+          ridgeZFt: zone.ridgeZFt as number,
+          pitchRatio: zone.pitchRatio as number
+        });
+        const junction = solveGableJunction(toInput(zones[0]), toInput(zones[1]));
+        junctions.push(junction);
+        if (junction.status !== "SOLVED") {
+          errors.push(`roof plane-envelope junction could not be solved: ${junction.errors.join("; ") || junction.status}`);
+        } else {
+          if (junction.overlapAreaSqFt <= 1e-8) {
+            errors.push("PLANE_ENVELOPE requires positive roof-zone overlap; touching eaves are a box gutter, not a valley");
           }
-          const sharedSegments = sharedBoundarySegments(zones[i].footprint, zones[j].footprint);
-          const unsupportedLowSeam = sharedSegments.some(([start, end]) => {
-            const midpoint: Point = [(start[0] + end[0]) / 2, (start[1] + end[1]) / 2];
-            if (pointOnBoundary(midpoint, ownerFootprint)) return false;
-            const ridgeAA = zones[i].ridgeA, ridgeAB = zones[i].ridgeB;
-            const ridgeBA = zones[j].ridgeA, ridgeBB = zones[j].ridgeB;
-            if (!ridgeAA || !ridgeAB || !ridgeBA || !ridgeBB) return false;
-            const sharedAxis = normalize(subtract(end, start));
-            const ridgeAxisA = normalize(subtract(ridgeAB, ridgeAA));
-            const ridgeAxisB = normalize(subtract(ridgeBB, ridgeBA));
-            if (!sharedAxis || !ridgeAxisA || !ridgeAxisB) return false;
-            const sharedIsEaveA = Math.abs(cross2(sharedAxis, ridgeAxisA)) <= 0.002;
-            const sharedIsEaveB = Math.abs(cross2(sharedAxis, ridgeAxisB)) <= 0.002;
-            return sharedIsEaveA && sharedIsEaveB;
-          });
-          if (unsupportedLowSeam) {
-            errors.push(`roof-zone interface ${zones[i].zoneId} / ${zones[j].zoneId} forms an unsupported internal low seam/valley: eave-to-eave topology`);
+          if (!junction.segments.some((segment) => segment.kind === "VALLEY" || segment.kind === "RIDGE")) {
+            errors.push("PLANE_ENVELOPE requires at least one derived valley or ridge segment");
           }
+          const unionArea = zoneArea - junction.overlapAreaSqFt;
+          const areaDelta = Math.abs(unionArea - ownerArea);
+          if (areaDelta > 1e-8) errors.push(`roof-zone union coverage differs from owner footprint by ${areaDelta.toFixed(6)} sq ft`);
         }
       }
-      const seen = new Set<number>([0]), queue = [0];
-      while (queue.length) {
-        const index = queue.shift() as number;
-        for (const neighbor of adjacency[index]) if (!seen.has(neighbor)) { seen.add(neighbor); queue.push(neighbor); }
+    } else if (junctionMode === "TILED") {
+      const overlaps: string[] = [];
+      for (let i = 0; i < zones.length; i += 1) {
+        for (let j = i + 1; j < zones.length; j += 1) {
+          if (polygonsInteriorOverlap(zones[i].footprint, zones[j].footprint)) overlaps.push(`${zones[i].zoneId} / ${zones[j].zoneId}`);
+        }
       }
-      if (seen.size !== zones.length) errors.push("roof zones do not form one edge-connected roof surface");
+      if (overlaps.length) errors.push(`roof zones overlap in plan: ${overlaps.join(", ")}`);
+
+      const areaDelta = Math.abs(zoneArea - ownerArea);
+      if (areaDelta > 1e-8) errors.push(`roof-zone coverage differs from owner footprint by ${areaDelta.toFixed(6)} sq ft`);
+
+      if (zones.length > 1 && zones.every((zone) => zone.authoritative)) {
+        const adjacency = Array.from({ length: zones.length }, () => new Set<number>());
+        for (let i = 0; i < zones.length; i += 1) {
+          for (let j = i + 1; j < zones.length; j += 1) {
+            const interfaceCheck = zoneInterfaceCheck(zones[i], zones[j]);
+            if (!interfaceCheck.adjacent) continue;
+            adjacency[i].add(j); adjacency[j].add(i);
+            if (!interfaceCheck.continuous) {
+              errors.push(`roof-zone interface ${zones[i].zoneId} / ${zones[j].zoneId} is vertically discontinuous${interfaceCheck.maxDeltaFt == null ? "" : ` by ${interfaceCheck.maxDeltaFt.toFixed(3)} ft`}`);
+            }
+            const sharedSegments = sharedBoundarySegments(zones[i].footprint, zones[j].footprint);
+            const unsupportedLowSeam = sharedSegments.some(([start, end]) => {
+              const midpoint: Point = [(start[0] + end[0]) / 2, (start[1] + end[1]) / 2];
+              if (pointOnBoundary(midpoint, ownerFootprint)) return false;
+              const ridgeAA = zones[i].ridgeA, ridgeAB = zones[i].ridgeB;
+              const ridgeBA = zones[j].ridgeA, ridgeBB = zones[j].ridgeB;
+              if (!ridgeAA || !ridgeAB || !ridgeBA || !ridgeBB) return false;
+              const sharedAxis = normalize(subtract(end, start));
+              const ridgeAxisA = normalize(subtract(ridgeAB, ridgeAA));
+              const ridgeAxisB = normalize(subtract(ridgeBB, ridgeBA));
+              if (!sharedAxis || !ridgeAxisA || !ridgeAxisB) return false;
+              const sharedIsEaveA = Math.abs(cross2(sharedAxis, ridgeAxisA)) <= 0.002;
+              const sharedIsEaveB = Math.abs(cross2(sharedAxis, ridgeAxisB)) <= 0.002;
+              return sharedIsEaveA && sharedIsEaveB;
+            });
+            if (unsupportedLowSeam) {
+              errors.push(`roof-zone interface ${zones[i].zoneId} / ${zones[j].zoneId} forms an unsupported internal low seam/valley: eave-to-eave topology`);
+            }
+          }
+        }
+        const seen = new Set<number>([0]), queue = [0];
+        while (queue.length) {
+          const index = queue.shift() as number;
+          for (const neighbor of adjacency[index]) if (!seen.has(neighbor)) { seen.add(neighbor); queue.push(neighbor); }
+        }
+        if (seen.size !== zones.length) errors.push("roof zones do not form one edge-connected roof surface");
+      }
+    } else {
+      errors.push(`unsupported roof junctionMode ${String(junctionMode)}`);
     }
   }
 
@@ -562,7 +598,7 @@ export function validateRoofComponent(roof: RoofComponent | null | undefined, ow
   return {
     schemaVersion: ROOF_GEOMETRY_SCHEMA, roofId: roof.id, ownerId: owner.id,
     status: errors.length ? "FAIL_CLOSED_INVALID" : authoritative ? "ROOF_GEOMETRY_LOCKED" : "CONCEPT_ONLY",
-    authoritative, safe: errors.length === 0, errors, ownerGeometryCurrent, zones
+    authoritative, safe: errors.length === 0, errors, ownerGeometryCurrent, zones, junctions
   };
 }
 
