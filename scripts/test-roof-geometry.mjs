@@ -512,13 +512,20 @@ tiled = editRoofZone(tiled, "roof-home-b", "home-b-roof-zone-2", {
   plateZFt: 20, ridgeA: [72.5,26.625], ridgeB: [94.5,26.625],
   solveBy: "PITCH", pitchRise: 6, pitchRun: 12, source: "Home B tile self-test"
 }, "2026-10-03T06:01:02.000Z");
-tiled = lockRoofComponent(tiled, "roof-home-b", "2026-10-03T06:01:03.000Z");
-const tiledRoof = tiled.components.find((item) => item.id === "roof-home-b");
+const tiledRoofDraft = tiled.components.find((item) => item.id === "roof-home-b");
 const tiledOwner = tiled.components.find((item) => item.id === "home-b");
-assert(tiledRoof?.kind === "roof" && tiledOwner?.kind === "home");
+assert(tiledRoofDraft?.kind === "roof" && tiledOwner?.kind === "home");
+const tiledRoof = {
+  ...tiledRoofDraft,
+  status: "LOCKED",
+  ownerGeometryKey: ownerGeometryKey(tiledOwner),
+  staleReason: undefined,
+  zones: tiledRoofDraft.zones.map((zone) => ({ ...zone, status: "LOCKED" }))
+};
 const tiledValidation = validateRoofComponent(tiledRoof, tiledOwner);
-assert.equal(tiledValidation.status, "ROOF_GEOMETRY_LOCKED");
-assert.equal(tiledValidation.zones.length, 2);
+assert.equal(tiledValidation.status, "FAIL_CLOSED_INVALID");
+assert(tiledValidation.errors.some((error) => /unsupported internal low seam\/valley/i.test(error)));
+assert.throws(() => lockRoofComponent(tiled, "roof-home-b", "2026-10-03T06:01:03.000Z"), /unsupported internal low seam\/valley/i);
 
 const duplicateZoneIdRoof = {
   ...tiledRoof,
@@ -603,7 +610,7 @@ console.log(JSON.stringify({
   explicitZoneFootprintClearable: true,
   offCenterRidgeRejected: true,
   irregularSingleZoneRejected: true,
-  multiZoneCoverageAndContinuity: tiledValidation.status === "ROOF_GEOMETRY_LOCKED",
+  unsupportedInternalLowSeamRejected: tiledValidation.status === "FAIL_CLOSED_INVALID",
   discontinuousZoneInterfaceRejected: true,
   provenanceRequired: true,
   canonicalRoofGeometry: true
