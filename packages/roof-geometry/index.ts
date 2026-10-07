@@ -527,6 +527,20 @@ export function validateRoofComponent(roof: RoofComponent | null | undefined, ow
           if (!interfaceCheck.continuous) {
             errors.push(`roof-zone interface ${zones[i].zoneId} / ${zones[j].zoneId} is vertically discontinuous${interfaceCheck.maxDeltaFt == null ? "" : ` by ${interfaceCheck.maxDeltaFt.toFixed(3)} ft`}`);
           }
+          const sharedSegments = sharedBoundarySegments(zones[i].footprint, zones[j].footprint);
+          const unsupportedLowSeam = sharedSegments.some(([start, end]) => {
+            const midpoint: Point = [(start[0] + end[0]) / 2, (start[1] + end[1]) / 2];
+            if (pointOnBoundary(midpoint, ownerFootprint)) return false;
+            const za = roofZoneHeightAt(zones[i], midpoint);
+            const zb = roofZoneHeightAt(zones[j], midpoint);
+            return za != null && zb != null
+              && zones[i].plateZFt != null && zones[j].plateZFt != null
+              && Math.abs(za - zones[i].plateZFt) <= ROOF_TOLERANCE.zFt
+              && Math.abs(zb - zones[j].plateZFt) <= ROOF_TOLERANCE.zFt;
+          });
+          if (unsupportedLowSeam) {
+            errors.push(`roof-zone interface ${zones[i].zoneId} / ${zones[j].zoneId} forms an unsupported internal low seam/valley at plate height`);
+          }
         }
       }
       const seen = new Set<number>([0]), queue = [0];
