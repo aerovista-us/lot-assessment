@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { pondyCandidateRegistry } from "../projects/pondy-lot2/candidate-registry.ts";
-import { editPlacementComponent, editPathPoint, editPavementVertex, editOpeningComponent, editPlacementVertex, editPlacementWallLength, mirrorPlacementComponent, insertPlacementVertex, removePlacementVertex, applyCandidateEvaluation } from "../packages/candidates/intervention.ts";
+import { editPlacementComponent, editPathPoint, editPavementVertex, editOpeningComponent, editPlacementVertex, editPlacementWallLength, mirrorPlacementComponent, insertPlacementVertex, removePlacementVertex, applyCandidateEvaluation, setRoofJunctionMode } from "../packages/candidates/intervention.ts";
 import { evaluateInterventionCandidate, exploreInterventionNeighborhood } from "../packages/candidates/intervention-evaluation.ts";
 import { placementShapeIdentity, placementWallId } from "../packages/candidates/shape-topology.ts";
 import { canonicalizeInterventionGeometry, interventionGeometryHash } from "../packages/canonical/intervention-v3.ts";
@@ -74,6 +74,22 @@ const canonicalV3 = canonicalizeInterventionGeometry(deflectedHome);
 const canonicalHash = interventionGeometryHash(deflectedHome);
 assert.equal(interventionGeometryHash(JSON.parse(JSON.stringify(canonicalV3))), canonicalHash, "canonical intervention geometry must survive serialization/reload");
 assert.notEqual(interventionGeometryHash(stableVertexEdit), canonicalHash, "geometry mutation must change the canonical intervention fingerprint");
+
+const tiledRoofCandidate = {
+  ...d4,
+  components: d4.components.map((component) => component.kind === "roof" ? { ...component, junctionMode: undefined } : component)
+};
+const tiledCanonical = canonicalizeInterventionGeometry(tiledRoofCandidate);
+const tiledHash = interventionGeometryHash(tiledRoofCandidate);
+const legacySerializedV3 = JSON.parse(JSON.stringify(tiledCanonical));
+legacySerializedV3.roofs.forEach((roof) => delete roof.junctionMode);
+assert.equal(interventionGeometryHash(legacySerializedV3), tiledHash, "legacy v3 canonical roofs without junctionMode must normalize to TILED before hashing");
+const modeEdited = setRoofJunctionMode(d4, "roof-home-b", "TILED", "2026-09-18T12:01:52.700Z");
+const modeEditedRoof = modeEdited.components.find((component) => component.id === "roof-home-b");
+assert(modeEditedRoof?.kind === "roof");
+assert.equal(modeEditedRoof.junctionMode, "TILED");
+assert.equal(modeEditedRoof.status, "UNLOCKED", "changing junction topology must invalidate the prior roof lock");
+assert.equal(modeEditedRoof.ownerGeometryKey, undefined, "changing junction topology must invalidate the owner geometry binding");
 const canonicalV2 = canonicalizeInterventionGeometryV2(deflectedHome);
 const canonicalV2Hash = interventionGeometryHashV2(deflectedHome);
 assert.equal(canonicalV2.schemaVersion, "lotscope-intervention-geometry-v2", "legacy v2 entrypoint must stay pinned to the v2 schema");
