@@ -533,10 +533,12 @@ export function validateRoofComponent(roof: RoofComponent | null | undefined, ow
             if (pointOnBoundary(midpoint, ownerFootprint)) return false;
             const za = roofZoneHeightAt(zones[i], midpoint);
             const zb = roofZoneHeightAt(zones[j], midpoint);
+            const plateA = zones[i].plateZFt;
+            const plateB = zones[j].plateZFt;
             return za != null && zb != null
-              && zones[i].plateZFt != null && zones[j].plateZFt != null
-              && Math.abs(za - zones[i].plateZFt) <= ROOF_TOLERANCE.zFt
-              && Math.abs(zb - zones[j].plateZFt) <= ROOF_TOLERANCE.zFt;
+              && plateA != null && plateB != null
+              && Math.abs(za - plateA) <= ROOF_TOLERANCE.zFt
+              && Math.abs(zb - plateB) <= ROOF_TOLERANCE.zFt;
           });
           if (unsupportedLowSeam) {
             errors.push(`roof-zone interface ${zones[i].zoneId} / ${zones[j].zoneId} forms an unsupported internal low seam/valley at plate height`);
