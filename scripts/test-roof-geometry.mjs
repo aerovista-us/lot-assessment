@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { pondyCandidateRegistry } from "../projects/pondy-lot2/candidate-registry.ts";
 import { cloneCandidateComponents } from "../packages/candidates/index.ts";
-import { addRoofZone, editPlacementComponent, editPlacementVertex, editPlacementWallLength, editRoofZone, lockRoofComponent } from "../packages/candidates/intervention.ts";
+import { addRoofZone, editPlacementComponent, editPlacementVertex, editPlacementWallLength, editRoofZone, lockRoofComponent, setRoofJunctionMode } from "../packages/candidates/intervention.ts";
 import { canonicalizeInterventionGeometry } from "../packages/canonical/intervention-geometry.ts";
-import { ownerGeometryKey, validateCandidateRoofs, validateRoofComponent, solveGableZone } from "../packages/roof-geometry/index.ts";
+import { ownerGeometryKey, roofPlanSegments, validateCandidateRoofs, validateRoofComponent, solveGableZone } from "../packages/roof-geometry/index.ts";
 import { solveGableJunction } from "../packages/roof-geometry/junctions.ts";
 
 const d4 = pondyCandidateRegistry.candidates.find((candidate) => candidate.id === "pondy-d4");
@@ -49,6 +49,15 @@ assert.equal(homeBValidation.status, "ROOF_GEOMETRY_LOCKED");
 assert.equal(homeBValidation.authoritative, true);
 assert.equal(homeBValidation.junctions.length, 1);
 assert(homeBValidation.junctions[0].segments.some((segment) => segment.kind === "VALLEY"));
+
+const homeBPlan = roofPlanSegments(homeBValidation);
+assert(homeBPlan.some((segment) => segment.derived && segment.kind === "VALLEY"), "authoritative plan topology must expose the derived valley");
+assert(!homeBPlan.some((segment) => segment.zoneId === "home-b-roof-zone-1"
+  && Math.min(segment.a[0], segment.b[0]) < 83.5
+  && Math.max(segment.a[0], segment.b[0]) > 83.5
+  && Math.abs(segment.a[1] - 13.5) < 0.001
+  && Math.abs(segment.b[1] - 13.5) < 0.001),
+  "buried main-ridge span under the cross-gable envelope must be clipped from the plan topology");
 
 const homeBBoxGutterZone = {
   ...homeBRoof.zones[1],
@@ -586,7 +595,8 @@ const oneZoneIrregular = solveGableZone(ownerB, {
 assert.equal(oneZoneIrregular.authoritative, false);
 assert(oneZoneIrregular.errors.some((error) => /rectangular roof zone/i.test(error)));
 
-let tiled = editRoofZone(d4Draft, "roof-home-b", "home-b-roof-zone-1", {
+let tiled = setRoofJunctionMode(d4Draft, "roof-home-b", "TILED", "2026-10-03T06:00:59.000Z");
+tiled = editRoofZone(tiled, "roof-home-b", "home-b-roof-zone-1", {
   footprint: [[54,5],[94.5,5],[94.5,22],[54,22]],
   plateZFt: 20, ridgeA: [54,13.5], ridgeB: [94.5,13.5],
   solveBy: "PITCH", pitchRise: 6, pitchRun: 12, source: "Home B tile self-test"
