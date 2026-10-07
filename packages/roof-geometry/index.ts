@@ -448,6 +448,76 @@ export type RoofValidation = {
   junctions: RoofJunctionSolution[];
 };
 
+export type RoofPlanSegment = {
+  id: string;
+  kind: "RIDGE" | "VALLEY";
+  a: Point;
+  b: Point;
+  zoneId?: string;
+  derived: boolean;
+};
+
+function segmentPoint(a: Point, b: Point, t: number): Point {
+  return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+}
+
+export function roofPlanSegments(validation: RoofValidation): RoofPlanSegment[] {
+  if (!validation.authoritative) return [];
+  const junctionSegments = validation.junctions.flatMap((junction) =>
+    junction.status === "SOLVED"
+      ? junction.segments.filter((segment) => segment.kind === "VALLEY" || segment.kind === "RIDGE")
+      : []);
+  const cutters: Array<[Point, Point]> = [];
+  for (const junction of validation.junctions) {
+    const polygon = junction.overlapPolygon;
+    for (let i = 0; i < polygon.length; i += 1) cutters.push([polygon[i], polygon[(i + 1) % polygon.length]]);
+  }
+  for (const segment of junctionSegments) cutters.push([segment.a, segment.b]);
+
+  const visibleRidges: RoofPlanSegment[] = [];
+  for (const zone of validation.zones) {
+    if (!zone.authoritative || !zone.ridgeA || !zone.ridgeB || zone.ridgeZFt == null) continue;
+    const parameters = [0, 1];
+    for (const [a, b] of cutters) parameters.push(...segmentBoundaryParameters(zone.ridgeA, zone.ridgeB, a, b));
+    parameters.sort((left, right) => left - right);
+    const unique = parameters.filter((value, index) => index === 0 || Math.abs(value - parameters[index - 1]) > 1e-8);
+    for (let i = 0; i < unique.length - 1; i += 1) {
+      const start = unique[i], end = unique[i + 1];
+      if (end - start <= 1e-8) continue;
+      const midpoint = segmentPoint(zone.ridgeA, zone.ridgeB, (start + end) / 2);
+      const zoneZ = roofZoneHeightAt(zone, midpoint);
+      if (zoneZ == null) continue;
+      let topZ = -Infinity;
+      for (const candidate of validation.zones) {
+        if (!candidate.authoritative || !pointInPolygon(midpoint, candidate.footprint)) continue;
+        const z = roofZoneHeightAt(candidate, midpoint);
+        if (z != null) topZ = Math.max(topZ, z);
+      }
+      if (zoneZ + ROOF_TOLERANCE.zFt < topZ) continue;
+      const a = segmentPoint(zone.ridgeA, zone.ridgeB, start);
+      const b = segmentPoint(zone.ridgeA, zone.ridgeB, end);
+      if (Math.hypot(b[0] - a[0], b[1] - a[1]) <= ROOF_TOLERANCE.planFt) continue;
+      visibleRidges.push({
+        id: `${zone.zoneId}-visible-ridge-${i + 1}`,
+        kind: "RIDGE",
+        a,
+        b,
+        zoneId: zone.zoneId,
+        derived: false
+      });
+    }
+  }
+
+  const derived = junctionSegments.map((segment): RoofPlanSegment => ({
+    id: segment.id,
+    kind: segment.kind,
+    a: segment.a,
+    b: segment.b,
+    derived: true
+  }));
+  return [...visibleRidges, ...derived];
+}
+
 export function validateRoofComponent(roof: RoofComponent | null | undefined, owner: PlacementComponent | null | undefined): RoofValidation {
   const runtimeRoof = roof as unknown as Record<string, any> | null | undefined;
   const roofId = typeof runtimeRoof?.id === "string" ? runtimeRoof.id : "invalid-roof";
