@@ -527,6 +527,24 @@ export function validateRoofComponent(roof: RoofComponent | null | undefined, ow
           if (!interfaceCheck.continuous) {
             errors.push(`roof-zone interface ${zones[i].zoneId} / ${zones[j].zoneId} is vertically discontinuous${interfaceCheck.maxDeltaFt == null ? "" : ` by ${interfaceCheck.maxDeltaFt.toFixed(3)} ft`}`);
           }
+          const sharedSegments = sharedBoundarySegments(zones[i].footprint, zones[j].footprint);
+          const unsupportedLowSeam = sharedSegments.some(([start, end]) => {
+            const midpoint: Point = [(start[0] + end[0]) / 2, (start[1] + end[1]) / 2];
+            if (pointOnBoundary(midpoint, ownerFootprint)) return false;
+            const ridgeAA = zones[i].ridgeA, ridgeAB = zones[i].ridgeB;
+            const ridgeBA = zones[j].ridgeA, ridgeBB = zones[j].ridgeB;
+            if (!ridgeAA || !ridgeAB || !ridgeBA || !ridgeBB) return false;
+            const sharedAxis = normalize(subtract(end, start));
+            const ridgeAxisA = normalize(subtract(ridgeAB, ridgeAA));
+            const ridgeAxisB = normalize(subtract(ridgeBB, ridgeBA));
+            if (!sharedAxis || !ridgeAxisA || !ridgeAxisB) return false;
+            const sharedIsEaveA = Math.abs(cross2(sharedAxis, ridgeAxisA)) <= 0.002;
+            const sharedIsEaveB = Math.abs(cross2(sharedAxis, ridgeAxisB)) <= 0.002;
+            return sharedIsEaveA && sharedIsEaveB;
+          });
+          if (unsupportedLowSeam) {
+            errors.push(`roof-zone interface ${zones[i].zoneId} / ${zones[j].zoneId} forms an unsupported internal low seam/valley: eave-to-eave topology`);
+          }
         }
       }
       const seen = new Set<number>([0]), queue = [0];
