@@ -106,7 +106,10 @@ export function solveGableJunction(a:JunctionZoneInput,b:JunctionZoneInput):Roof
     const residual=Math.max(Math.abs((z1 as number)-(z2 as number)),Math.abs((z3 as number)-(z4 as number)));if(residual>Z_EPS)continue;
     const d=norm(sub(e,s));if(!d)continue;const n:Point=[-d[1],d[0]],sample=Math.min(0.25,Math.max(0.05,len(sub(e,s))*0.05));
     const l=add(mid,scale(n,sample)),r=add(mid,scale(n,-sample)),h0=Math.max(gableHeight(a,mid) as number,gableHeight(b,mid) as number),hl=Math.max(gableHeight(a,l) as number,gableHeight(b,l) as number),hr=Math.max(gableHeight(a,r) as number,gableHeight(b,r) as number);
-    const kind:RoofJunctionKind=hl>h0+1e-5&&hr>h0+1e-5?"VALLEY":hl<h0-1e-5&&hr<h0-1e-5?"RIDGE":"VALLEY";
+    const valley=hl>h0+1e-5&&hr>h0+1e-5;
+    const ridge=hl<h0-1e-5&&hr<h0-1e-5;
+    if(!valley&&!ridge)continue;
+    const kind:RoofJunctionKind=valley?"VALLEY":"RIDGE";
     candidates.push({id:`${a.zoneId}__${b.zoneId}__${kind.toLowerCase()}-${candidates.length+1}`,kind,zoneIds:[a.zoneId,b.zoneId],a:s,b:e,zAFt:z1 as number,zBFt:z3 as number,residualFt:residual});
   }
   const segments=dedupe(candidates);if(!segments.length)return{status:"UNSUPPORTED",kind:null,segments:[],overlapPolygon:overlap,overlapAreaSqFt:overlapArea,errors:["overlapping gable planes produced no valid clipped junction line"]};
