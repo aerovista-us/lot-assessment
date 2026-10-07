@@ -9,12 +9,20 @@ const d4 = pondyCandidateRegistry.candidates.find((candidate) => candidate.id ==
 assert(d4);
 const d4RoofSummary = validateCandidateRoofs(d4.components);
 assert.equal(d4RoofSummary.missing, 0);
-assert.equal(d4RoofSummary.locked, 4);
-assert.equal(d4RoofSummary.conceptOnly, 0);
-assert.equal(d4RoofSummary.renderPolicy, "AUTHORITATIVE_ALLOWED");
+assert.equal(d4RoofSummary.locked, 3);
+assert.equal(d4RoofSummary.conceptOnly, 1);
+assert.equal(d4RoofSummary.renderPolicy, "CONCEPT_ONLY_REQUIRED");
+assert(d4RoofSummary.results.some((item) => item.ownerId === "home-b" && item.status === "CONCEPT_ONLY"), "Home B must remain concept-only until its internal roof junction has a supported solver");
 const noRoofSummary = validateCandidateRoofs(d4.components.filter((item) => item.kind !== "roof"));
 assert.equal(noRoofSummary.missing, 4);
 assert.equal(noRoofSummary.renderPolicy, "CONCEPT_ONLY_REQUIRED");
+
+const d4b = pondyCandidateRegistry.candidates.find((candidate) => candidate.id === "pondy-d4b-rot35b");
+assert(d4b);
+const d4bRoofSummary = validateCandidateRoofs(d4b.components);
+assert.equal(d4bRoofSummary.renderPolicy, "CONCEPT_ONLY_REQUIRED");
+assert(d4bRoofSummary.results.some((item) => item.ownerId === "garage-b" && item.status === "NO_MODEL"), "rotated Garage B must not inherit the baseline garage roof lock");
+assert(d4bRoofSummary.results.some((item) => item.ownerId === "garage-a" && item.status === "NO_MODEL"), "replacement Garage A must not inherit a roof lock from the baseline component set");
 
 const d4Draft = {
   ...d4,
@@ -553,6 +561,8 @@ console.log(JSON.stringify({
   schema: validation.schemaVersion,
   d4RenderPolicy: d4RoofSummary.renderPolicy,
   d4AuthoritativeRoofsLocked: d4RoofSummary.locked === 4,
+  d4HomeBJunctionFailClosed: d4RoofSummary.results.some((item) => item.ownerId === "home-b" && item.status === "CONCEPT_ONLY"),
+  d4bGarageLocksNotInherited: d4bRoofSummary.results.filter((item) => item.ownerId === "garage-a" || item.ownerId === "garage-b").every((item) => item.status === "NO_MODEL"),
   missingRoofModelsFailToConceptOnly: noRoofSummary.missing === 4,
   duplicateRoofOwnersFailClosed: duplicateSummary.renderPolicy === "FAIL_CLOSED_INVALID",
   orphanRoofsFailClosed: orphanSummary.renderPolicy === "FAIL_CLOSED_INVALID",
