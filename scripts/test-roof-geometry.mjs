@@ -77,6 +77,16 @@ assert.equal(homeBCrossGableValidation.authoritative, true);
 assert.equal(homeBCrossGableValidation.junctions.length, 1);
 assert(homeBCrossGableValidation.junctions[0].segments.some((segment) => segment.kind === "VALLEY"));
 
+const fakeEnvelopeOnCurrentSeam = validateRoofComponent({
+  ...homeBRoof,
+  status: "LOCKED",
+  junctionMode: "PLANE_ENVELOPE",
+  ownerGeometryKey: ownerGeometryKey(homeB),
+  zones: homeBRoof.zones.map((zone) => ({ ...zone, status: "LOCKED" }))
+}, homeB);
+assert.equal(fakeEnvelopeOnCurrentSeam.status, "FAIL_CLOSED_INVALID");
+assert(fakeEnvelopeOnCurrentSeam.errors.some((error) => /positive roof-zone overlap|box gutter/i.test(error)), "switching the current eave seam to PLANE_ENVELOPE must not manufacture a valley");
+
 const d4b = pondyCandidateRegistry.candidates.find((candidate) => candidate.id === "pondy-d4b-rot35b");
 assert(d4b);
 const d4bRoofSummary = validateCandidateRoofs(d4b.components);
