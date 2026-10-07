@@ -87,6 +87,14 @@ const fakeEnvelopeOnCurrentSeam = validateRoofComponent({
 assert.equal(fakeEnvelopeOnCurrentSeam.status, "FAIL_CLOSED_INVALID");
 assert(fakeEnvelopeOnCurrentSeam.errors.some((error) => /positive roof-zone overlap|box gutter/i.test(error)), "switching the current eave seam to PLANE_ENVELOPE must not manufacture a valley");
 
+const tiledCanonical = canonicalizeInterventionGeometry(d4);
+const junctionModeComponents = cloneCandidateComponents(d4.components);
+const junctionModeRoof = junctionModeComponents.find((item) => item.id === "roof-home-b");
+assert(junctionModeRoof?.kind === "roof");
+junctionModeRoof.junctionMode = "PLANE_ENVELOPE";
+const envelopeCanonical = canonicalizeInterventionGeometry({ ...d4, components: junctionModeComponents });
+assert.notEqual(JSON.stringify(tiledCanonical), JSON.stringify(envelopeCanonical), "junction mode must participate in canonical geometry revision identity");
+
 const d4b = pondyCandidateRegistry.candidates.find((candidate) => candidate.id === "pondy-d4b-rot35b");
 assert(d4b);
 const d4bRoofSummary = validateCandidateRoofs(d4b.components);
