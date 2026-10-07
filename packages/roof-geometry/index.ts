@@ -541,7 +541,7 @@ export function validateRoofComponent(roof: RoofComponent | null | undefined, ow
             return sharedIsEaveA && sharedIsEaveB;
           });
           if (unsupportedLowSeam) {
-            errors.push(`roof-zone interface ${zones[i].zoneId} / ${zones[j].zoneId} forms an unsupported internal eave-to-eave low seam/valley`);
+            errors.push(`roof-zone interface ${zones[i].zoneId} / ${zones[j].zoneId} forms an unsupported internal low seam/valley: eave-to-eave topology`);
           }
         }
       }
