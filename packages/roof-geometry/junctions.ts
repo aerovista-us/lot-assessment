@@ -105,7 +105,14 @@ export function solveGableJunction(a:JunctionZoneInput,b:JunctionZoneInput):Roof
     const z1=gableHeight(a,s),z2=gableHeight(b,s),z3=gableHeight(a,e),z4=gableHeight(b,e);if([z1,z2,z3,z4].some(v=>v==null||!Number.isFinite(v)))continue;
     const residual=Math.max(Math.abs((z1 as number)-(z2 as number)),Math.abs((z3 as number)-(z4 as number)));if(residual>Z_EPS)continue;
     const d=norm(sub(e,s));if(!d)continue;const n:Point=[-d[1],d[0]],sample=Math.min(0.25,Math.max(0.05,len(sub(e,s))*0.05));
-    const l=add(mid,scale(n,sample)),r=add(mid,scale(n,-sample)),h0=Math.max(gableHeight(a,mid) as number,gableHeight(b,mid) as number),hl=Math.max(gableHeight(a,l) as number,gableHeight(b,l) as number),hr=Math.max(gableHeight(a,r) as number,gableHeight(b,r) as number);
+    const l=add(mid,scale(n,sample)),r=add(mid,scale(n,-sample));
+    const aMid=gableHeight(a,mid) as number,bMid=gableHeight(b,mid) as number;
+    const aLeft=gableHeight(a,l) as number,bLeft=gableHeight(b,l) as number;
+    const aRight=gableHeight(a,r) as number,bRight=gableHeight(b,r) as number;
+    const leftDelta=aLeft-bLeft,rightDelta=aRight-bRight;
+    const ownershipSwitch=(leftDelta>1e-5&&rightDelta<-1e-5)||(leftDelta<-1e-5&&rightDelta>1e-5);
+    if(!ownershipSwitch)continue;
+    const h0=Math.max(aMid,bMid),hl=Math.max(aLeft,bLeft),hr=Math.max(aRight,bRight);
     const valley=hl>h0+1e-5&&hr>h0+1e-5;
     const ridge=hl<h0-1e-5&&hr<h0-1e-5;
     if(!valley&&!ridge)continue;
