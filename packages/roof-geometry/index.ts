@@ -1,6 +1,7 @@
 import { polygonArea, rotatePolygon, type Point } from "@/packages/geometry";
 import type { PlacementComponent, RoofComponent, RoofZone } from "@/packages/candidates";
 import { placementShapeIdentity } from "@/packages/candidates/shape-topology";
+import { solveGableJunction, type JunctionZoneInput, type RoofJunctionSolution } from "@/packages/roof-geometry/junctions";
 
 export const ROOF_GEOMETRY_SCHEMA = "lotscope-roof-geometry-v1" as const;
 
@@ -444,6 +445,7 @@ export type RoofValidation = {
   errors: string[];
   ownerGeometryCurrent: boolean;
   zones: SolvedRoofZone[];
+  junctions: RoofJunctionSolution[];
 };
 
 export function validateRoofComponent(roof: RoofComponent | null | undefined, owner: PlacementComponent | null | undefined): RoofValidation {
@@ -453,7 +455,7 @@ export function validateRoofComponent(roof: RoofComponent | null | undefined, ow
   const invalidStructure = (message: string): RoofValidation => ({
     schemaVersion: ROOF_GEOMETRY_SCHEMA, roofId, ownerId: roofOwnerId,
     status: "FAIL_CLOSED_INVALID", authoritative: false, safe: false,
-    errors: [message], ownerGeometryCurrent: false, zones: []
+    errors: [message], ownerGeometryCurrent: false, zones: [], junctions: []
   });
 
   if (roof && !owner) return invalidStructure("roof owner placement is missing");
@@ -461,7 +463,7 @@ export function validateRoofComponent(roof: RoofComponent | null | undefined, ow
     return {
       schemaVersion: ROOF_GEOMETRY_SCHEMA, roofId: runtimeRoof?.id ?? "none",
       ownerId: runtimeRoof?.ownerId ?? owner?.id ?? "none", status: "NO_MODEL",
-      authoritative: false, safe: true, errors: [], ownerGeometryCurrent: false, zones: []
+      authoritative: false, safe: true, errors: [], ownerGeometryCurrent: false, zones: [], junctions: []
     };
   }
   if (!Array.isArray(runtimeRoof?.zones)) return invalidStructure("roof zones must be an array");
@@ -593,7 +595,8 @@ export function validateCandidateRoofs(components: ReadonlyArray<any>) {
         safe: false,
         errors: [`multiple roof components target the same owner: ${owned.map((item) => item.id).join(", ")}`],
         ownerGeometryCurrent: false,
-        zones: []
+        zones: [],
+        junctions: []
       });
     }
   }
