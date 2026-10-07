@@ -87,6 +87,22 @@ const fakeEnvelopeOnCurrentSeam = validateRoofComponent({
 assert.equal(fakeEnvelopeOnCurrentSeam.status, "FAIL_CLOSED_INVALID");
 assert(fakeEnvelopeOnCurrentSeam.errors.some((error) => /positive roof-zone overlap|box gutter/i.test(error)), "switching the current eave seam to PLANE_ENVELOPE must not manufacture a valley");
 
+const monotonicCrossingA = {
+  zoneId: "monotonic-a",
+  footprint: [[0,0],[10,0],[10,10],[0,10]],
+  ridgeA: [0,5], ridgeB: [10,5],
+  ridgeZFt: 2, pitchRatio: 0.2
+};
+const monotonicCrossingB = {
+  zoneId: "monotonic-b",
+  footprint: [[0,0],[10,0],[10,10],[0,10]],
+  ridgeA: [0,5], ridgeB: [10,5],
+  ridgeZFt: 5, pitchRatio: 1
+};
+const monotonicCrossing = solveGableJunction(monotonicCrossingA, monotonicCrossingB);
+assert.equal(monotonicCrossing.status, "UNSUPPORTED", "non-extremum plane crossings must not be mislabeled as valleys or ridges");
+assert.equal(monotonicCrossing.segments.length, 0);
+
 const tiledCanonical = canonicalizeInterventionGeometry(d4);
 const junctionModeComponents = cloneCandidateComponents(d4.components);
 const junctionModeRoof = junctionModeComponents.find((item) => item.id === "roof-home-b");
