@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CandidatePlan } from "@/components/workbench/CandidatePlan";
 import { DirectManipulationPlan, type DirectManipulation } from "@/components/workbench/DirectManipulationPlan";
-import type { CandidateComponent, CandidateRecord, PlacementComponent, RoofComponent, RoofVerticalAuthority } from "@/packages/candidates";
+import type { CandidateComponent, CandidateRecord, PlacementComponent, RoofComponent, RoofJunctionMode, RoofVerticalAuthority } from "@/packages/candidates";
 import {
   addRoofZone,
   applyCandidateEvaluation,
@@ -21,6 +21,7 @@ import {
   insertPlacementVertex,
   removePlacementVertex,
   removeRoofZone,
+  setRoofJunctionMode,
   unlockRoofComponent,
   isInterventionEditable,
   suggestedEditableComponent
@@ -89,6 +90,7 @@ function initialDraft(component: CandidateComponent | null) {
     });
   }
   if (component.kind === "roof") {
+    draft.roofJunctionMode = component.junctionMode ?? "TILED";
     const zones = Array.isArray((component as unknown as { zones?: unknown }).zones)
       ? component.zones.filter((zone) => Boolean(zone && typeof zone === "object"))
       : [];
@@ -248,6 +250,8 @@ export function InterventionEditor({ candidate, repairContextCandidate, onSave, 
           ]);
         }
       } else if (selected.kind === "roof") {
+        const requestedJunctionMode = (draft.roofJunctionMode ?? selected.junctionMode ?? "TILED") as RoofJunctionMode;
+        next = setRoofJunctionMode(next, selected.id, requestedJunctionMode);
         const selectedZones = Array.isArray((selected as unknown as { zones?: unknown }).zones) ? selected.zones : [];
         for (let i = 0; i < selectedZones.length; i += 1) {
           const current = next.components.find((component): component is RoofComponent => component.id === selected.id && component.kind === "roof");
@@ -603,6 +607,11 @@ export function InterventionEditor({ candidate, repairContextCandidate, onSave, 
             <small>{selectedEditable.staleReason ?? (selectedRoofValidation?.authoritative ? "Exact owner footprint + roof geometry validated." : "Roof is not authoritative.")}</small>
           </div>
           {selectedRoofValidation?.errors.length ? <div className="roof-error-list">{selectedRoofValidation.errors.map((error) => <span key={error}>{error}</span>)}</div> : null}
+          <label className="intervention-select-label">Junction topology<select value={draft.roofJunctionMode ?? selectedEditable.junctionMode ?? "TILED"} onChange={(event) => setField("roofJunctionMode", event.target.value)}>
+            <option value="TILED">Tiled zones · no plan overlap</option>
+            <option value="PLANE_ENVELOPE">Plane envelope · solve overlapping gables</option>
+          </select></label>
+          <p className="microcopy">Use Plane envelope only when two authored gable zones intentionally overlap and the solver can derive a real valley/ridge with an ownership switch. Changing this mode unlocks the roof and requires a new validation lock.</p>
           {selectedRoofZones.map((zone, index) => <article key={zone.id ?? `roof-zone-${index}`} className="roof-zone-editor">
             <div className="roof-zone-head"><b>{zone.label}</b><span>{zone.status}</span><button type="button" className="tiny-action" onClick={() => removeZoneFromSelectedRoof(zone.id)}>Remove zone</button></div>
             <label className="intervention-select-label">Vertical authority<select value={draft[roofFieldKey(index, "solveBy")] ?? zone.solveBy} onChange={(event) => setField(roofFieldKey(index, "solveBy"), event.target.value)}>
