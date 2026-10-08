@@ -34,7 +34,7 @@ export default function WorkbenchHome() {
     </section>
 
     <section className="staff-advanced"><div><p className="eyebrow">ADVANCED / ENGINEERING</p><h2>Existing solver tools remain available during migration.</h2></div>
-      <div className="hero-actions"><Link className="secondary-button" href="/workbench/solver">Core solver</Link><Link className="secondary-button" href="/workbench/automation">Automation</Link><Link className="secondary-button" href="/workbench/design4-repair">D4 repair lab</Link><Link className="secondary-button" href="/workbench/evidence">Evidence runner</Link></div>
+      <div className="hero-actions"><Link className="secondary-button" href="/workbench/roof-drawings">Roof drawing QA</Link><Link className="secondary-button" href="/workbench/solver">Core solver</Link><Link className="secondary-button" href="/workbench/automation">Automation</Link><Link className="secondary-button" href="/workbench/design4-repair">D4 repair lab</Link><Link className="secondary-button" href="/workbench/evidence">Evidence runner</Link></div>
     </section>
     <footer>LotScope Workbench · staff operating workspace · machine-owned validation</footer>
   </main>;
