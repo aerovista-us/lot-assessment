@@ -5,6 +5,7 @@ import {validateCandidateRoofs} from '@/packages/roof-geometry';
 import {roofDrawingHandoff} from '@/packages/roof-geometry/drawing-contract';
 import {projectAuthorizedRoof} from '@/packages/roof-geometry/drawing-projection';
 import {projectRoofAxon,intersectRoofSection} from '@/packages/roof-geometry/drawing-spatial';
+import {splitElevationEdges} from '@/packages/roof-geometry/drawing-elevation-splits';
 
 /** Staff-only review surface; consumes shared locked roof drawing contracts. */
 export default function RoofDrawingInspector(){
@@ -25,10 +26,12 @@ export default function RoofDrawingInspector(){
    const centerY=vertices.length?(Math.min(...vertices.map(p=>p[1]))+Math.max(...vertices.map(p=>p[1])))/2:0;
    const section=intersectRoofSection(handoff,[centerX,centerY],[1,0]);
    const axon=projectRoofAxon(handoff,Math.PI/4,Math.PI/6);
+   const visibility=['NORTH','SOUTH','EAST','WEST'].map(view=>({view,result:splitElevationEdges(handoff,view as 'NORTH'|'SOUTH'|'EAST'|'WEST')}));
    return <article className="wb-panel" key={r.roofId}><h2>{r.ownerId}</h2><p><strong>{handoff.status}</strong></p>
     <p>Plan faces: {plan.faces.length} · North elevation faces: {north.faces.length}</p>
     <p>Section intersections: {section.segments.length} · Axon faces: {axon.faces.length}</p>
     <p>Fascia: {handoff.status==='AUTHORITATIVE'&&handoff.fascia?'Approved':'Withheld pending design authority'}</p>
+    <div aria-label="Elevation visibility QA summary">{visibility.map(({view,result})=><p key={view}><strong>{view} visibility:</strong> {result.status==='SAMPLED_ONLY'?`${result.segments.filter(s=>s.visibility==='FRONT_SAMPLE').length} front samples · ${result.segments.filter(s=>s.visibility==='BACK_SAMPLE').length} back samples · ${result.segments.filter(s=>s.visibility==='UNRESOLVED').length} unresolved`:'WITHHELD'} · Diagnostic only</p>)}</div>
     <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(240px,1fr))',gap:16,marginTop:16}}>
      <RoofView title="Plan" faces={plan.faces}/>
      <RoofView title="North elevation" faces={north.faces}/>
