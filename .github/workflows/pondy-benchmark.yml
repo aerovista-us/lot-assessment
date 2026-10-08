@@ -26,6 +26,23 @@ permissions:
   contents: write
 
 jobs:
+  roof-evidence:
+    runs-on: ubuntu-latest
+    env:
+      NODE_AUTH_TOKEN: ${{ secrets.AEROVISTA_PACKAGES_TOKEN }}
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@aerovista-us'
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Emit validated roof surface faces
+        run: npm run test:roof
+
   benchmark:
     runs-on: ubuntu-latest
     env:
