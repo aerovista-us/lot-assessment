@@ -32,5 +32,14 @@ const crossing={status:'AUTHORITATIVE',faces:[
 ]};
 const diagnostic=splitElevationEdges(crossing,'NORTH');
 assert.equal(diagnostic.status,'SAMPLED_ONLY');
-assert(diagnostic.segments.some(s=>s.visibility==='UNRESOLVED'));
-console.log('PASS depth-reversal safety gate on crossing roof planes');
+assert(diagnostic.segments.some(s=>s.visibility==='FRONT_SAMPLE'));
+assert(diagnostic.segments.some(s=>s.visibility==='BACK_SAMPLE'));
+console.log('PASS depth-reversal split on crossing roof planes');
+
+// The analytic solver should split a depth reversal at its computed world projection.
+const transition=splitElevationEdges(crossing,'NORTH');
+const risingSegments=transition.segments.filter(s=>s.faceId==='rising'&&Math.abs(s.start[1])<1e-7&&Math.abs(s.end[1])<1e-7);
+assert(risingSegments.some(s=>s.visibility==='FRONT_SAMPLE'));
+assert(risingSegments.some(s=>s.visibility==='BACK_SAMPLE'));
+assert(risingSegments.some(s=>Math.abs(s.start[0]-2)<1e-5||Math.abs(s.end[0]-2)<1e-5));
+console.log('PASS analytic crossing splits elevation edge into distinct depth orders');
