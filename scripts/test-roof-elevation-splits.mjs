@@ -43,3 +43,23 @@ assert(risingSegments.some(s=>s.visibility==='FRONT_SAMPLE'));
 assert(risingSegments.some(s=>s.visibility==='BACK_SAMPLE'));
 assert(risingSegments.some(s=>Math.abs(s.start[0]-2)<1e-5||Math.abs(s.end[0]-2)<1e-5));
 console.log('PASS analytic crossing splits elevation edge into distinct depth orders');
+// Home B is the multi-zone roof-junction stress case. Every cardinal drawing
+// must produce finite, nonzero projected line segments without synthetic authority.
+const homeB=validateCandidateRoofs(d4.components).results.find(r=>r.ownerId==='home-b');
+assert(homeB?.junctions.length>0,'Home B must retain its solved roof-junction evidence');
+const lockedHomeB=roofDrawingHandoff(homeB);
+assert.equal(lockedHomeB.status,'AUTHORITATIVE');
+for(const view of ['NORTH','SOUTH','EAST','WEST']){
+ const lines=splitElevationEdges(lockedHomeB,view);
+ assert.equal(lines.status,'SAMPLED_ONLY');
+ assert(lines.segments.every(s=>Math.hypot(s.end[0]-s.start[0],s.end[1]-s.start[1])>1e-7));
+ const keys=new Set(lines.segments.map(s=>s.faceId));
+ assert(keys.size>=2,`Home B ${view} must include multiple solved faces`);
+}
+// Coplanar overlapping projected faces must not be confidently hidden or visible.
+const coincident={status:'AUTHORITATIVE',faces:[
+ plane('coplanar-a',2,0,4),plane('coplanar-b',2,1,3)
+]};
+const coplanar=splitElevationEdges(coincident,'NORTH');
+assert(coplanar.segments.some(s=>s.visibility==='UNRESOLVED'),'Coincident depth requires manual review');
+console.log('PASS Home B junction cardinal drawings and coplanar fail-closed visibility');
