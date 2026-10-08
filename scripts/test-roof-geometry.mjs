@@ -1,21 +1,166 @@
 import assert from "node:assert/strict";
 import { pondyCandidateRegistry } from "../projects/pondy-lot2/candidate-registry.ts";
 import { cloneCandidateComponents } from "../packages/candidates/index.ts";
-import { addRoofZone, editPlacementComponent, editPlacementVertex, editPlacementWallLength, editRoofZone, lockRoofComponent } from "../packages/candidates/intervention.ts";
+import { addRoofZone, editPlacementComponent, editPlacementVertex, editPlacementWallLength, editRoofZone, lockRoofComponent, setRoofJunctionMode } from "../packages/candidates/intervention.ts";
 import { canonicalizeInterventionGeometry } from "../packages/canonical/intervention-geometry.ts";
-import { ownerGeometryKey, validateCandidateRoofs, validateRoofComponent, solveGableZone } from "../packages/roof-geometry/index.ts";
+import { ownerGeometryKey, roofPlanSegments, validateCandidateRoofs, validateRoofComponent, solveGableZone } from "../packages/roof-geometry/index.ts";
+import { solveGableJunction } from "../packages/roof-geometry/junctions.ts";
 
 const d4 = pondyCandidateRegistry.candidates.find((candidate) => candidate.id === "pondy-d4");
 assert(d4);
 const d4RoofSummary = validateCandidateRoofs(d4.components);
 assert.equal(d4RoofSummary.missing, 0);
-assert.equal(d4RoofSummary.locked, 3);
-assert.equal(d4RoofSummary.conceptOnly, 1);
-assert.equal(d4RoofSummary.renderPolicy, "CONCEPT_ONLY_REQUIRED");
-assert(d4RoofSummary.results.some((item) => item.ownerId === "home-b" && item.status === "CONCEPT_ONLY"), "Home B must remain concept-only until its internal roof junction has a supported solver");
+assert.equal(d4RoofSummary.locked, 4);
+assert.equal(d4RoofSummary.conceptOnly, 0);
+assert.equal(d4RoofSummary.renderPolicy, "AUTHORITATIVE_ALLOWED");
+assert(d4RoofSummary.results.some((item) => item.ownerId === "home-b" && item.status === "ROOF_GEOMETRY_LOCKED"), "Home B must lock only through the solved cross-gable plane envelope");
 const noRoofSummary = validateCandidateRoofs(d4.components.filter((item) => item.kind !== "roof"));
 assert.equal(noRoofSummary.missing, 4);
 assert.equal(noRoofSummary.renderPolicy, "CONCEPT_ONLY_REQUIRED");
+
+const homeB = d4.components.find((item) => item.id === "home-b");
+const homeBRoof = d4.components.find((item) => item.id === "roof-home-b");
+assert(homeB?.kind === "home" && homeBRoof?.kind === "roof");
+
+function junctionInput(owner, zone) {
+  const solved = solveGableZone(owner, { ...zone, status: "LOCKED" });
+  assert.equal(solved.authoritative, true, `${zone.id} must solve before junction analysis`);
+  return {
+    zoneId: solved.zoneId,
+    footprint: solved.footprint,
+    ridgeA: solved.ridgeA,
+    ridgeB: solved.ridgeB,
+    ridgeZFt: solved.ridgeZFt,
+    pitchRatio: solved.pitchRatio
+  };
+}
+
+const currentHomeBJunction = solveGableJunction(
+  junctionInput(homeB, homeBRoof.zones[0]),
+  junctionInput(homeB, homeBRoof.zones[1])
+);
+assert.equal(currentHomeBJunction.status, "SOLVED");
+assert(currentHomeBJunction.overlapAreaSqFt > 0, "the authored Home B cross-gable must overlap in plan");
+assert(currentHomeBJunction.segments.some((segment) => segment.kind === "VALLEY"), "the authored Home B cross-gable must derive a genuine valley");
+assert(currentHomeBJunction.segments.every((segment) => segment.residualFt <= 0.02), "derived Home B junction endpoints must reconcile both roof planes");
+
+const homeBValidation = validateRoofComponent(homeBRoof, homeB);
+assert.equal(homeBValidation.status, "ROOF_GEOMETRY_LOCKED");
+assert.equal(homeBValidation.authoritative, true);
+assert.equal(homeBValidation.junctions.length, 1);
+assert(homeBValidation.junctions[0].segments.some((segment) => segment.kind === "VALLEY"));
+
+const homeBPlan = roofPlanSegments(homeBValidation);
+assert(homeBPlan.some((segment) => segment.derived && segment.kind === "VALLEY"), "authoritative plan topology must expose the derived valley");
+assert(!homeBPlan.some((segment) => segment.zoneId === "home-b-roof-zone-1"
+  && Math.min(segment.a[0], segment.b[0]) < 83.5
+  && Math.max(segment.a[0], segment.b[0]) > 83.5
+  && Math.abs(segment.a[1] - 13.5) < 0.001
+  && Math.abs(segment.b[1] - 13.5) < 0.001),
+  "buried main-ridge span under the cross-gable envelope must be clipped from the plan topology");
+
+const homeBBoxGutterZone = {
+  ...homeBRoof.zones[1],
+  id: "home-b-roof-zone-2-box-gutter-fixture",
+  footprint: [[72.5,22],[94.5,22],[94.5,31.25],[72.5,31.25]],
+  ridgeA: [72.5,26.625],
+  ridgeB: [94.5,26.625],
+  source: "legacy Home B eave-to-eave box-gutter regression fixture"
+};
+const legacyHomeBSeam = solveGableJunction(
+  junctionInput(homeB, homeBRoof.zones[0]),
+  junctionInput(homeB, homeBBoxGutterZone)
+);
+assert.equal(legacyHomeBSeam.status, "SOLVED");
+assert.equal(legacyHomeBSeam.kind, "BOX_GUTTER", "the previous Home B seam must remain classified as a box gutter, not a valley");
+
+const fakeEnvelopeOnLegacySeam = validateRoofComponent({
+  ...homeBRoof,
+  status: "LOCKED",
+  junctionMode: "PLANE_ENVELOPE",
+  ownerGeometryKey: ownerGeometryKey(homeB),
+  zones: [
+    { ...homeBRoof.zones[0], status: "LOCKED" },
+    { ...homeBBoxGutterZone, status: "LOCKED" }
+  ]
+}, homeB);
+assert.equal(fakeEnvelopeOnLegacySeam.status, "FAIL_CLOSED_INVALID");
+assert(fakeEnvelopeOnLegacySeam.errors.some((error) => /positive roof-zone overlap|box gutter/i.test(error)), "switching the legacy eave seam to PLANE_ENVELOPE must not manufacture a valley");
+
+const monotonicCrossingA = {
+  zoneId: "monotonic-a",
+  footprint: [[0,0],[10,0],[10,10],[0,10]],
+  ridgeA: [0,5], ridgeB: [10,5],
+  ridgeZFt: 2, pitchRatio: 0.2
+};
+const monotonicCrossingB = {
+  zoneId: "monotonic-b",
+  footprint: [[0,0],[10,0],[10,10],[0,10]],
+  ridgeA: [0,5], ridgeB: [10,5],
+  ridgeZFt: 5, pitchRatio: 1
+};
+const monotonicCrossing = solveGableJunction(monotonicCrossingA, monotonicCrossingB);
+assert.equal(monotonicCrossing.status, "UNSUPPORTED", "non-extremum plane crossings must not be mislabeled as valleys or ridges");
+assert.equal(monotonicCrossing.segments.length, 0);
+
+const buriedSameRidgeA = {
+  zoneId: "buried-same-ridge-a",
+  footprint: [[0,0],[10,0],[10,10],[0,10]],
+  ridgeA: [0,5], ridgeB: [10,5],
+  ridgeZFt: 5, pitchRatio: 0.5
+};
+const buriedSameRidgeB = {
+  zoneId: "buried-same-ridge-b",
+  footprint: [[0,0],[10,0],[10,10],[0,10]],
+  ridgeA: [0,5], ridgeB: [10,5],
+  ridgeZFt: 5, pitchRatio: 0.2
+};
+const buriedSameRidge = solveGableJunction(buriedSameRidgeA, buriedSameRidgeB);
+assert.equal(buriedSameRidge.status, "UNSUPPORTED", "coincident equality lines must fail when the same roof owns the upper envelope on both sides");
+assert.equal(buriedSameRidge.segments.length, 0);
+
+const discontinuousEnvelopeOwner = {
+  id: "discontinuous-envelope-owner",
+  kind: "home",
+  label: "Discontinuous envelope fixture",
+  x: 0, y: 0, widthFt: 10, depthFt: 10,
+  polygon: [[0,0],[10,0],[10,6],[8,6],[8,10],[4,10],[4,6],[0,6]],
+  movable: true, resizable: true
+};
+const discontinuousEnvelopeRoof = {
+  id: "roof-discontinuous-envelope",
+  kind: "roof",
+  label: "Discontinuous envelope roof fixture",
+  ownerId: discontinuousEnvelopeOwner.id,
+  status: "LOCKED",
+  junctionMode: "PLANE_ENVELOPE",
+  ownerGeometryKey: ownerGeometryKey(discontinuousEnvelopeOwner),
+  zones: [
+    {
+      id: "discontinuous-main", label: "Main", status: "LOCKED", type: "gable",
+      footprint: [[0,0],[10,0],[10,6],[0,6]], plateZFt: 3.5,
+      ridgeA: [0,3], ridgeB: [10,3], solveBy: "PITCH", pitchRise: 6, pitchRun: 12, ridgeZFt: null,
+      source: "boundary-continuity regression fixture"
+    },
+    {
+      id: "discontinuous-cross", label: "Cross", status: "LOCKED", type: "gable",
+      footprint: [[4,3],[8,3],[8,10],[4,10]], plateZFt: 4.5,
+      ridgeA: [6,3], ridgeB: [6,10], solveBy: "PITCH", pitchRise: 6, pitchRun: 12, ridgeZFt: null,
+      source: "boundary-continuity regression fixture"
+    }
+  ]
+};
+const discontinuousEnvelopeValidation = validateRoofComponent(discontinuousEnvelopeRoof, discontinuousEnvelopeOwner);
+assert.equal(discontinuousEnvelopeValidation.status, "FAIL_CLOSED_INVALID", "plane envelopes must fail when a disappearing roof surface sits above the continuing surface at an internal overlap boundary");
+assert(discontinuousEnvelopeValidation.errors.some((error) => /envelope is discontinuous/i.test(error)));
+
+const tiledCanonical = canonicalizeInterventionGeometry(d4);
+const junctionModeComponents = cloneCandidateComponents(d4.components);
+const junctionModeRoof = junctionModeComponents.find((item) => item.id === "roof-home-b");
+assert(junctionModeRoof?.kind === "roof");
+junctionModeRoof.junctionMode = "TILED";
+const tiledModeCanonical = canonicalizeInterventionGeometry({ ...d4, components: junctionModeComponents });
+assert.notEqual(JSON.stringify(tiledCanonical), JSON.stringify(tiledModeCanonical), "junction mode must participate in canonical geometry revision identity");
 
 const d4b = pondyCandidateRegistry.candidates.find((candidate) => candidate.id === "pondy-d4b-rot35b");
 assert(d4b);
@@ -501,7 +646,8 @@ const oneZoneIrregular = solveGableZone(ownerB, {
 assert.equal(oneZoneIrregular.authoritative, false);
 assert(oneZoneIrregular.errors.some((error) => /rectangular roof zone/i.test(error)));
 
-let tiled = editRoofZone(d4Draft, "roof-home-b", "home-b-roof-zone-1", {
+let tiled = setRoofJunctionMode(d4Draft, "roof-home-b", "TILED", "2026-10-03T06:00:59.000Z");
+tiled = editRoofZone(tiled, "roof-home-b", "home-b-roof-zone-1", {
   footprint: [[54,5],[94.5,5],[94.5,22],[54,22]],
   plateZFt: 20, ridgeA: [54,13.5], ridgeB: [94.5,13.5],
   solveBy: "PITCH", pitchRise: 6, pitchRun: 12, source: "Home B tile self-test"

@@ -1,7 +1,7 @@
 "use client";
 
 import type { CandidateComponent, CandidateRecord, PathComponent, PlacementComponent, PolygonComponent, RoofComponent } from "@/packages/candidates";
-import { validateCandidateRoofs } from "@/packages/roof-geometry";
+import { roofPlanSegments, validateCandidateRoofs } from "@/packages/roof-geometry";
 
 const points = (polygon: ReadonlyArray<readonly [number, number]>) => polygon.map(([x, y]) => `${x},${y}`).join(" ");
 
@@ -59,18 +59,32 @@ export function CandidatePlan({ candidate, selectedComponentId, onSelectComponen
     {roofs.flatMap((roof) => {
       const validation = roofValidationById.get(roof.id);
       const roofClass = validation?.authoritative ? "roof-locked" : validation?.status === "FAIL_CLOSED_INVALID" ? "roof-invalid" : "roof-unlocked";
+      if (validation?.authoritative) {
+        return roofPlanSegments(validation).map((segment) =>
+          <g key={`${roof.id}-${segment.id}`} data-component-id={roof.id}
+            className={selectableClass(roof.id, `candidate-plan-roof ${roofClass}`)}
+            onClick={select(roof.id)}>
+            <line
+              x1={segment.a[0]} y1={segment.a[1]} x2={segment.b[0]} y2={segment.b[1]}
+              className={segment.derived ? `candidate-plan-roof-junction roof-${segment.kind.toLowerCase()}` : undefined}
+              data-roof-feature={segment.kind.toLowerCase()}
+            />
+            <title>{segment.derived ? `Derived ${segment.kind.toLowerCase()} junction` : "Visible roof ridge"}</title>
+          </g>
+        );
+      }
       const displayZones = Array.isArray((roof as unknown as { zones?: unknown }).zones)
         ? (roof.zones ?? []).filter((zone) => Boolean(zone && typeof zone === "object"))
         : [];
       return displayZones.map((zone) => {
-      if (!zone.ridgeA || !zone.ridgeB) return null;
-      return <g key={`${roof.id}-${zone.id}`} data-component-id={roof.id}
-        className={selectableClass(roof.id, `candidate-plan-roof ${roofClass}`)}
-        onClick={select(roof.id)}>
-        <line x1={zone.ridgeA[0]} y1={zone.ridgeA[1]} x2={zone.ridgeB[0]} y2={zone.ridgeB[1]} />
-        <text x={(zone.ridgeA[0] + zone.ridgeB[0]) / 2} y={(zone.ridgeA[1] + zone.ridgeB[1]) / 2 - 1.2}>{typeof zone.label === "string" ? zone.label : "Roof zone"}</text>
-      </g>;
-    });
+        if (!zone.ridgeA || !zone.ridgeB) return null;
+        return <g key={`${roof.id}-${zone.id}`} data-component-id={roof.id}
+          className={selectableClass(roof.id, `candidate-plan-roof ${roofClass}`)}
+          onClick={select(roof.id)}>
+          <line x1={zone.ridgeA[0]} y1={zone.ridgeA[1]} x2={zone.ridgeB[0]} y2={zone.ridgeB[1]} />
+          <text x={(zone.ridgeA[0] + zone.ridgeB[0]) / 2} y={(zone.ridgeA[1] + zone.ridgeB[1]) / 2 - 1.2}>{typeof zone.label === "string" ? zone.label : "Roof zone"}</text>
+        </g>;
+      });
     })}
     {openings.map((item) => {
       const owner = placementById.get(item.ownerId);

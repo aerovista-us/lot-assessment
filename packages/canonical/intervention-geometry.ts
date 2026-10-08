@@ -99,6 +99,7 @@ function canonicalRoof(item: RoofComponent) {
   return {
     id: item.id, ownerId: item.ownerId, status: item.status,
     ownerGeometryKey: item.ownerGeometryKey ?? null,
+    junctionMode: item.junctionMode ?? "TILED",
     zones
   };
 }

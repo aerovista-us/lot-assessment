@@ -11,6 +11,7 @@ import {
   type PlacementComponent,
   type PolygonComponent,
   type RoofComponent,
+  type RoofJunctionMode,
   type RoofZone,
   type StallComponent
 } from "@/packages/candidates";
@@ -360,6 +361,23 @@ export function removeRoofZone(candidate: CandidateRecord, roofId: string, zoneI
   const zones = target.zones.filter((zone) => zone.id !== zoneId);
   components[index] = { ...target, status: "UNLOCKED", ownerGeometryKey: undefined,
     staleReason: "Roof zone removed; roof requires revalidation.", zones };
+  return staleCandidate(candidate, components, updatedAt);
+}
+
+export function setRoofJunctionMode(candidate: CandidateRecord, roofId: string, junctionMode: RoofJunctionMode, updatedAt = new Date().toISOString()) {
+  const components = cloneCandidateComponents(candidate.components);
+  const index = components.findIndex((item) => item.id === roofId);
+  const target = assertEditable(components[index]);
+  if (target.kind !== "roof") throw new Error("Selected component is not a roof.");
+  if (target.junctionMode === junctionMode) return candidate;
+  components[index] = {
+    ...target,
+    junctionMode,
+    status: "UNLOCKED",
+    ownerGeometryKey: undefined,
+    staleReason: `Roof junction mode changed to ${junctionMode}; validate and lock the exact topology.`,
+    zones: target.zones.map((zone) => ({ ...zone, status: "UNLOCKED" as const }))
+  };
   return staleCandidate(candidate, components, updatedAt);
 }
 
