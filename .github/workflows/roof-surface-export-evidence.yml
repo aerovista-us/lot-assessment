@@ -1,0 +1,29 @@
+name: Roof surface export evidence
+
+on:
+  pull_request:
+    paths:
+      - 'packages/roof-geometry/**'
+      - 'scripts/test-roof-geometry.mjs'
+      - '.github/workflows/roof-surface-export-evidence.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@aerovista-us'
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.AEROVISTA_PACKAGES_TOKEN }}
+      - name: Emit validated roof surface faces
+        run: npm run test:roof
