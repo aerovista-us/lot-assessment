@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import {splitElevationEdges} from '../packages/roof-geometry/drawing-elevation-splits.ts';
+const plane=(id,y,x0,x1)=>({id,polygon:[[x0,y,0],[x1,y,0],[x1,y,2],[x0,y,2]]});
+const roof={status:'AUTHORITATIVE',faces:[plane('rear',1,0,4),plane('front',3,2,5)]};
+const r=splitElevationEdges(roof,'NORTH');assert.equal(r.status,'SAMPLED_ONLY');
+const rear=r.segments.filter(s=>s.faceId==='rear');
+assert(rear.some(s=>s.visibility==='FRONT_SAMPLE'));
+assert(rear.some(s=>s.visibility==='BACK_SAMPLE'));
+assert.equal(splitElevationEdges({...roof,status:'WITHHELD',reason:'stale'},'NORTH').status,'WITHHELD');
+console.log('PASS cardinal elevation edge splitting at partial occlusion boundaries');
