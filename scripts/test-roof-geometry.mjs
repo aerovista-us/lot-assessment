@@ -119,6 +119,41 @@ const buriedSameRidge = solveGableJunction(buriedSameRidgeA, buriedSameRidgeB);
 assert.equal(buriedSameRidge.status, "UNSUPPORTED", "coincident equality lines must fail when the same roof owns the upper envelope on both sides");
 assert.equal(buriedSameRidge.segments.length, 0);
 
+const discontinuousEnvelopeOwner = {
+  id: "discontinuous-envelope-owner",
+  kind: "home",
+  label: "Discontinuous envelope fixture",
+  x: 0, y: 0, widthFt: 10, depthFt: 10,
+  polygon: [[0,0],[10,0],[10,6],[8,6],[8,10],[4,10],[4,6],[0,6]],
+  movable: true, resizable: true
+};
+const discontinuousEnvelopeRoof = {
+  id: "roof-discontinuous-envelope",
+  kind: "roof",
+  label: "Discontinuous envelope roof fixture",
+  ownerId: discontinuousEnvelopeOwner.id,
+  status: "LOCKED",
+  junctionMode: "PLANE_ENVELOPE",
+  ownerGeometryKey: ownerGeometryKey(discontinuousEnvelopeOwner),
+  zones: [
+    {
+      id: "discontinuous-main", label: "Main", status: "LOCKED", type: "gable",
+      footprint: [[0,0],[10,0],[10,6],[0,6]], plateZFt: 3.5,
+      ridgeA: [0,3], ridgeB: [10,3], solveBy: "PITCH", pitchRise: 6, pitchRun: 12, ridgeZFt: null,
+      source: "boundary-continuity regression fixture"
+    },
+    {
+      id: "discontinuous-cross", label: "Cross", status: "LOCKED", type: "gable",
+      footprint: [[4,3],[8,3],[8,10],[4,10]], plateZFt: 4.5,
+      ridgeA: [6,3], ridgeB: [6,10], solveBy: "PITCH", pitchRise: 6, pitchRun: 12, ridgeZFt: null,
+      source: "boundary-continuity regression fixture"
+    }
+  ]
+};
+const discontinuousEnvelopeValidation = validateRoofComponent(discontinuousEnvelopeRoof, discontinuousEnvelopeOwner);
+assert.equal(discontinuousEnvelopeValidation.status, "FAIL_CLOSED_INVALID", "plane envelopes must fail when a disappearing roof surface sits above the continuing surface at an internal overlap boundary");
+assert(discontinuousEnvelopeValidation.errors.some((error) => /envelope is discontinuous/i.test(error)));
+
 const tiledCanonical = canonicalizeInterventionGeometry(d4);
 const junctionModeComponents = cloneCandidateComponents(d4.components);
 const junctionModeRoof = junctionModeComponents.find((item) => item.id === "roof-home-b");
