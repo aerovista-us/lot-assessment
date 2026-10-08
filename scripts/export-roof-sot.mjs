@@ -49,6 +49,7 @@ const exportedRoofs = summary.results.map((validation) => {
     }),
     junctions: validation.junctions,
     surfaceFaces: validation.surfaceFaces,
+    eaveFascia: validation.eaveFascia ?? { status: "WITHHELD", errors: ["No approved eave/fascia design"], segments: [] },
     planSegments: roofPlanSegments(validation),
     errors: validation.errors
   };
