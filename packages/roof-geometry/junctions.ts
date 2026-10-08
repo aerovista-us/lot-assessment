@@ -122,3 +122,137 @@ export function solveGableJunction(a:JunctionZoneInput,b:JunctionZoneInput):Roof
   const segments=dedupe(candidates);if(!segments.length)return{status:"UNSUPPORTED",kind:null,segments:[],overlapPolygon:overlap,overlapAreaSqFt:overlapArea,errors:["overlapping gable planes produced no valid clipped junction line"]};
   const kinds=[...new Set(segments.map(s=>s.kind))];return{status:"SOLVED",kind:kinds.length===1?kinds[0]:null,segments,overlapPolygon:overlap,overlapAreaSqFt:overlapArea,errors:[]};
 }
+
+
+export type RoofSurfacePoint = [number, number, number];
+export type RoofSurfaceFace = {
+  id: string;
+  zoneId: string;
+  side: -1 | 1;
+  polygon: RoofSurfacePoint[];
+  projectedAreaSqFt: number;
+  plane: { a: number; b: number; c: number };
+};
+
+type ImplicitLine = { A: number; B: number; C: number };
+
+function lineValue(line:ImplicitLine,p:Point){return line.A*p[0]+line.B*p[1]+line.C;}
+function lineThrough(a:Point,b:Point):ImplicitLine{
+  const dx=b[0]-a[0],dy=b[1]-a[1];
+  return{A:-dy,B:dx,C:dy*a[0]-dx*a[1]};
+}
+function clipImplicit(poly:ReadonlyArray<Point>,line:ImplicitLine,keepPositive:boolean):Point[]{
+  if(poly.length<3)return[];
+  const out:Point[]=[];
+  const inside=(p:Point)=>keepPositive?lineValue(line,p)>=-EPS:lineValue(line,p)<=EPS;
+  for(let i=0;i<poly.length;i++){
+    const s=poly[i],e=poly[(i+1)%poly.length],si=inside(s),ei=inside(e);
+    if(si&&ei){out.push(e);continue;}
+    const vs=lineValue(line,s),ve=lineValue(line,e);
+    if(si!==ei&&Math.abs(vs-ve)>EPS){
+      const t=vs/(vs-ve);
+      const hit:Point=[s[0]+(e[0]-s[0])*t,s[1]+(e[1]-s[1])*t];
+      if(si&&!ei)out.push(hit);
+      else if(!si&&ei){out.push(hit);out.push(e);}
+    }
+  }
+  const unique:Point[]=[];
+  for(const p of out)if(!unique.some(q=>len(sub(p,q))<=1e-7))unique.push(p);
+  return unique.length>=3&&Math.abs(polygonArea(unique))>1e-8?unique:[];
+}
+function splitByLine(poly:ReadonlyArray<Point>,line:ImplicitLine):Point[][]{
+  const positive=clipImplicit(poly,line,true),negative=clipImplicit(poly,line,false);
+  if(positive.length&&negative.length)return[positive,negative];
+  if(positive.length)return[positive];
+  if(negative.length)return[negative];
+  return[];
+}
+function pointInPolyOrBoundary(p:Point,poly:ReadonlyArray<Point>){
+  for(let i=0;i<poly.length;i++){
+    const a=poly[i],b=poly[(i+1)%poly.length],ab=sub(b,a),ap=sub(p,a);
+    if(Math.abs(cross(ab,ap))<=PLAN_EPS*Math.max(1,len(ab))){
+      const t=dot(ap,ab);
+      if(t>=-PLAN_EPS&&t<=dot(ab,ab)+PLAN_EPS)return true;
+    }
+  }
+  let inside=false;
+  for(let i=0,j=poly.length-1;i<poly.length;j=i++){
+    const a=poly[i],b=poly[j];
+    if(((a[1]>p[1])!==(b[1]>p[1]))&&p[0]<(b[0]-a[0])*(p[1]-a[1])/((b[1]-a[1])||1e-12)+a[0])inside=!inside;
+  }
+  return inside;
+}
+function centroid(poly:ReadonlyArray<Point>):Point{
+  const sum=poly.reduce((s,p)=>[s[0]+p[0],s[1]+p[1]] as Point,[0,0] as Point);
+  return[sum[0]/poly.length,sum[1]/poly.length];
+}
+function facetDomain(zone:JunctionZoneInput,facet:Facet){
+  const line:ImplicitLine={
+    A:facet.side*facet.normal[0],
+    B:facet.side*facet.normal[1],
+    C:-facet.side*dot(facet.ridgeA,facet.normal)
+  };
+  return clipImplicit(zone.footprint,line,true);
+}
+function facetPlaneHeight(facet:Facet,p:Point){return facet.a*p[0]+facet.b*p[1]+facet.c;}
+function subdivisionLines(sourceFacet:Facet,other:JunctionZoneInput):ImplicitLine[]{
+  const lines:ImplicitLine[]=[];
+  for(let i=0;i<other.footprint.length;i++)lines.push(lineThrough(other.footprint[i],other.footprint[(i+1)%other.footprint.length]));
+  lines.push(lineThrough(other.ridgeA,other.ridgeB));
+  for(const otherFacet of facets(other)){
+    const line={A:sourceFacet.a-otherFacet.a,B:sourceFacet.b-otherFacet.b,C:sourceFacet.c-otherFacet.c};
+    if(Math.hypot(line.A,line.B)>EPS)lines.push(line);
+  }
+  return lines;
+}
+function subdivide(poly:ReadonlyArray<Point>,lines:ReadonlyArray<ImplicitLine>){
+  let cells:Point[][]=[poly.map(([x,y])=>[x,y] as Point)];
+  for(const line of lines){
+    const next:Point[][]=[];
+    for(const cell of cells)next.push(...splitByLine(cell,line));
+    cells=next;
+  }
+  return cells.filter(cell=>cell.length>=3&&Math.abs(polygonArea(cell))>1e-7);
+}
+function faceFromCell(zone:JunctionZoneInput,facet:Facet,cell:ReadonlyArray<Point>,index:number):RoofSurfaceFace{
+  const polygon=cell.map((p):RoofSurfacePoint=>[p[0],p[1],facetPlaneHeight(facet,p)]);
+  return{
+    id:`${zone.zoneId}-side-${facet.side===-1?"neg":"pos"}-${index+1}`,
+    zoneId:zone.zoneId,
+    side:facet.side,
+    polygon,
+    projectedAreaSqFt:Math.abs(polygonArea(cell)),
+    plane:{a:facet.a,b:facet.b,c:facet.c}
+  };
+}
+export function gableZoneSurfaceFaces(zone:JunctionZoneInput):RoofSurfaceFace[]{
+  const out:RoofSurfaceFace[]=[];
+  for(const facet of facets(zone)){
+    const domain=facetDomain(zone,facet);
+    if(!domain.length)continue;
+    out.push(faceFromCell(zone,facet,domain,out.length));
+  }
+  return out;
+}
+export function solveGableEnvelopeFaces(a:JunctionZoneInput,b:JunctionZoneInput):RoofSurfaceFace[]{
+  const out:RoofSurfaceFace[]=[];
+  const addVisible=(zone:JunctionZoneInput,other:JunctionZoneInput)=>{
+    for(const facet of facets(zone)){
+      const domain=facetDomain(zone,facet);
+      if(!domain.length)continue;
+      const cells=subdivide(domain,subdivisionLines(facet,other));
+      for(const cell of cells){
+        const sample=centroid(cell);
+        let visible=true;
+        if(pointInPolyOrBoundary(sample,other.footprint)){
+          const ownZ=facetPlaneHeight(facet,sample),otherZ=gableHeight(other,sample);
+          visible=otherZ==null||ownZ>=otherZ-Z_EPS;
+        }
+        if(visible)out.push(faceFromCell(zone,facet,cell,out.length));
+      }
+    }
+  };
+  addVisible(a,b);
+  addVisible(b,a);
+  return out.filter(face=>face.projectedAreaSqFt>1e-7);
+}
