@@ -1,6 +1,6 @@
 /** Candidate-only cross-gable extension. Never promotes authority or mutates owner locks. */
-import type {Point} from '@/packages/geometry';
-import {solveGableEnvelopeFaces,solveGableJunction,type JunctionZoneInput} from '@/packages/roof-geometry/junctions';
+import { polygonArea, type Point } from '@/packages/geometry';
+import {intersectConvexPolygons,solveGableEnvelopeFaces,solveGableJunction,type JunctionZoneInput} from '@/packages/roof-geometry/junctions';
 export function previewCrossGableExtension(zones:readonly JunctionZoneInput[],eaveFt:number,rakeFt:number){
  const withheld=(error:string)=>({status:'WITHHELD' as const,errors:[error],faces:[],junction:null});
  if(zones.length!==2)return withheld('Exactly two authored gable zones required');
@@ -25,5 +25,10 @@ export function previewCrossGableExtension(zones:readonly JunctionZoneInput[],ea
  if(junction.segments.some(s=>s.residualFt>.02))return withheld('Extended roof valley is discontinuous');
  const faces=solveGableEnvelopeFaces(expanded[0],expanded[1]);
  if(!faces.length||faces.some(f=>f.polygon.some(p=>p.some(v=>!Number.isFinite(v)))))return withheld('Extended roof face tessellation failed');
+ const area=(poly:readonly Point[])=>Math.abs(polygonArea([...poly]));
+ const overlap=intersectConvexPolygons(expanded[0].footprint,expanded[1].footprint);
+ const expected=area(expanded[0].footprint)+area(expanded[1].footprint)-(overlap.length>=3?area(overlap):0);
+ const covered=faces.reduce((sum,f)=>sum+f.projectedAreaSqFt,0);
+ if(!Number.isFinite(covered)||Math.abs(covered-expected)>0.0001)return withheld('Extended roof projected coverage differs from footprint union');
  return {status:'CANDIDATE' as const,errors:[],faces,junction};
 }
