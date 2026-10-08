@@ -20,7 +20,10 @@ export default function RoofDrawingInspector(){
    const plan=projectAuthorizedRoof(handoff,'PLAN');
    const north=projectAuthorizedRoof(handoff,'NORTH');
    const east=projectAuthorizedRoof(handoff,'EAST');
-   const section=intersectRoofSection(handoff,[0,0],[1,0]);
+   const vertices=handoff.status==='AUTHORITATIVE'?handoff.faces.flatMap(f=>f.polygon):[];
+   const centerX=vertices.length?(Math.min(...vertices.map(p=>p[0]))+Math.max(...vertices.map(p=>p[0])))/2:0;
+   const centerY=vertices.length?(Math.min(...vertices.map(p=>p[1]))+Math.max(...vertices.map(p=>p[1])))/2:0;
+   const section=intersectRoofSection(handoff,[centerX,centerY],[1,0]);
    const axon=projectRoofAxon(handoff,Math.PI/4,Math.PI/6);
    return <article className="wb-panel" key={r.roofId}><h2>{r.ownerId}</h2><p><strong>{handoff.status}</strong></p>
     <p>Plan faces: {plan.faces.length} · North elevation faces: {north.faces.length}</p>
