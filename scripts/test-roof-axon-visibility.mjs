@@ -30,3 +30,13 @@ assert.equal(lines.status,'SAMPLED_ONLY');
 assert(lines.segments.length>8,'Axon depth exchange should subdivide at least one projected edge');
 assert(lines.segments.every(s=>[...s.start,...s.end].every(Number.isFinite)));
 console.log('PASS axonometric depth exchange subdivisions');
+
+// Two coplanar overlapping facets share a projected boundary. The overlapping
+// portion must be isolated, and never confidently classified front or hidden.
+const facet=(id,x0,x1)=>({id,polygon:[[x0,0,0],[x1,0,0],[x1,2,0],[x0,2,0]]});
+const coincident={status:'AUTHORITATIVE',faces:[facet('whole',0,4),facet('overlap',1,3)]};
+const shared=sampleAxonRoofEdges(coincident,Math.PI/4,Math.PI/6);
+assert.equal(shared.status,'SAMPLED_ONLY');
+assert(shared.segments.some(s=>s.visibility==='UNRESOLVED'));
+assert(shared.segments.some(s=>s.faceId==='whole'&&s.visibility==='UNRESOLVED'));
+console.log('PASS coplanar shared projected roof boundaries fail closed');
