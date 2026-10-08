@@ -305,6 +305,57 @@ function zoneInterfaceCheck(a: SolvedRoofZone, b: SolvedRoofZone) {
   return { adjacent: true, continuous: maxDelta <= ROOF_TOLERANCE.zFt, maxDeltaFt: rounded(maxDelta) };
 }
 
+function planeEnvelopeBoundaryErrors(a: SolvedRoofZone, b: SolvedRoofZone, ownerFootprint: ReadonlyArray<Point>) {
+  const errors: string[] = [];
+  const checkDisappearingZone = (disappearing: SolvedRoofZone, continuing: SolvedRoofZone) => {
+    if (!disappearing.ridgeA || !disappearing.ridgeB || !continuing.ridgeA || !continuing.ridgeB) return;
+    for (let edgeIndex = 0; edgeIndex < disappearing.footprint.length; edgeIndex += 1) {
+      const start = disappearing.footprint[edgeIndex];
+      const end = disappearing.footprint[(edgeIndex + 1) % disappearing.footprint.length];
+      const parameters = [0, 1];
+      for (let i = 0; i < continuing.footprint.length; i += 1) {
+        parameters.push(...segmentBoundaryParameters(
+          start, end,
+          continuing.footprint[i],
+          continuing.footprint[(i + 1) % continuing.footprint.length]
+        ));
+      }
+      parameters.push(...segmentBoundaryParameters(start, end, disappearing.ridgeA, disappearing.ridgeB));
+      parameters.push(...segmentBoundaryParameters(start, end, continuing.ridgeA, continuing.ridgeB));
+      parameters.sort((left, right) => left - right);
+      const unique = parameters.filter((value, index) =>
+        value >= -1e-8 && value <= 1 + 1e-8
+        && (index === 0 || Math.abs(value - parameters[index - 1]) > 1e-8));
+      for (let i = 0; i < unique.length - 1; i += 1) {
+        const t0 = Math.max(0, unique[i]), t1 = Math.min(1, unique[i + 1]);
+        if (t1 - t0 <= 1e-8) continue;
+        const midpoint = segmentPoint(start, end, (t0 + t1) / 2);
+        if (!pointInPolygon(midpoint, continuing.footprint) || pointOnBoundary(midpoint, ownerFootprint)) continue;
+        const sampleTs = [t0, (t0 + t1) / 2, t1];
+        let maxExcess = -Infinity;
+        for (const t of sampleTs) {
+          const point = segmentPoint(start, end, t);
+          const disappearingZ = roofZoneHeightAt(disappearing, point);
+          const continuingZ = roofZoneHeightAt(continuing, point);
+          if (disappearingZ == null || continuingZ == null) {
+            maxExcess = Infinity;
+            break;
+          }
+          maxExcess = Math.max(maxExcess, disappearingZ - continuingZ);
+        }
+        if (maxExcess > ROOF_TOLERANCE.zFt) {
+          errors.push(
+            `roof plane envelope is discontinuous where ${disappearing.zoneId} ends inside ${continuing.zoneId}: disappearing surface exceeds continuing surface by ${Number.isFinite(maxExcess) ? maxExcess.toFixed(3) : "unknown"} ft`
+          );
+        }
+      }
+    }
+  };
+  checkDisappearingZone(a, b);
+  checkDisappearingZone(b, a);
+  return [...new Set(errors)];
+}
+
 export function solveGableZone(owner: PlacementComponent, zone: RoofZone): SolvedRoofZone {
   const footprint = zoneFootprint(owner, zone);
   if (zone.status !== "LOCKED") {
@@ -608,6 +659,7 @@ export function validateRoofComponent(roof: RoofComponent | null | undefined, ow
           const unionArea = zoneArea - junction.overlapAreaSqFt;
           const areaDelta = Math.abs(unionArea - ownerArea);
           if (areaDelta > 1e-8) errors.push(`roof-zone union coverage differs from owner footprint by ${areaDelta.toFixed(6)} sq ft`);
+          errors.push(...planeEnvelopeBoundaryErrors(zones[0], zones[1], ownerFootprint));
         }
       }
     } else if (junctionMode === "TILED") {
