@@ -2,6 +2,7 @@
  * Segment midpoint depths are diagnostic, not complete hidden-line certification.
  */
 import type {RoofDrawingHandoff} from '@/packages/roof-geometry/drawing-contract';
+import {depthExchangeParameter} from '@/packages/roof-geometry/drawing-depth-transitions';
 type P3=readonly[number,number,number];
 type P2=readonly[number,number];
 type View='NORTH'|'SOUTH'|'EAST'|'WEST';
@@ -18,13 +19,23 @@ export function splitElevationEdges(roof:RoofDrawingHandoff,view:View){
  for(const face of faces)for(let i=0;i<face.points.length;i++){
   const a=face.points[i],b=face.points[(i+1)%face.points.length];if(Math.hypot(b[0]-a[0],b[1]-a[1])<EPS)continue;
   const cuts=[0,1];for(const other of faces)if(other!==face)for(let j=0;j<other.points.length;j++){const t=splitAt(a,b,other.points[j],other.points[(j+1)%other.points.length]);if(t!==null)cuts.push(t);}
-  cuts.sort((a,b)=>a-b);const unique=cuts.filter((t,i)=>i===0||t-cuts[i-1]>EPS);
+  // Each interval already excludes projected face-edge crossings. Within it,
+  // solve linear depth exchanges analytically before classifying subsegments.
+  const boundaryCuts=[...cuts].sort((x,y)=>x-y).filter((t,i,all)=>i===0||t-all[i-1]>EPS);
+  const atWhole=(t:number):P3=>[a[0]+t*(b[0]-a[0]),a[1]+t*(b[1]-a[1]),a[2]+t*(b[2]-a[2])];
+  for(let j=0;j<boundaryCuts.length-1;j++){
+   const lo=boundaryCuts[j],hi=boundaryCuts[j+1];
+   for(const other of faces)if(other!==face){
+    const root=depthExchangeParameter(atWhole(lo),atWhole(hi),other.points);
+    if(root!==null)cuts.push(lo+root*(hi-lo));
+   }
+  }
+  cuts.sort((x,y)=>x-y);const unique=cuts.filter((t,i)=>i===0||t-cuts[i-1]>EPS);
   for(let k=0;k<unique.length-1;k++){
    const at=(t:number):P3=>[a[0]+t*(b[0]-a[0]),a[1]+t*(b[1]-a[1]),a[2]+t*(b[2]-a[2])];
    const first=at(unique[k]),last=at(unique[k+1]),mid=at((unique[k]+unique[k+1])/2);let visibility:'FRONT_SAMPLE'|'BACK_SAMPLE'|'UNRESOLVED'='FRONT_SAMPLE';
    for(const other of faces)if(other!==face){const d=depthAt(other.points,[mid[0],mid[1]]);if(d===null)continue;if(Math.abs(d-mid[2])<1e-4){visibility='UNRESOLVED';break;}if(d>mid[2]+1e-4)visibility='BACK_SAMPLE';}
-   // A midpoint can miss an interior depth reversal where two roof planes cross.
-   // Until the analytic transition solver lands, withhold rather than mislabel that segment.
+   // Guard numerical or unsupported transitions even after analytic cuts.
    const classify=(t:number)=>{
     const q=at(unique[k]+(unique[k+1]-unique[k])*t);
     let label:'FRONT_SAMPLE'|'BACK_SAMPLE'|'UNRESOLVED'='FRONT_SAMPLE';
@@ -40,5 +51,5 @@ export function splitElevationEdges(roof:RoofDrawingHandoff,view:View){
    segments.push({faceId:face.id,start:[first[0],first[1]],end:[last[0],last[1]],visibility});
   }
  }
- return {status:'SAMPLED_ONLY' as const,segments,reason:'Split at projected crossings, midpoint-only depth; no guaranteed hidden-line correctness'};
+ return {status:'SAMPLED_ONLY' as const,segments,reason:'Split at projected crossings and supported analytic depth exchanges; still sampled, not hidden-line certified'};
 }
