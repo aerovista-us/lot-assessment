@@ -23,6 +23,10 @@ export function solveSimpleGableExtension(faces:readonly Face3[], eaveFt:number,
   const cross:0|1=along===0?1:0;
   const ridgeCross=a[0][cross];
   const low=[Math.min(a[0][along],a[1][along]),Math.max(a[0][along],a[1][along])];
+  const leftRun=rows[0].eave[0][cross]-ridgeCross;
+  const rightRun=rows[1].eave[0][cross]-ridgeCross;
+  if(leftRun*rightRun>=0||!close(Math.abs(leftRun),Math.abs(rightRun)))return fail('Opposing gable pitches and equal half-runs required');
+  if(rows.some(row=>!close(row.eave[0][cross],row.eave[1][cross])))return fail('Each eave must be a level axis-aligned edge');
   const output:Face3[]=[];
   for(const row of rows){
     const e=row.eave;
