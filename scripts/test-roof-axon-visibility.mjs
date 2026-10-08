@@ -14,3 +14,19 @@ for(const result of validateCandidateRoofs(d4.components).results){
 }
 assert.equal(sampleAxonRoofEdges({status:'WITHHELD',reason:'stale',faces:[]},Math.PI/4,Math.PI/6).status,'WITHHELD');
 console.log('PASS conservative axonometric depth samples on four locked roofs and withheld authority');
+
+// At azimuth zero, projection maps (x,y,z) to (x, y*sin(e)+z*cos(e)).
+// Two broad strips with equal projected coverage but opposing depth slopes
+// exchange order at x=2 on their lower projected edge.
+const elev=Math.PI/6;
+const zForScreen=(screenY,y)=>(screenY-y*Math.sin(elev))/Math.cos(elev);
+const strip=(id,y0,y1)=>({id,polygon:[
+ [0,y0,zForScreen(0,y0)],[4,y1,zForScreen(0,y1)],
+ [4,y1,zForScreen(2,y1)],[0,y0,zForScreen(2,y0)]
+]});
+const crossing={status:'AUTHORITATIVE',faces:[strip('a',1,3),strip('b',3,1)]};
+const lines=sampleAxonRoofEdges(crossing,0,elev);
+assert.equal(lines.status,'SAMPLED_ONLY');
+assert(lines.segments.length>8,'Axon depth exchange should subdivide at least one projected edge');
+assert(lines.segments.every(s=>[...s.start,...s.end].every(Number.isFinite)));
+console.log('PASS axonometric depth exchange subdivisions');

@@ -1,5 +1,6 @@
 /** Conservative 3D-derived axonometric edge samples; diagnostic, never certified hidden lines. */
 import type {RoofDrawingHandoff} from '@/packages/roof-geometry/drawing-contract';
+import {depthExchangeParameter} from '@/packages/roof-geometry/drawing-depth-transitions';
 type P3=readonly [number,number,number];
 type P2=readonly [number,number];
 const EPS=1e-7;
@@ -23,8 +24,14 @@ export function sampleAxonRoofEdges(roof:RoofDrawingHandoff,azimuth:number,eleva
  const segments:{faceId:string;start:P2;end:P2;visibility:'FRONT_SAMPLE'|'BACK_SAMPLE'|'UNRESOLVED'}[]=[];
  for(const face of faces)for(let i=0;i<face.points.length;i++){
   const a=face.points[i],b=face.points[(i+1)%face.points.length];if(Math.hypot(b[0]-a[0],b[1]-a[1])<EPS)continue;
+  const cuts=[0,1];
+  for(const other of faces)if(other!==face){const root=depthExchangeParameter(a,b,other.points);if(root!==null)cuts.push(root);}
+  cuts.sort((x,y)=>x-y);const unique=cuts.filter((t,i)=>i===0||t-cuts[i-1]>EPS);
+  for(let k=0;k<unique.length-1;k++){
+  const lo=unique[k],hi=unique[k+1];
   const outcomes=new Set<'FRONT_SAMPLE'|'BACK_SAMPLE'|'UNRESOLVED'>();
-  for(const t of [.2,.5,.8]){
+  for(const f of [.2,.5,.8]){
+   const t=lo+(hi-lo)*f;
    const p:P3=[a[0]+t*(b[0]-a[0]),a[1]+t*(b[1]-a[1]),a[2]+t*(b[2]-a[2])];
    let state:'FRONT_SAMPLE'|'BACK_SAMPLE'|'UNRESOLVED'='FRONT_SAMPLE';
    for(const other of faces)if(other!==face){
@@ -35,7 +42,10 @@ export function sampleAxonRoofEdges(roof:RoofDrawingHandoff,azimuth:number,eleva
    outcomes.add(state);
   }
   const visibility=outcomes.size===1?[...outcomes][0]:'UNRESOLVED';
-  segments.push({faceId:face.id,start:[a[0],a[1]],end:[b[0],b[1]],visibility});
+  const start:P2=[a[0]+lo*(b[0]-a[0]),a[1]+lo*(b[1]-a[1])];
+  const end:P2=[a[0]+hi*(b[0]-a[0]),a[1]+hi*(b[1]-a[1])];
+  segments.push({faceId:face.id,start,end,visibility});
+  }
  }
- return {status:'SAMPLED_ONLY' as const,segments,reason:'Three-point axonometric depth diagnostics; no exact hidden-line certification'};
+ return {status:'SAMPLED_ONLY' as const,segments,reason:'Depth-exchange-split axonometric samples; projected boundary overlaps remain unresolved, not hidden-line certified'};
 }
