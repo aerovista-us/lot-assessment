@@ -13,7 +13,7 @@ const same=(a:Point3,b:Point3)=>a.every((v,i)=>Math.abs(v-b[i])<=0.00001);
 export function auditRoofBoundary(faces: readonly Face3[]): BoundaryAudit {
   const invalid=(why:string):BoundaryAudit=>({status:'INVALID',errors:[why],boundary:[],sharedEdges:0});
   if(!Array.isArray(faces)||!faces.length)return invalid('Solved roof faces are required');
-  if(faces.some(f=>!f||typeof f.id!=='string'||!f.id.trim()||!Array.isArray(f.polygon)||f.polygon.length<3||f.polygon.some(p=>!finite(p))))return invalid('Malformed roof surface polygon');
+  if(faces.some(f=>!f||typeof f.id!=='string'||!f.id.trim()||!Array.isArray(f.polygon)||f.polygon.length<3||f.polygon.some((p:unknown)=>!finite(p))))return invalid('Malformed roof surface polygon');
   if(new Set(faces.map(f=>f.id)).size!==faces.length)return invalid('Duplicate roof face identifier');
   const edges=new Map<string,{faceId:string,a:Point3,b:Point3,count:number}>();
   for(const face of faces)for(let i=0;i<face.polygon.length;i++){
@@ -24,7 +24,7 @@ export function auditRoofBoundary(faces: readonly Face3[]): BoundaryAudit {
     if(hit)hit.count++;else edges.set(key,{faceId:face.id,a,b,count:1});
   }
   if([...edges.values()].some(e=>e.count>2))return invalid('Nonmanifold roof edge is shared by more than two faces');
-  const plate=Math.min(...faces.flatMap(f=>f.polygon.map(p=>p[2])));
+  const plate=Math.min(...faces.flatMap(f=>f.polygon.map((p:Point3)=>p[2])));
   const boundary=[...edges.values()].filter(e=>e.count===1).map(e=>({
     faceId:e.faceId,a:e.a,b:e.b,
     kind:(Math.abs(e.a[2]-plate)<0.00001&&Math.abs(e.b[2]-plate)<0.00001
