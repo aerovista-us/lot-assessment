@@ -74,6 +74,9 @@ const homeBBoxGutterZone = {
   footprint: [[72.5,22],[94.5,22],[94.5,31.25],[72.5,31.25]],
   ridgeA: [72.5,26.625],
   ridgeB: [94.5,26.625],
+  pitchRise: 6,
+  pitchRun: 12,
+  ridgeZCheckFt: null,
   source: "legacy Home B eave-to-eave box-gutter regression fixture"
 };
 const legacyHomeBSeam = solveGableJunction(
