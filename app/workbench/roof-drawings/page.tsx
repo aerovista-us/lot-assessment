@@ -1,3 +1,4 @@
+import RoofLinework from './roof-linework';
 import RoofView from './roof-view';
 import Link from 'next/link';
 import {pondyCandidateRegistry} from '@/projects/pondy-lot2/candidate-registry';
@@ -35,7 +36,11 @@ export default function RoofDrawingInspector(){
     <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(240px,1fr))',gap:16,marginTop:16}}>
      <RoofView title="Plan" faces={plan.faces}/>
      <RoofView title="North elevation" faces={north.faces}/>
+     <RoofLinework title="North visibility linework" segments={visibility[0].result.segments}/>
+     <RoofLinework title="South visibility linework" segments={visibility[1].result.segments}/>
      <RoofView title="East elevation" faces={east.faces}/>
+     <RoofLinework title="East visibility linework" segments={visibility[2].result.segments}/>
+     <RoofLinework title="West visibility linework" segments={visibility[3].result.segments}/>
      <RoofView title="Axon" faces={axon.faces}/>
      <RoofView title="Section intersections" faces={[]} segments={section.segments}/>
     </div>
