@@ -12,7 +12,7 @@
     "test:workspace": "node --experimental-loader ./scripts/alias-loader.mjs scripts/test-candidate-workspace.mjs",
     "test:intervention": "node --experimental-loader ./scripts/alias-loader.mjs scripts/test-intervention-editor.mjs",
     "test:authoritative-circulation": "node --experimental-loader ./scripts/alias-loader.mjs scripts/test-authoritative-circulation.mjs",
-    "test:roof": "node --experimental-loader ./scripts/alias-loader.mjs scripts/test-roof-geometry.mjs && node --experimental-loader ./scripts/alias-loader.mjs scripts/test-roof-boundary-audit.mjs && node --experimental-loader ./scripts/alias-loader.mjs scripts/test-gable-extension.mjs",
+    "test:roof": "node --experimental-loader ./scripts/alias-loader.mjs scripts/test-roof-geometry.mjs && node --experimental-loader ./scripts/alias-loader.mjs scripts/test-roof-boundary-audit.mjs && node --experimental-loader ./scripts/alias-loader.mjs scripts/test-gable-extension.mjs && node --experimental-loader ./scripts/alias-loader.mjs scripts/test-crossgable-extension.mjs",
     "export:roof": "node --experimental-loader ./scripts/alias-loader.mjs scripts/export-roof-sot.mjs"
   },
   "dependencies": {
