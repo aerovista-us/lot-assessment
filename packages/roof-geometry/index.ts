@@ -1,7 +1,7 @@
 import { polygonArea, rotatePolygon, type Point } from "@/packages/geometry";
 import type { PlacementComponent, RoofComponent, RoofZone } from "@/packages/candidates";
 import { placementShapeIdentity } from "@/packages/candidates/shape-topology";
-import { solveGableJunction, type JunctionZoneInput, type RoofJunctionSolution } from "@/packages/roof-geometry/junctions";
+import { gableZoneSurfaceFaces, solveGableEnvelopeFaces, solveGableJunction, type JunctionZoneInput, type RoofJunctionSolution, type RoofSurfaceFace } from "@/packages/roof-geometry/junctions";
 
 export const ROOF_GEOMETRY_SCHEMA = "lotscope-roof-geometry-v1" as const;
 
@@ -497,6 +497,7 @@ export type RoofValidation = {
   ownerGeometryCurrent: boolean;
   zones: SolvedRoofZone[];
   junctions: RoofJunctionSolution[];
+  surfaceFaces: RoofSurfaceFace[];
 };
 
 export type RoofPlanSegment = {
@@ -576,7 +577,7 @@ export function validateRoofComponent(roof: RoofComponent | null | undefined, ow
   const invalidStructure = (message: string): RoofValidation => ({
     schemaVersion: ROOF_GEOMETRY_SCHEMA, roofId, ownerId: roofOwnerId,
     status: "FAIL_CLOSED_INVALID", authoritative: false, safe: false,
-    errors: [message], ownerGeometryCurrent: false, zones: [], junctions: []
+    errors: [message], ownerGeometryCurrent: false, zones: [], junctions: [], surfaceFaces: []
   });
 
   if (roof && !owner) return invalidStructure("roof owner placement is missing");
@@ -584,7 +585,7 @@ export function validateRoofComponent(roof: RoofComponent | null | undefined, ow
     return {
       schemaVersion: ROOF_GEOMETRY_SCHEMA, roofId: runtimeRoof?.id ?? "none",
       ownerId: runtimeRoof?.ownerId ?? owner?.id ?? "none", status: "NO_MODEL",
-      authoritative: false, safe: true, errors: [], ownerGeometryCurrent: false, zones: [], junctions: []
+      authoritative: false, safe: true, errors: [], ownerGeometryCurrent: false, zones: [], junctions: [], surfaceFaces: []
     };
   }
   if (!Array.isArray(runtimeRoof?.zones)) return invalidStructure("roof zones must be an array");
@@ -624,6 +625,7 @@ export function validateRoofComponent(roof: RoofComponent | null | undefined, ow
 
   const junctionMode = roof.junctionMode ?? "TILED";
   const junctions: RoofJunctionSolution[] = [];
+  let surfaceFaces: RoofSurfaceFace[] = [];
 
   if (roof.status === "LOCKED" && zones.length) {
     const ownerFootprint = placementPolygon(owner);
@@ -716,11 +718,32 @@ export function validateRoofComponent(roof: RoofComponent | null | undefined, ow
     }
   }
 
-  const authoritative = roof.status === "LOCKED" && errors.length === 0 && zones.length > 0;
+  if (roof.status === "LOCKED" && zones.length && errors.length === 0) {
+    const toInput = (zone: SolvedRoofZone): JunctionZoneInput => ({
+      zoneId: zone.zoneId,
+      footprint: zone.footprint,
+      ridgeA: zone.ridgeA as Point,
+      ridgeB: zone.ridgeB as Point,
+      ridgeZFt: zone.ridgeZFt as number,
+      pitchRatio: zone.pitchRatio as number
+    });
+    surfaceFaces = junctionMode === "PLANE_ENVELOPE"
+      ? solveGableEnvelopeFaces(toInput(zones[0]), toInput(zones[1]))
+      : zones.flatMap((zone) => gableZoneSurfaceFaces(toInput(zone)));
+    const ownerArea = Math.abs(polygonArea(placementPolygon(owner)));
+    const faceArea = surfaceFaces.reduce((sum, face) => sum + face.projectedAreaSqFt, 0);
+    const surfaceAreaDelta = Math.abs(faceArea - ownerArea);
+    if (!surfaceFaces.length || surfaceAreaDelta > 1e-6) {
+      errors.push(`visible roof-surface face coverage differs from owner footprint by ${surfaceAreaDelta.toFixed(6)} sq ft`);
+      surfaceFaces = [];
+    }
+  }
+
+  const authoritative = roof.status === "LOCKED" && errors.length === 0 && zones.length > 0 && surfaceFaces.length > 0;
   return {
     schemaVersion: ROOF_GEOMETRY_SCHEMA, roofId: roof.id, ownerId: owner.id,
     status: errors.length ? "FAIL_CLOSED_INVALID" : authoritative ? "ROOF_GEOMETRY_LOCKED" : "CONCEPT_ONLY",
-    authoritative, safe: errors.length === 0, errors, ownerGeometryCurrent, zones, junctions
+    authoritative, safe: errors.length === 0, errors, ownerGeometryCurrent, zones, junctions, surfaceFaces
   };
 }
 
@@ -754,7 +777,8 @@ export function validateCandidateRoofs(components: ReadonlyArray<any>) {
         errors: [`multiple roof components target the same owner: ${owned.map((item) => item.id).join(", ")}`],
         ownerGeometryCurrent: false,
         zones: [],
-        junctions: []
+        junctions: [],
+        surfaceFaces: []
       });
     }
   }
