@@ -70,6 +70,22 @@ for (const valley of homeBValidation.junctions[0].segments.filter((segment) => s
     `derived valley ${valley.id} must be a shared boundary between visible roof faces`);
 }
 
+console.log("ROOF_SURFACE_EXPORT_EVIDENCE="+JSON.stringify({
+  homeB: homeBValidation.surfaceFaces,
+  homeA: validateRoofComponent(
+    d4.components.find((item) => item.id === "roof-home-a"),
+    d4.components.find((item) => item.id === "home-a")
+  ).surfaceFaces,
+  garageB: validateRoofComponent(
+    d4.components.find((item) => item.id === "roof-garage-b"),
+    d4.components.find((item) => item.id === "garage-b")
+  ).surfaceFaces,
+  garageA: validateRoofComponent(
+    d4.components.find((item) => item.id === "roof-garage-a"),
+    d4.components.find((item) => item.id === "garage-a")
+  ).surfaceFaces
+}));
+
 const homeBPlan = roofPlanSegments(homeBValidation);
 assert.equal(homeBPlan.filter((segment) => segment.derived && segment.kind === "VALLEY").length, 2, "authoritative Home B topology must expose both derived valleys");
 assert(homeBPlan.some((segment) => segment.zoneId === "home-b-roof-zone-1"
