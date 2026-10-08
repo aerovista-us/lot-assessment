@@ -37,8 +37,10 @@ export default function RoofDrawingInspector(){
      <RoofView title="Plan" faces={plan.faces}/>
      <RoofView title="North elevation" faces={north.faces}/>
      <RoofLinework title="North visibility linework" segments={visibility[0].result.segments}/>
+     <RoofLinework title="South visibility linework" segments={visibility[1].result.segments}/>
      <RoofView title="East elevation" faces={east.faces}/>
      <RoofLinework title="East visibility linework" segments={visibility[2].result.segments}/>
+     <RoofLinework title="West visibility linework" segments={visibility[3].result.segments}/>
      <RoofView title="Axon" faces={axon.faces}/>
      <RoofView title="Section intersections" faces={[]} segments={section.segments}/>
     </div>
