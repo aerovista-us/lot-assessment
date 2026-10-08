@@ -24,19 +24,29 @@ const exportedRoofs = summary.results.map((validation) => {
     authoritative: validation.authoritative,
     ownerGeometryKey: owner ? ownerGeometryKey(owner) : null,
     junctionMode: roof?.junctionMode ?? "TILED",
-    zones: validation.zones.map((zone) => ({
-      id: zone.zoneId,
-      status: zone.status,
-      authoritative: zone.authoritative,
-      footprint: zone.footprint,
-      plateZFt: zone.plateZFt,
-      ridgeA: zone.ridgeA,
-      ridgeB: zone.ridgeB,
-      ridgeZFt: zone.ridgeZFt,
-      runFt: zone.runFt,
-      pitchRatio: zone.pitchRatio,
-      pitch12: zone.pitch12
-    })),
+    zones: validation.zones.map((zone) => {
+      const sourceZone = roof?.zones.find((item) => item.id === zone.zoneId);
+      return {
+        id: zone.zoneId,
+        label: sourceZone?.label ?? zone.zoneId,
+        type: sourceZone?.type ?? "gable",
+        status: zone.status,
+        authoritative: zone.authoritative,
+        footprint: zone.footprint,
+        plateZFt: zone.plateZFt,
+        ridgeA: zone.ridgeA,
+        ridgeB: zone.ridgeB,
+        ridgeZFt: zone.ridgeZFt,
+        ridgeZCheckFt: sourceZone?.ridgeZCheckFt ?? null,
+        runFt: zone.runFt,
+        solveBy: sourceZone?.solveBy ?? null,
+        pitchRise: sourceZone?.pitchRise ?? null,
+        pitchRun: sourceZone?.pitchRun ?? null,
+        pitchRatio: zone.pitchRatio,
+        pitch12: zone.pitch12,
+        source: sourceZone?.source ?? null
+      };
+    }),
     junctions: validation.junctions,
     planSegments: roofPlanSegments(validation),
     errors: validation.errors
