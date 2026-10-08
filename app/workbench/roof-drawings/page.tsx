@@ -1,4 +1,5 @@
 import RoofLinework from './roof-linework';
+import {sampleAxonRoofEdges} from '@/packages/roof-geometry/drawing-axon-visibility';
 import RoofView from './roof-view';
 import Link from 'next/link';
 import {pondyCandidateRegistry} from '@/projects/pondy-lot2/candidate-registry';
@@ -27,6 +28,7 @@ export default function RoofDrawingInspector(){
    const centerY=vertices.length?(Math.min(...vertices.map(p=>p[1]))+Math.max(...vertices.map(p=>p[1])))/2:0;
    const section=intersectRoofSection(handoff,[centerX,centerY],[1,0]);
    const axon=projectRoofAxon(handoff,Math.PI/4,Math.PI/6);
+   const axonVisibility=sampleAxonRoofEdges(handoff,Math.PI/4,Math.PI/6);
    const visibility=['NORTH','SOUTH','EAST','WEST'].map(view=>({view,result:splitElevationEdges(handoff,view as 'NORTH'|'SOUTH'|'EAST'|'WEST')}));
    return <article className="wb-panel" key={r.roofId}><h2>{r.ownerId}</h2><p><strong>{handoff.status}</strong></p>
     <p>Plan faces: {plan.faces.length} · North elevation faces: {north.faces.length}</p>
@@ -42,6 +44,7 @@ export default function RoofDrawingInspector(){
      <RoofLinework title="East visibility linework" segments={visibility[2].result.segments}/>
      <RoofLinework title="West visibility linework" segments={visibility[3].result.segments}/>
      <RoofView title="Axon" faces={axon.faces}/>
+     <RoofLinework title="Axon visibility diagnostics" segments={axonVisibility.segments}/>
      <RoofView title="Section intersections" faces={[]} segments={section.segments}/>
     </div>
    </article>;
