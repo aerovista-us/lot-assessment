@@ -1,3 +1,4 @@
+import {auditRoofSurfaceMesh} from '@/packages/roof-geometry/mesh-audit';
 /** Candidate-only cross-gable extension. Never promotes authority or mutates owner locks. */
 import { polygonArea, type Point } from '@/packages/geometry';
 import {intersectConvexPolygons,solveGableEnvelopeFaces,solveGableJunction,type JunctionZoneInput} from '@/packages/roof-geometry/junctions';
@@ -30,5 +31,7 @@ export function previewCrossGableExtension(zones:readonly JunctionZoneInput[],ea
  const expected=area(expanded[0].footprint)+area(expanded[1].footprint)-(overlap.length>=3?area(overlap):0);
  const covered=faces.reduce((sum,f)=>sum+f.projectedAreaSqFt,0);
  if(!Number.isFinite(covered)||Math.abs(covered-expected)>0.0001)return withheld('Extended roof projected coverage differs from footprint union');
+ const mesh=auditRoofSurfaceMesh(faces);
+ if(!mesh.ok)return withheld('Extended roof mesh topology: '+mesh.errors.join('; '));
  return {status:'CANDIDATE' as const,errors:[],faces,junction};
 }
