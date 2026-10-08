@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import {auditPlanRoofEdges} from '../packages/roof-geometry/drawing-edge-visibility.ts';
+const face=(id,z,poly)=>({id,polygon:poly.map(([x,y])=>[x,y,z])});
+const full=[[0,0],[4,0],[4,4],[0,4]],cover=[[2,-1],[5,-1],[5,5],[2,5]];
+const roof={status:'AUTHORITATIVE',faces:[face('lower',0,full),face('upper',2,cover)]};
+const result=auditPlanRoofEdges(roof);assert.equal(result.status,'SAMPLED_ONLY');
+assert(result.segments.some(s=>s.faceId==='lower'&&s.visibility==='VISIBLE_SAMPLE'));
+assert(result.segments.some(s=>s.faceId==='lower'&&s.visibility==='HIDDEN_SAMPLE'));
+assert.equal(auditPlanRoofEdges({...roof,status:'WITHHELD',reason:'stale'}).status,'WITHHELD');
+console.log('PASS partial plan edge midpoint classifications and fail-closed authority');
