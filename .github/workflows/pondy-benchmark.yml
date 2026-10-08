@@ -46,6 +46,7 @@ jobs:
           npm run test:canonical
           npm run test:room-packing
           npm run test:authoritative-circulation
+          npm run test:roof
           npm run build
 
       - name: Start local LotScope

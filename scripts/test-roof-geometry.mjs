@@ -51,13 +51,22 @@ assert.equal(homeBValidation.junctions.length, 1);
 assert(homeBValidation.junctions[0].segments.some((segment) => segment.kind === "VALLEY"));
 
 const homeBPlan = roofPlanSegments(homeBValidation);
-assert(homeBPlan.some((segment) => segment.derived && segment.kind === "VALLEY"), "authoritative plan topology must expose the derived valley");
-assert(!homeBPlan.some((segment) => segment.zoneId === "home-b-roof-zone-1"
-  && Math.min(segment.a[0], segment.b[0]) < 83.5
-  && Math.max(segment.a[0], segment.b[0]) > 83.5
+assert.equal(homeBPlan.filter((segment) => segment.derived && segment.kind === "VALLEY").length, 2, "authoritative Home B topology must expose both derived valleys");
+assert(homeBPlan.some((segment) => segment.zoneId === "home-b-roof-zone-1"
+  && Math.max(segment.a[0], segment.b[0]) <= 83.5 + 0.001
   && Math.abs(segment.a[1] - 13.5) < 0.001
   && Math.abs(segment.b[1] - 13.5) < 0.001),
-  "buried main-ridge span under the cross-gable envelope must be clipped from the plan topology");
+  "main ridge must remain visible into the T-junction from the west");
+assert(homeBPlan.some((segment) => segment.zoneId === "home-b-roof-zone-1"
+  && Math.min(segment.a[0], segment.b[0]) >= 83.5 - 0.001
+  && Math.abs(segment.a[1] - 13.5) < 0.001
+  && Math.abs(segment.b[1] - 13.5) < 0.001),
+  "main ridge must remain visible out of the T-junction to the east");
+assert(homeBPlan.some((segment) => segment.zoneId === "home-b-roof-zone-2"
+  && Math.abs(segment.a[0] - 83.5) < 0.001
+  && Math.abs(segment.b[0] - 83.5) < 0.001
+  && Math.min(segment.a[1], segment.b[1]) <= 13.5 + 0.001),
+  "cross-gable ridge must terminate at the shared T-junction");
 
 const homeBBoxGutterZone = {
   ...homeBRoof.zones[1],
@@ -65,6 +74,9 @@ const homeBBoxGutterZone = {
   footprint: [[72.5,22],[94.5,22],[94.5,31.25],[72.5,31.25]],
   ridgeA: [72.5,26.625],
   ridgeB: [94.5,26.625],
+  pitchRise: 6,
+  pitchRun: 12,
+  ridgeZCheckFt: null,
   source: "legacy Home B eave-to-eave box-gutter regression fixture"
 };
 const legacyHomeBSeam = solveGableJunction(
