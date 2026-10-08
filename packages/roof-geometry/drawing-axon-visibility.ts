@@ -15,6 +15,14 @@ function depth(poly:readonly P3[],p:P2):number|null{
  }
  return null;
 }
+/** Interior crossing of projected 2D edge with polygon boundary edge. */
+function boundaryCross(a:P3,b:P3,c:P3,d:P3):number|null{
+ const r:P2=[b[0]-a[0],b[1]-a[1]],q:P2=[d[0]-c[0],d[1]-c[1]];
+ const den=cross(r,q);if(Math.abs(den)<EPS)return null;
+ const delta:P2=[c[0]-a[0],c[1]-a[1]];
+ const t=cross(delta,q)/den,u=cross(delta,r)/den;
+ return t>EPS&&t<1-EPS&&u>=-EPS&&u<=1+EPS?t:null;
+}
 export function sampleAxonRoofEdges(roof:RoofDrawingHandoff,azimuth:number,elevation:number){
  if(roof.status!=='AUTHORITATIVE')return {status:'WITHHELD' as const,segments:[],reason:roof.reason};
  if(![azimuth,elevation].every(Number.isFinite)||elevation<=0||elevation>=Math.PI/2)return {status:'WITHHELD' as const,segments:[],reason:'Invalid axonometric viewing angles'};
@@ -25,7 +33,19 @@ export function sampleAxonRoofEdges(roof:RoofDrawingHandoff,azimuth:number,eleva
  for(const face of faces)for(let i=0;i<face.points.length;i++){
   const a=face.points[i],b=face.points[(i+1)%face.points.length];if(Math.hypot(b[0]-a[0],b[1]-a[1])<EPS)continue;
   const cuts=[0,1];
-  for(const other of faces)if(other!==face){const root=depthExchangeParameter(a,b,other.points);if(root!==null)cuts.push(root);}
+  for(const other of faces)if(other!==face){
+   for(let j=0;j<other.points.length;j++){
+    const crossing=boundaryCross(a,b,other.points[j],other.points[(j+1)%other.points.length]);
+    if(crossing!==null)cuts.push(crossing);
+   }
+  }
+  // Resolve depth exchanges within each constant projected-face coverage interval.
+  const bounds=[...cuts].sort((x,y)=>x-y).filter((t,i,all)=>i===0||t-all[i-1]>EPS);
+  for(let j=0;j<bounds.length-1;j++)for(const other of faces)if(other!==face){
+   const at=(t:number):P3=>[a[0]+t*(b[0]-a[0]),a[1]+t*(b[1]-a[1]),a[2]+t*(b[2]-a[2])];
+   const root=depthExchangeParameter(at(bounds[j]),at(bounds[j+1]),other.points);
+   if(root!==null)cuts.push(bounds[j]+root*(bounds[j+1]-bounds[j]));
+  }
   cuts.sort((x,y)=>x-y);const unique=cuts.filter((t,i)=>i===0||t-cuts[i-1]>EPS);
   for(let k=0;k<unique.length-1;k++){
   const lo=unique[k],hi=unique[k+1];
@@ -47,5 +67,5 @@ export function sampleAxonRoofEdges(roof:RoofDrawingHandoff,azimuth:number,eleva
   segments.push({faceId:face.id,start,end,visibility});
   }
  }
- return {status:'SAMPLED_ONLY' as const,segments,reason:'Depth-exchange-split axonometric samples; projected boundary overlaps remain unresolved, not hidden-line certified'};
+ return {status:'SAMPLED_ONLY' as const,segments,reason:'Boundary- and depth-exchange-split axonometric samples; coplanar and degenerate overlaps remain unresolved, not hidden-line certified'};
 }
