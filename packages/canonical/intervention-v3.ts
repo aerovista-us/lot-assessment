@@ -14,8 +14,12 @@ function normalizeCanonicalV3(canonical: CanonicalInterventionGeometryV3) {
     ...canonical,
     roofs: Array.isArray(canonical.roofs)
       ? canonical.roofs.map((roof) => ({
-          ...roof,
-          junctionMode: (roof as typeof roof & { junctionMode?: "TILED" | "PLANE_ENVELOPE" }).junctionMode ?? "TILED"
+          id: roof.id,
+          ownerId: roof.ownerId,
+          status: roof.status,
+          ownerGeometryKey: roof.ownerGeometryKey,
+          junctionMode: (roof as typeof roof & { junctionMode?: "TILED" | "PLANE_ENVELOPE" }).junctionMode ?? "TILED",
+          zones: roof.zones
         }))
       : canonical.roofs
   };
