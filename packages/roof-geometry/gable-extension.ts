@@ -18,7 +18,22 @@ export function solveSimpleGableExtension(faces:readonly Face3[], eaveFt:number,
   const a=rows[0].ridge,b=rows[1].ridge;
   if(!a.every(p=>b.some(q=>p.every((v,i)=>close(v,q[i])))))return fail('Both roof planes must share one precise ridge');
   const axis=close(a[0][0],a[1][0])?1:close(a[0][1],a[1][1])?0:-1;
-  if(axis<0)return fail('Rotated ridge requires generalized plane extension solver');
+  if(axis<0){
+    // Rigid, reversible local-frame transformation: source roof planes stay authoritative.
+    // Normalize the ridge onto local X, solve there, then inverse-project every vertex.
+    const dx=a[1][0]-a[0][0],dy=a[1][1]-a[0][1];
+    const len=Math.hypot(dx,dy);
+    if(len<0.01)return fail('Degenerate rotated ridge');
+    const ux=dx/len,uy=dy/len,origin=a[0];
+    const local=(p:Point3):Point3=>[(p[0]-origin[0])*ux+(p[1]-origin[1])*uy,-(p[0]-origin[0])*uy+(p[1]-origin[1])*ux,p[2]];
+    const world=(p:Point3):Point3=>[origin[0]+p[0]*ux-p[1]*uy,origin[1]+p[0]*uy+p[1]*ux,p[2]];
+    const normalized=faces.map(f=>({id:f.id,polygon:f.polygon.map(local)}));
+    const solved=solveSimpleGableExtension(normalized,eaveFt,rakeFt,source);
+    if(solved.status!=='AUTHORITATIVE')return solved;
+    const extended=solved.faces.map(f=>({id:f.id,polygon:f.polygon.map(world)}));
+    if(auditRoofBoundary(extended).status!=='VALID')return fail('Rotated extension failed world-coordinate topology audit');
+    return {status:'AUTHORITATIVE',faces:extended,source};
+  }
   const along:0|1=axis as 0|1;
   const cross:0|1=along===0?1:0;
   const ridgeCross=a[0][cross];
