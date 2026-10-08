@@ -23,6 +23,20 @@ export function splitElevationEdges(roof:RoofDrawingHandoff,view:View){
    const at=(t:number):P3=>[a[0]+t*(b[0]-a[0]),a[1]+t*(b[1]-a[1]),a[2]+t*(b[2]-a[2])];
    const first=at(unique[k]),last=at(unique[k+1]),mid=at((unique[k]+unique[k+1])/2);let visibility:'FRONT_SAMPLE'|'BACK_SAMPLE'|'UNRESOLVED'='FRONT_SAMPLE';
    for(const other of faces)if(other!==face){const d=depthAt(other.points,[mid[0],mid[1]]);if(d===null)continue;if(Math.abs(d-mid[2])<1e-4){visibility='UNRESOLVED';break;}if(d>mid[2]+1e-4)visibility='BACK_SAMPLE';}
+   // A midpoint can miss an interior depth reversal where two roof planes cross.
+   // Until the analytic transition solver lands, withhold rather than mislabel that segment.
+   const classify=(t:number)=>{
+    const q=at(unique[k]+(unique[k+1]-unique[k])*t);
+    let label:'FRONT_SAMPLE'|'BACK_SAMPLE'|'UNRESOLVED'='FRONT_SAMPLE';
+    for(const other of faces)if(other!==face){
+     const d=depthAt(other.points,[q[0],q[1]]);
+     if(d===null)continue;
+     if(Math.abs(d-q[2])<1e-4)return 'UNRESOLVED' as const;
+     if(d>q[2]+1e-4)label='BACK_SAMPLE';
+    }
+    return label;
+   };
+   if(classify(0.25)!==visibility||classify(0.75)!==visibility)visibility='UNRESOLVED';
    segments.push({faceId:face.id,start:[first[0],first[1]],end:[last[0],last[1]],visibility});
   }
  }

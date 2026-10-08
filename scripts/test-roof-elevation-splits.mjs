@@ -23,3 +23,14 @@ for(const r of validateCandidateRoofs(d4.components).results){
  }
 }
 console.log('PASS cardinal elevation splits on all four locked Design 4 roof owners');
+
+// Two sloping faces can swap which is in front without a projected edge crossing.
+// That must not be accepted as a single confidently classified visible segment.
+const crossing={status:'AUTHORITATIVE',faces:[
+ {id:'rising',polygon:[[0,1,0],[4,3,0],[4,3,2],[0,1,2]]},
+ {id:'falling',polygon:[[0,3,0],[4,1,0],[4,1,2],[0,3,2]]}
+]};
+const diagnostic=splitElevationEdges(crossing,'NORTH');
+assert.equal(diagnostic.status,'SAMPLED_ONLY');
+assert(diagnostic.segments.some(s=>s.visibility==='UNRESOLVED'));
+console.log('PASS depth-reversal safety gate on crossing roof planes');
