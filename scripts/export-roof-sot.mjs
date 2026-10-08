@@ -48,6 +48,7 @@ const exportedRoofs = summary.results.map((validation) => {
       };
     }),
     junctions: validation.junctions,
+    surfaceFaces: validation.surfaceFaces,
     planSegments: roofPlanSegments(validation),
     errors: validation.errors
   };
