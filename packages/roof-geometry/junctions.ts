@@ -256,3 +256,5 @@ export function solveGableEnvelopeFaces(a:JunctionZoneInput,b:JunctionZoneInput)
   addVisible(b,a);
   return out.filter(face=>face.projectedAreaSqFt>1e-7);
 }
+
+// Surface-face export evidence trigger.
