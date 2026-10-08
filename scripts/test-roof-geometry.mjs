@@ -49,6 +49,26 @@ assert.equal(homeBValidation.status, "ROOF_GEOMETRY_LOCKED");
 assert.equal(homeBValidation.authoritative, true);
 assert.equal(homeBValidation.junctions.length, 1);
 assert(homeBValidation.junctions[0].segments.some((segment) => segment.kind === "VALLEY"));
+assert(homeBValidation.surfaceFaces.length >= 5, "Home B plane envelope must emit visible 3D roof faces");
+const homeBFaceArea = homeBValidation.surfaceFaces.reduce((sum, face) => sum + face.projectedAreaSqFt, 0);
+assert(Math.abs(homeBFaceArea - 892) <= 1e-6, "Home B visible roof faces must exactly cover the owner footprint in plan");
+assert(homeBValidation.surfaceFaces.every((face) => face.polygon.length >= 3
+  && face.polygon.every((point) => point.length === 3 && point.every(Number.isFinite))),
+  "all authoritative roof surface vertices must be finite 3D points");
+function faceHasEdge(face, a, b) {
+  return face.polygon.some((point, index) => {
+    const next = face.polygon[(index + 1) % face.polygon.length];
+    const direct = Math.hypot(point[0]-a[0], point[1]-a[1]) <= 0.02
+      && Math.hypot(next[0]-b[0], next[1]-b[1]) <= 0.02;
+    const reverse = Math.hypot(point[0]-b[0], point[1]-b[1]) <= 0.02
+      && Math.hypot(next[0]-a[0], next[1]-a[1]) <= 0.02;
+    return direct || reverse;
+  });
+}
+for (const valley of homeBValidation.junctions[0].segments.filter((segment) => segment.kind === "VALLEY")) {
+  assert(homeBValidation.surfaceFaces.filter((face) => faceHasEdge(face, valley.a, valley.b)).length >= 2,
+    `derived valley ${valley.id} must be a shared boundary between visible roof faces`);
+}
 
 const homeBPlan = roofPlanSegments(homeBValidation);
 assert.equal(homeBPlan.filter((segment) => segment.derived && segment.kind === "VALLEY").length, 2, "authoritative Home B topology must expose both derived valleys");
