@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+import { solveEaveFascia } from '../packages/roof-geometry/eave-fascia.ts';
+const faces=[{polygon:[[0,0,10],[10,0,10],[10,5,12.5],[0,5,12.5]]},{polygon:[[0,5,12.5],[10,5,12.5],[10,10,10],[0,10,10]]}];
+const spec={source:'Engineer-approved roof detail A-501',overhangFt:0,fasciaDepthFt:0.75,fasciaThicknessFt:0.1};
+const good=solveEaveFascia(faces,spec);
+assert.equal(good.status,'AUTHORITATIVE');
+assert.equal(good.segments.length,2);
+assert(good.segments.every(s=>s.a[2]===10&&s.b[2]===10&&s.bottomA[2]===9.25));
+assert.equal(solveEaveFascia(faces,{...spec,overhangFt:1}).status,'WITHHELD');
+assert.equal(solveEaveFascia(faces,{...spec,source:''}).status,'WITHHELD');
+assert.equal(solveEaveFascia(faces,{...spec,fasciaDepthFt:NaN}).status,'WITHHELD');
+assert.equal(solveEaveFascia([],spec).status,'WITHHELD');
+console.log('PASS eave/fascia: 2 solved edges; nonzero offset, absent source, invalid depth, missing surface all fail closed');

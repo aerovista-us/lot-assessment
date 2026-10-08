@@ -104,6 +104,7 @@ export type RoofComponent = ComponentBase & {
   ownerGeometryKey?: string;
   staleReason?: string;
   junctionMode?: RoofJunctionMode;
+  eaveFascia?: { source: string; overhangFt: number; fasciaDepthFt: number; fasciaThicknessFt: number };
 };
 
 export type PathComponent = ComponentBase & {

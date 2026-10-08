@@ -1,3 +1,4 @@
+import { solveEaveFascia, type FasciaResult } from "@/packages/roof-geometry/eave-fascia";
 import { polygonArea, rotatePolygon, type Point } from "@/packages/geometry";
 import type { PlacementComponent, RoofComponent, RoofZone } from "@/packages/candidates";
 import { placementShapeIdentity } from "@/packages/candidates/shape-topology";
@@ -498,6 +499,7 @@ export type RoofValidation = {
   zones: SolvedRoofZone[];
   junctions: RoofJunctionSolution[];
   surfaceFaces: RoofSurfaceFace[];
+  eaveFascia?: FasciaResult;
 };
 
 export type RoofPlanSegment = {
@@ -739,11 +741,15 @@ export function validateRoofComponent(roof: RoofComponent | null | undefined, ow
     }
   }
 
+  // Optional extension: undeclared fascia stays withheld; declared specifications
+  // must validate or the owner roof fails closed rather than silently rendering trim.
+  const eaveFascia = roof.eaveFascia ? solveEaveFascia(surfaceFaces, roof.eaveFascia) : undefined;
+  if (eaveFascia && eaveFascia.status !== "AUTHORITATIVE") errors.push(...eaveFascia.errors.map(error => `eave/fascia: ${error}`));
   const authoritative = roof.status === "LOCKED" && errors.length === 0 && zones.length > 0 && surfaceFaces.length > 0;
   return {
     schemaVersion: ROOF_GEOMETRY_SCHEMA, roofId: roof.id, ownerId: owner.id,
     status: errors.length ? "FAIL_CLOSED_INVALID" : authoritative ? "ROOF_GEOMETRY_LOCKED" : "CONCEPT_ONLY",
-    authoritative, safe: errors.length === 0, errors, ownerGeometryCurrent, zones, junctions, surfaceFaces
+    authoritative, safe: errors.length === 0, errors, ownerGeometryCurrent, zones, junctions, surfaceFaces, eaveFascia
   };
 }
 
