@@ -1,3 +1,4 @@
+import RoofView from './roof-view';
 import Link from 'next/link';
 import {pondyCandidateRegistry} from '@/projects/pondy-lot2/candidate-registry';
 import {validateCandidateRoofs} from '@/packages/roof-geometry';
@@ -18,12 +19,20 @@ export default function RoofDrawingInspector(){
    const handoff=roofDrawingHandoff(r);
    const plan=projectAuthorizedRoof(handoff,'PLAN');
    const north=projectAuthorizedRoof(handoff,'NORTH');
+   const east=projectAuthorizedRoof(handoff,'EAST');
    const section=intersectRoofSection(handoff,[0,0],[1,0]);
    const axon=projectRoofAxon(handoff,Math.PI/4,Math.PI/6);
    return <article className="wb-panel" key={r.roofId}><h2>{r.ownerId}</h2><p><strong>{handoff.status}</strong></p>
     <p>Plan faces: {plan.faces.length} · North elevation faces: {north.faces.length}</p>
     <p>Section intersections: {section.segments.length} · Axon faces: {axon.faces.length}</p>
     <p>Fascia: {handoff.status==='AUTHORITATIVE'&&handoff.fascia?'Approved':'Withheld pending design authority'}</p>
+    <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(240px,1fr))',gap:16,marginTop:16}}>
+     <RoofView title="Plan" faces={plan.faces}/>
+     <RoofView title="North elevation" faces={north.faces}/>
+     <RoofView title="East elevation" faces={east.faces}/>
+     <RoofView title="Axon" faces={axon.faces}/>
+     <RoofView title="Section intersections" faces={[]} segments={section.segments}/>
+    </div>
    </article>;
   })}</section>
  </main>;
