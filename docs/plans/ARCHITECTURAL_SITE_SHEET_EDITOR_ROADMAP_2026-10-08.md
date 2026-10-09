@@ -32,10 +32,10 @@ Provide PondyFlats (and future LotScope projects) with site sheets comparable to
 Inventory authoritative survey, each design footprint, garages, openings, parking, setbacks, walls, driveway, roof constraints, units, and revision provenance. Build source-to-display matrix per Design 1–4. Include missing/conditional items explicitly. Acceptance: provenance and authority recorded for every rendered annotation.
 
 ### Phase 1 — Detailed site sheet v1 (top priority)
-Generate matched A-001 customer sheets for Designs 1–4 at one declared scale and common page size, using the same compass orientation, plotting convention, title block, legend, symbol styles, and annotation format. Dimension exterior survey runs, buildings, garages, drives and established setbacks ONLY when numerically supported. Distinguish conditional setback overlay vs surveyed property. Retain existing Design 1 source drawing as baseline, not a source of truth for other designs. Provide both clean presentation and detailed technical sheet modes from identical geometry. Acceptance: dimension assertions against source coordinates; same world geometry on all modes; zero invented dimension labels.
+First generate a Design 4 A-001 preview, then add Designs 3, 2 and 1 through individually accepted adapters; produce the final matched four-sheet release at one declared plot scale and common page size, using the same compass orientation, plotting convention, title block, legend, symbol styles, and annotation format. Dimension exterior survey runs, buildings, garages, drives and established setbacks ONLY when numerically supported. Distinguish conditional setback overlay vs surveyed property. Retain existing Design 1 source drawing as baseline, not a source of truth for other designs. Provide both clean presentation and detailed technical sheet modes from identical geometry. Acceptance: dimension assertions against source coordinates; same world geometry on all modes; zero invented dimension labels.
 
 ### Phase 2 — Sheet engine & exports
-Introduce testable renderer API: SiteSheetDocument -> layers -> dimensions -> SVG -> print PDF; optional DXF interoperability after prototype. Automated label collision resolution and view-fit without changing the geometry's metric scale. Print viewport and page layout QA. Acceptance: reproducible hashes, clean print output, visual snapshot regression at 1440/1024/768/390 and letter/ARCH-sheet mock layouts.
+Harden the testable renderer API established in Phase 1: SiteSheetDocument -> layers -> dimensions -> SVG -> print PDF; optional DXF interoperability after prototype. Automated label collision resolution and view-fit without changing the geometry's metric scale. Print viewport and page layout QA. Acceptance: reproducible hashes, clean print output, visual snapshot regression at 1440/1024/768/390 and letter/ARCH-sheet mock layouts.
 
 ### Phase 3 — Interactive 2D review
 Pan/zoom, layer toggles, inspect-to-measure, selection, compare synchronized viewpoints, inspection-only geometry provenance. Public report read-only. Acceptance: displayed length/area stays consistent when zooming; ability to inspect locked state; no unauthorized edits.
@@ -81,6 +81,49 @@ All six risks are tracked as release-blocking controls. Each control must have a
 - Release order: contract & provenance → numeric drawing verification → annotation/visual QA → export parity → permission/security (when enabled) → customer review → deliberate publication → deployed smoke test and rollback readiness.
 - Definition of done: artifact evidence linked to exact commit and model SHA, acceptance checklist complete, independent technical review recorded, and no regression to locked site/roof/circulation authority.
 
+## Overall plan review — adjustments and sequencing (2026-10-08)
+
+### Architectural decisions
+1. **Contract before rendering:** implement a minimal versioned SiteSheetDocument schema and validator first, including stable feature IDs, source revisions, world-coordinate systems, immutable source references, per-measurement authority, sheet profiles and a list of unresolved data. The schema itself is not an alternate geometry store: it references normalized authoritative geometry snapshots and stores only drawing-specific metadata.
+2. **Do not confuse drawing status and government approval:** SURVEYED indicates source classification, not a licensed survey certification; MODELLED indicates calculation, not engineering validation. APPROVED_BY_AUTHORITY requires named authority, evidence ID, scope and timestamp. Status is per object and per claim, not a blanket sheet-wide PASS.
+3. **Explicit coordinate and unit contract:** feet in the local Lot 2 world coordinate system, source of origin, axis directions, rotation into paper coordinates, accuracy tolerances and rounding rules must be specified and tested. An SVG viewBox is not a print-scale guarantee. Calibrate physical PDF output against known dimension lengths and printer settings.
+4. **Data adapters are mandatory:** preserve legacy Design 1 frozen input and its previous drawing, treat Design 2 as historical, retain Design 3 conditional setback status, and Design 4 pending outbound evidence. Every imported annotation must be independently verified or labeled as illustrative and excluded from technical dimension layers.
+5. **Render modes share one document:** 'presentation' and 'technical' are filtered views of the same document and revision; never create separate manually maintained geometry. A compare-view must disclose differences in design maturity and keep comparable drawing orientation.
+6. **Deliver v1 without a new dependency:** implement dimension calculation, leaders, line weights, title block and core SVG renderer with existing TypeScript/SVG infrastructure. Prototype Maker.js in a separate spike; adoption requires a measured improvement in accuracy, DXF fidelity or maintenance cost. JSCAD/react-planner/Sweet Home 3D are not Phase 1 blockers.
+
+### Critical path and small PR decomposition
+| PR slice | Deliverable | Required evidence | Promotion |
+|---|---|---|---|
+| S0 | Geometry inventory + decision register for all designs | Golden survey/footprint fixtures, hashes, missing-authority list | Merge into LotScope only |
+| S1 | SiteSheetDocument v1 type/schema, validator, source adapters contract | Unit, axes, provenance, bad-input/authority tests | Merge into LotScope only |
+| S2 | Pure dimension primitives and round/format policy | Independent numerical oracle, property tests, tolerances, no screenshot-derived values | Merge into LotScope only |
+| S3 | Design 4 A-001 prototype, technical/presentation toggle | Plot coordinate assertions, drawing object provenance, approved/conditional styles, screenshot review | Staff Workbench preview only |
+| S4 | Reusable titleblock/legend/collision layout and print export | Print scale physical checks, viewport QA, package/no-404 test, snapshot diffs | LotScope preview |
+| S5 | Design 3/2/1 source adapters + matched A-001 output | Historical geometry unchanged, all four source hashes, exact dimension assertions | LotScope accepted package |
+| S6 | PondyFlats consumer and comparison integration | Versioned asset contract, build QA, browser smoke, exact-head screenshots | Separate Pondy release |
+| S7 | Read-only inspection | Zoom-independent measurements, permissions smoke, usability checks | After sheet v1 release |
+| S8 | Editable draft experiments | Permission, rollback, constraints, revisions and route gates | Future milestone; no customer edits by default |
+
+**Only start S3 after S0–S2 pass.** No production customer drawing changes until S0–S6 evidence is complete for the particular design and explicit publication is authorized. Work that improves visual quality can proceed independently, provided it does not introduce or recast numerical engineering claims.
+
+### Additional foreseeable risks and mitigations
+- **Label density versus true scale:** prioritize verified dimensions, reserve printable annotation bands, show a collision-report legend, and use separate detail/inset sheets when labels cannot fit; never shrink the scale silently.
+- **No surveyed baseline for a feature:** mark NOT_VERIFIED and suppress its dimension; use a decision register rather than guessing or importing a value from another design.
+- **Numerical precision:** store full precision in world units, round only formatted labels, validate near-zero edges and angle-dependent offsets; distinguish nominal dimension from true clearance.
+- **Partial model authority:** a locked footprint does not validate eaves, roof, fire separation, garage maneuvering or civil drainage; every relevant layer has its own authorization and a documented fail-closed render policy.
+- **Build-system parity:** standalone export must include styles, fonts and JS and preserve relative URLs; test nested paths and image/SVG assets at the generated export destination, not only source repo.
+- **Human signoff capacity:** identify a technical reviewer and customer acceptance owner before promotion. Reviewer signoff is recorded with model hash and changed dimensions; missing ownership blocks customer promotion.
+
+### Milestone effort and prioritization
+Planning estimate assuming the current geometry modules can be reused: S0–S2 roughly 1–2 focused weeks; S3–S4 roughly 1–2 additional weeks; S5–S6 roughly 1–2 weeks. These are provisional engineering estimates, not delivery promises. Missing source geometry, municipal interpretations, performance problems or export divergence could lengthen the timeline. Do not spend Phase 1 effort on full drag-and-drop, parametric landscaping, CAD DWG roundtrips, or photorealistic imagery.
+
+### Release evidence and rollback
+- LotScope provides an immutable document/model manifest and generated sheet asset bundle; Pondy consumes pinned source revision IDs, not a moving 'latest' dependency.
+- Record exact commits for LotScope and Pondy, schema version, source geometry SHA, hashes of SVG/PDF artifacts and QA evidence.
+- Introduce a schema migration policy: versioned readers, backward-compatibility fixtures and explicit rejection of unsupported schema versions.
+- Smoke test public Pages and verify precise file/asset routes after promotion; retain previous accepted artifact and documented rollback instructions.
+- An acceptance checklist is per design, per sheet and per output; partial success can ship staff-only diagnostics, never silently promote unvalidated client sheets.
+
 ## Near-term implementation backlog
 - Write SiteSheetDocument JSON schema and provenance/authority tags.
 - Implement survey and footprint dimensioning primitives using 2D world coordinates.
@@ -96,7 +139,7 @@ All six risks are tracked as release-blocking controls. Each control must have a
 - Prototype open-source packages in isolated spikes with a license/maintenance/performance assessment before production.
 - No automatic zoning certification, no visual-only inference of survey measurements, no cloned proprietary UI or graphics, no implied permit documents.
 
-## Acceptance checklist for first deliverable
+## Acceptance checklist for first four-design customer release
 - [ ] A-001 diagrams for Designs 1–4 share dimension style, layer keys, compass, road orientation, titleblock and page format.
 - [ ] All numerical callouts trace to versioned geometry source.
 - [ ] Design 2 vs 4 garage sizes and access differences legible without zooming excessively.
