@@ -46,6 +46,41 @@ Snap-to-grid, endpoints, constrained drag handles, dimension input, object palet
 ### Phase 5 — Parametric 3D / landscape
 Linked 2D/3D walls, roofs, terrain and landscaping objects, scenario generation, material/view studies, validated elevations/sections; keep graphical realism distinct from construction accuracy. Export client packages. Acceptance: surfaces generated from identical versioned geometry and roof authority, 3D screenshots trace to model IDs.
 
+
+## Six-obstacle resolution program — required work, not optional advice
+
+All six risks are tracked as release-blocking controls. Each control must have a named accountable role at implementation time, evidence artifacts linked to the release, a test, and an explicit pass/fail gate. A failed or missing gate blocks promotion; it must never be hidden behind a visually convincing drawing.
+
+| ID | Obstacle | Primary owner (role) | Resolution deliverable | Verification and blocking gate | Phase |
+|---|---|---|---|---|---|
+| R1 | Fragmented/contradictory geometry sources | Geometry/SOT maintainer | Source registry and normalized SiteSheetDocument geometry references; Design 1–4 source-to-display matrix | Reject missing source hash, duplicate competing owner, incompatible units/datums or unexpected geometry revision; reconcile by documented owner decision, never silent overwrite | 0, 1 |
+| R2 | Plausible but incorrect measurements | Geometry/QA maintainer | Typed dimension anchors with units, geometry object IDs, dimension kind (clearance, setback, span, etc.), tolerance and authority | Independently recompute measurements from world coordinates; property-based tests for rotations, units, negative/missing values and near-zero edges; zero unverifiable numeric callouts | 0–2 |
+| R3 | Overcrowded/ambiguous sheet labels | Drawing/UX maintainer | Layer priority matrix, label-placement rules, reserved dimension bands and reproducible manual annotation overrides | Collision/legibility snapshots at approved print scales and mobile/desktop viewports; no cropped leaders, obscured numeric strings or moved source geometry | 1–3 |
+| R4 | Concept evidence mistaken for approved/legal design | Technical authority and release reviewer | Mandatory evidence classes: SURVEYED, MODELLED, CONDITIONAL, WITHHELD, APPROVED_BY_AUTHORITY; visible authority legend and disclaimers | Snapshot/assert every conditional setback, pending outbound result, roof/fascia authority; no approval icon/word without independent accepted evidence; reviewer signoff | All |
+| R5 | Differences between website, standalone exports and PDF/DXF | Rendering/build maintainer | Single renderer + export manifest carrying model hash, sheet revision, assets/styles and output artifacts | Same document ID / model hash across outputs, snapshot equivalence of geometry and annotations, zero missing asset requests, PDF/print dimensions calibrated | 1–3 |
+| R6 | Editor changes invalidate locked geometry or permissions | Workbench/Identity security maintainer | Draft/proposal/version workflow, scoped capabilities, undo/redo, validation, approved promotion API and immutable audit trail | Attempt illegal drags, stale revisions, role bypass, bad setbacks, broken ingress/egress, roof-lock invalidation, rollback; all fail closed and published baseline unchanged | 3–5 |
+
+### Phase-specific prevention and recovery steps
+**Phase 0 (before any drawing):** Freeze a provenance manifest per design. Record source owner, spatial datum, units, source SHA, confidence, locks and model state for survey, structures, garages, driveways, setbacks, roofs and access. Compare legacy Design 1 annotations to canonical measured values; discrepancies become open decisions, not auto-corrections. Build golden-coordinate fixtures for all four designs. Owners: geometry lead and technical reviewer. Exit gate: R1 and R2 baseline green; R4 authority taxonomy defined.
+
+**Phase 1 (Design 4 detailed prototype):** Construct dimension endpoints from model object/feature IDs, never SVG pixels. Separate fixed drawing layers from conditional evidence and decorative background. Generate technical and presentation variants from the same source manifest. Add north/Pennsylvania orientation, scale declaration, titleblock, source revision, layer key and explicit pending approval note. Keep Design 4 alone behind preview until numerical assertions and review pass. Owners: geometry, drawing, technical authority. Exit: R1–R4 green, and no geometric diff from source.
+
+**Phase 2 (cross-design and exports):** Port normalized adapters Design 3, 2, then historical Design 1, preserving immutable original geometry. Introduce label-placement diagnostics and print paper-space controls. Package every asset in standalone output; no external unbundled CSS dependency. Compare browser SVG, PDF and source drawings with model-hash-aware snapshots and dimension tests. Owners: rendering, QA, technical authority. Exit: R2–R5 green across all four designs.
+
+**Phase 3 (inspection):** Add non-mutating pan/zoom, layer filtering, source-linked measurement inspection and side-by-side viewport synchronization. Verify zoom does not alter measured values. Hide unsupported controls rather than presenting nonfunctional editing. Owners: UX, QA, permissions. Exit: R3–R5 and public read-only gate green.
+
+**Phase 4 (editing):** All edits are prospective, isolated drafts with optimistic revision locking, feature constraints, geometry checks, role/capability checks, and explicit approve/publish steps. Lock/published revisions are immutable. Every candidate must re-run setbacks, footprint, driveway ingress/egress, roof authority and applicable drawing regeneration. Owners: Workbench, Identity/App Adapter, QA. Exit: R1–R6 green including adversarial and rollback tests.
+
+**Phase 5 (linked 3D):** 3D geometry, elevations, sections, visualizations and sheet exports reference the same versioned model; decorative material/landscape views must carry nontechnical status as appropriate. Re-run R2/R4/R5/R6 controls on every model promotion. Exit: no cross-view geometry drift and explicit approval evidence.
+
+### Issue workflow and evidence
+- Create one tracking issue per risk R1–R6 with the acceptance criteria above, assign a real person/role when implementation begins, and link each to the implementation PR(s).
+- CI produces a versioned acceptance bundle: source-manifest.json, measured-dimensions.json, dimension-assertions, collisions.json, authority-review.json, browser/print screenshots, export-integrity.json and authorization/rollback tests when relevant.
+- Gate statuses: PASS / FAIL / NOT-APPLICABLE (with justification). **MISSING = FAIL** for phase-required checks. Unexpected data or authority loss causes WITHHELD / UNRESOLVED rendering, never a numeric guess.
+- QA failures require a linked defect, correction and exact-head regression rerun before merge; no blanket waivers. Exceptions need written scope, bounded duration and technical authority approval, and must not relax dimensional correctness or access/roof safety.
+- Release order: contract & provenance → numeric drawing verification → annotation/visual QA → export parity → permission/security (when enabled) → customer review → deliberate publication → deployed smoke test and rollback readiness.
+- Definition of done: artifact evidence linked to exact commit and model SHA, acceptance checklist complete, independent technical review recorded, and no regression to locked site/roof/circulation authority.
+
 ## Near-term implementation backlog
 - Write SiteSheetDocument JSON schema and provenance/authority tags.
 - Implement survey and footprint dimensioning primitives using 2D world coordinates.
