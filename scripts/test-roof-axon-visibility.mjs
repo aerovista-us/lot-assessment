@@ -40,3 +40,18 @@ assert.equal(shared.status,'SAMPLED_ONLY');
 assert(shared.segments.some(s=>s.visibility==='UNRESOLVED'));
 assert(shared.segments.some(s=>s.faceId==='whole'&&s.visibility==='UNRESOLVED'));
 console.log('PASS coplanar shared projected roof boundaries fail closed');
+// Rotation/view-angle extremes and almost-coincident boundaries must never
+// produce NaN/Infinity or silently lose all visible diagnostic geometry.
+for(const azimuth of [0,Math.PI/2,Math.PI,Math.PI*1.75])for(const elevation of [0.001,Math.PI/6,Math.PI/2-0.001]){
+ const result=sampleAxonRoofEdges(coincident,azimuth,elevation);
+ assert.equal(result.status,'SAMPLED_ONLY');
+ assert(result.segments.length>0);
+ assert(result.segments.every(s=>[...s.start,...s.end].every(Number.isFinite)));
+}
+const nearCoincident={status:'AUTHORITATIVE',faces:[facet('base',0,4),
+ {id:'shifted',polygon:[[1,0,0.000001],[3,0,0.000001],[3,2,0.000001],[1,2,0.000001]]}]};
+const near=sampleAxonRoofEdges(nearCoincident,Math.PI/4,Math.PI/6);
+assert.equal(near.status,'SAMPLED_ONLY');
+assert(near.segments.every(s=>[...s.start,...s.end].every(Number.isFinite)));
+assert(near.segments.some(s=>s.visibility==='UNRESOLVED'));
+console.log('PASS near-coincident and near-degenerate axon projection safety');
