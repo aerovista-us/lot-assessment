@@ -16,7 +16,7 @@ Provide PondyFlats (and future LotScope projects) with site sheets comparable to
 ## Target stack and reuse
 1. **LotScope / Workbench:** authoritative plan geometry, polygon operations, acceptance gates, 3D handoffs, project versions and roles. Keep this as the single geometry source.
 2. **SVG drawing-sheet renderer (initial):** deterministic world-to-paper transform, true-to-scale page viewBox, per-layer groups, automatic dimensions and leaders, collision-managed labels, lineweight/typography system.
-3. **Maker.js (evaluate, MIT):** line/arc/path modeling plus SVG, DXF and PDF export, for drafting primitives. Prototype only; check actual text/dimension support and fidelity before adopting.
+3. **Maker.js (evaluate, Apache-2.0):** line/arc/path modeling plus SVG, DXF and PDF export, for drafting primitives. Prototype only; check actual text/dimension support and fidelity before adopting.
 4. **ezdxf (evaluate, MIT):** server/offline DXF interoperability, not the interactive editor.
 5. **React + custom handles/snapping layer:** introduce constrained editing after the locked-viewer milestone; preview edits are proposals, never silently replace approved source.
 6. **3D visualization:** reuse current 3D geometry and renderer; optional JSCAD geometry modules for parametric experiments. Avoid migrating the primary engine without demonstrated benefit.
