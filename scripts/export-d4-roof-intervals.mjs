@@ -1,5 +1,5 @@
 import {pondyCandidateRegistry} from '../projects/pondy-lot2/candidate-registry.ts';
-import {validateCandidateRoofs} from '../packages/roof-geometry/index.ts';
+import {validateCandidateRoofs,ownerGeometryKey} from '../packages/roof-geometry/index.ts';
 import {roofDrawingHandoff} from '../packages/roof-geometry/drawing-contract.ts';
 import {verifyRoofEdgeIntervals} from '../packages/roof-geometry/drawing-verified-intervals.ts';
 
@@ -16,7 +16,7 @@ const owners=checked.results.map(roof=>{
  const owner=candidate.components.find(item=>item.id===roof.ownerId);
  if(!owner)throw Error('No owner placement: '+roof.ownerId);
  const bindings={
-  ownerGeometryKey:JSON.stringify({id:owner.id,rotationDeg:owner.rotationDeg??0,polygon:owner.polygon}),
+  ownerGeometryKey:ownerGeometryKey(owner),
   surfaceFacesKey:JSON.stringify(roof.surfaceFaces.map(face=>[face.id,face.polygon]))
  };
  const results={};
