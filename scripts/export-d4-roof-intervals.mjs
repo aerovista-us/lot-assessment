@@ -8,7 +8,7 @@ if(!candidate)throw Error('Design 4 candidate missing');
 const checked=validateCandidateRoofs(candidate.components);
 if(!checked.safe||checked.results.length!==4||checked.locked!==4)throw Error('Four locked roof owners required');
 const iso={kind:'CUSTOM',screenX:[5.2,-3.2,0],screenY:[-1.55,-1.35,-8.2],depth:[-26.24,-42.64,11.98]};
-const views={north:{kind:'ELEVATION',view:'NORTH'},south:{kind:'ELEVATION',view:'SOUTH'},
+// Pondy north looks from -Y, south from +Y. LotScope canonical projector\n// uses depth +Y for NORTH and -Y for SOUTH; swap the source views, then\n// mirror their screen-x axes in the consumer to preserve Pondy site coordinates.\nconst views={north:{kind:'ELEVATION',view:'SOUTH'},south:{kind:'ELEVATION',view:'NORTH'},
  east:{kind:'ELEVATION',view:'EAST'},west:{kind:'ELEVATION',view:'WEST'},'pondy-iso-01':iso};
 const owners=checked.results.map(roof=>{
  const handoff=roofDrawingHandoff(roof);
@@ -35,7 +35,7 @@ const payload={schemaVersion:'lotscope-verified-roof-intervals-v1',sourceRepo:'a
  sourceSnapshot:'pondy-d4',sourceRoofSchema:checked.schemaVersion,
  renderScope:'CONCEPT_ONLY_NOT_FOR_CONSTRUCTION',
  camera:{id:'pondy-iso-01',screenX:iso.screenX,screenY:iso.screenY,depth:iso.depth,
-  screenTranslation:[299.2,688.6],elevationAxes:'CARDINAL_LEFT_RIGHT_REVIEW'},
+  screenTranslation:[299.2,688.6],elevationAxes:'PONDY_WORLD_AXES',cardinalDepthDirections:{north:'NEGATIVE_Y',south:'POSITIVE_Y',east:'POSITIVE_X',west:'NEGATIVE_X'}},
  owners};
 const script='(function(global){\n\'use strict\';\nconst manifest='+JSON.stringify(payload,null,2)+';\n'+
  'const api={manifest,matchingOwner};\n'+
