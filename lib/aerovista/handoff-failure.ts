@@ -10,6 +10,10 @@ export function classifyHandoffFailure(cause:unknown,stage:HandoffFailureStage):
  const code=typeof e.code==='string'&&/^[a-z0-9_]{1,80}$/i.test(e.code)?e.code:null;
  const common={upstreamStatus:status,upstreamCode:code};
  if(stage==='exchange'){
+  if(code==='gateway_cloudflare_nonjson_403')
+   return {...common,status:502,code:'identity_gateway_cloudflare_rejected',error:'LotScope reached a non-JSON HTTP 403 response on the Cloudflare-proxied Identity Gateway path. Administrator review of edge/network policy is required.'};
+  if(code==='gateway_nonjson_403')
+   return {...common,status:502,code:'identity_gateway_nonjson_rejected',error:'The LotScope server received an upstream non-JSON HTTP 403 instead of a signed Gateway authorization decision. Administrator review is required.'};
   if(code==='code_not_found'||code==='code_already_consumed'||code==='code_expired')
    return {...common,status:401,code:'handoff_code_unusable',error:'This sign-in handoff is invalid, expired or already used. Start a fresh AeroVista sign-in.'};
   if(code==='client_access_denied'||code==='identity_inactive')
