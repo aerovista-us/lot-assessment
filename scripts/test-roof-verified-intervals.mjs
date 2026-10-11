@@ -29,6 +29,12 @@ assert(bottom.some(s=>s.visibility==='HIDDEN'&&s.end[0]>3));
 assert(bottom.some(s=>Math.abs(s.start[0]-2)<1e-7||Math.abs(s.end[0]-2)<1e-7));
 console.log('PASS exact front/hidden intervals across projected face boundary');
 
+const coincidentScreen=verifyRoofEdgeIntervals(roof([face('far',1,0,4),face('near',3,0,4)]),view);
+assert.equal(coincidentScreen.status,'INTERVAL_VERIFIED');
+assert(partition(coincidentScreen,'far',0).every(s=>s.visibility==='HIDDEN'));
+assert(partition(coincidentScreen,'near',0).every(s=>s.visibility==='VISIBLE'));
+console.log('PASS distinct-depth exactly coincident projected boundaries are not falsely unresolved');
+
 const crossFace=(id,y0,y1)=>({id,polygon:[[0,y0,0],[4,y1,0],[4,y1,2],[0,y0,2]]});
 const crossing=verifyRoofEdgeIntervals(roof([crossFace('up',1,3),crossFace('down',3,1)]),view);
 const edges=partition(crossing,'up',0);
@@ -85,4 +91,7 @@ for(const item of validated){
 }
 const homeB=validated.find(r=>r.ownerId==='home-b');
 assert(homeB&&homeB.junctions.length>0);
+const bNorth=verifyRoofEdgeIntervals(roofDrawingHandoff(homeB),view);
+assert.equal(bNorth.status,'REVIEW_REQUIRED','Home B cannot be promoted before junction/edge-on review');
+assert(bNorth.counts.unresolved>0&&bNorth.counts.collapsedEdges>0,'Home B review findings are expected to remain visible');
 console.log('PASS 4/4 locked D4 roof owners, 4 cardinal views + 4 rotated axons each, Home B valleys');
