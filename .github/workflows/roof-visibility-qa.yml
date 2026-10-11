@@ -1,0 +1,63 @@
+name: Roof geometry and edge visibility fail-closed QA
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/roof-geometry/**'
+      - 'scripts/test-roof-*.mjs'
+      - 'scripts/test-intervention-editor.mjs'
+      - 'scripts/test-canonical.mjs'
+      - '.github/workflows/roof-visibility-qa.yml'
+  pull_request:
+    paths:
+      - 'packages/roof-geometry/**'
+      - 'scripts/test-roof-*.mjs'
+      - 'scripts/test-intervention-editor.mjs'
+      - 'scripts/test-canonical.mjs'
+      - '.github/workflows/roof-visibility-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  roof-visibility:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Prove exact source head
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          mkdir -p "$RUNNER_TEMP/roof-visibility-qa"
+          printf 'sha=%s\nref=%s\nnode=' "$GITHUB_SHA" "$GITHUB_REF" > "$RUNNER_TEMP/roof-visibility-qa/provenance.txt"
+          node --version >> "$RUNNER_TEMP/roof-visibility-qa/provenance.txt"
+      - name: Roof topology, Home B valley, rotated owner and hidden-line regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run test:roof 2>&1 | tee "$RUNNER_TEMP/roof-visibility-qa/roof.log"
+      - name: Canonical owner change invalidation and intervention editing
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run test:canonical 2>&1 | tee "$RUNNER_TEMP/roof-visibility-qa/canonical.log"
+          npm run test:intervention 2>&1 | tee "$RUNNER_TEMP/roof-visibility-qa/intervention.log"
+          npm run test:workspace 2>&1 | tee "$RUNNER_TEMP/roof-visibility-qa/workspace.log"
+      - name: Preserve roof and edge evidence on failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: roof-visibility-${{ github.sha }}
+          path: ${{ runner.temp }}/roof-visibility-qa/
+          retention-days: 21
+          if-no-files-found: warn
