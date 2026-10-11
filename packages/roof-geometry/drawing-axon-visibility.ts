@@ -1,5 +1,6 @@
 /** Conservative 3D-derived axonometric edge samples; diagnostic, never certified hidden lines. */
 import type {RoofDrawingHandoff} from '@/packages/roof-geometry/drawing-contract';
+import {validProjectedFaces} from '@/packages/roof-geometry/drawing-input-guard';
 import {depthExchangeParameter} from '@/packages/roof-geometry/drawing-depth-transitions';
 type P3=readonly [number,number,number];
 type P2=readonly [number,number];
@@ -35,6 +36,7 @@ function projectedBoundaryOverlap(a:P3,b:P3,c:P3,d:P3):[number,number]|null{
 }
 export function sampleAxonRoofEdges(roof:RoofDrawingHandoff,azimuth:number,elevation:number){
  if(roof.status!=='AUTHORITATIVE')return {status:'WITHHELD' as const,segments:[],reason:roof.reason};
+ if(!validProjectedFaces(roof))return {status:'WITHHELD' as const,segments:[],reason:'Invalid projected roof faces'};
  if(![azimuth,elevation].every(Number.isFinite)||elevation<=0||elevation>=Math.PI/2)return {status:'WITHHELD' as const,segments:[],reason:'Invalid axonometric viewing angles'};
  const ca=Math.cos(azimuth),sa=Math.sin(azimuth),ce=Math.cos(elevation),se=Math.sin(elevation);
  const project=(p:P3):P3=>[p[0]*ca+p[1]*sa,-p[0]*sa*se+p[1]*ca*se+p[2]*ce,p[0]*sa*ce-p[1]*ca*ce+p[2]*se];
