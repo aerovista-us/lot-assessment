@@ -2,6 +2,7 @@
  * Segment midpoint depths are diagnostic, not complete hidden-line certification.
  */
 import type {RoofDrawingHandoff} from '@/packages/roof-geometry/drawing-contract';
+import {validProjectedFaces} from '@/packages/roof-geometry/drawing-input-guard';
 import {depthExchangeParameter} from '@/packages/roof-geometry/drawing-depth-transitions';
 type P3=readonly[number,number,number];
 type P2=readonly[number,number];
@@ -13,6 +14,7 @@ function splitAt(a:P3,b:P3,c:P3,d:P3){const r:P2=[b[0]-a[0],b[1]-a[1]],s:P2=[d[0
 function depthAt(poly:readonly P3[],p:P2){for(let i=1;i<poly.length-1;i++){const a=poly[0],b=poly[i],c=poly[i+1],den=cross([b[0]-a[0],b[1]-a[1]],[c[0]-a[0],c[1]-a[1]]);if(Math.abs(den)<EPS)continue;const u=cross([p[0]-a[0],p[1]-a[1]],[c[0]-a[0],c[1]-a[1]])/den,v=cross([b[0]-a[0],b[1]-a[1]],[p[0]-a[0],p[1]-a[1]])/den;if(u>=-EPS&&v>=-EPS&&u+v<=1+EPS)return a[2]+u*(b[2]-a[2])+v*(c[2]-a[2]);}return null;}
 export function splitElevationEdges(roof:RoofDrawingHandoff,view:View){
  if(roof.status!=='AUTHORITATIVE')return {status:'WITHHELD' as const,segments:[],reason:roof.reason};
+ if(!validProjectedFaces(roof))return {status:'WITHHELD' as const,segments:[],reason:'Invalid projected roof faces'};
  if(!['NORTH','SOUTH','EAST','WEST'].includes(view))return {status:'WITHHELD' as const,segments:[],reason:'Invalid elevation direction'};
  const faces=roof.faces.map(f=>({id:f.id,points:f.polygon.map(p=>frame(p,view))}));
  const segments:{faceId:string;start:P2;end:P2;visibility:'FRONT_SAMPLE'|'BACK_SAMPLE'|'UNRESOLVED'}[]=[];
