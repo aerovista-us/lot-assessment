@@ -7,6 +7,7 @@ on:
       - 'app/workbench-auth/**'
       - 'app/api/workbench/**'
       - 'lib/aerovista/**'
+      - 'scripts/test-workbench-handoff-failure.mjs'
       - 'package.json'
       - '.npmrc'
       - '.github/workflows/workbench-identity-qa.yml'
@@ -33,6 +34,8 @@ jobs:
         run: npm install --no-audit --no-fund
       - name: Type check
         run: npm run lint
+      - name: Verify classified broker and founder access failures
+        run: node --experimental-loader ./scripts/alias-loader.mjs scripts/test-workbench-handoff-failure.mjs
       - name: Production build
         run: npm run build
       - name: Anonymous boundary smoke
