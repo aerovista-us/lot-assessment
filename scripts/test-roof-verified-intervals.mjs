@@ -28,6 +28,11 @@ assert(bottom.some(s=>s.visibility==='VISIBLE'&&s.start[0]<1));
 assert(bottom.some(s=>s.visibility==='HIDDEN'&&s.end[0]>3));
 assert(bottom.some(s=>Math.abs(s.start[0]-2)<1e-7||Math.abs(s.end[0]-2)<1e-7));
 console.log('PASS exact front/hidden intervals across projected face boundary');
+const siteNorth=verifyRoofEdgeIntervals(roof([face('north-near',1,0,4),face('north-far',3,0,4)]),{kind:'ELEVATION',view:'SOUTH'});
+assert.equal(siteNorth.status,'INTERVAL_VERIFIED');
+assert(partition(siteNorth,'north-near',0).every(s=>s.visibility==='VISIBLE'));
+assert(partition(siteNorth,'north-far',0).every(s=>s.visibility==='HIDDEN'));
+console.log('PASS Pondy north-facing viewer from -Y sees the near roof face in front');
 
 const coincidentScreen=verifyRoofEdgeIntervals(roof([face('far',1,0,4),face('near',3,0,4)]),view);
 assert.equal(coincidentScreen.status,'INTERVAL_VERIFIED');
