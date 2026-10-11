@@ -63,3 +63,18 @@ const coincident={status:'AUTHORITATIVE',faces:[
 const coplanar=splitElevationEdges(coincident,'NORTH');
 assert(coplanar.segments.some(s=>s.visibility==='UNRESOLVED'),'Coincident depth requires manual review');
 console.log('PASS Home B junction cardinal drawings and coplanar fail-closed visibility');
+
+
+for(const bad of [
+ {status:'AUTHORITATIVE',faces:[]},
+ {status:'AUTHORITATIVE',faces:[{id:'nan',polygon:[[0,0,0],[1,NaN,0],[1,1,0]]}]},
+ {status:'AUTHORITATIVE',faces:[{id:'line',polygon:[[0,0,0],[1,0,0],[2,0,0]]}]},
+ {status:'AUTHORITATIVE',faces:[plane('same',1,0,4),plane('same',2,0,4)]}
+]){
+ for(const view of ['NORTH','SOUTH','EAST','WEST']){
+  const result=splitElevationEdges(bad,view);
+  assert.equal(result.status,'WITHHELD');
+  assert.equal(result.segments.length,0);
+ }
+}
+console.log('PASS invalid/degenerate cardinal roof inputs withheld');
