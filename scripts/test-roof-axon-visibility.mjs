@@ -62,6 +62,8 @@ for(const bad of [
  {status:'AUTHORITATIVE',faces:[{id:'empty',polygon:[]}]},
  {status:'AUTHORITATIVE',faces:[{id:'nan',polygon:[[0,0,0],[1,NaN,0],[1,1,0]]}]},
  {status:'AUTHORITATIVE',faces:[{id:'line',polygon:[[0,0,0],[1,0,0],[2,0,0]]}]},
+ {status:'AUTHORITATIVE',faces:[{id:'bowtie',polygon:[[0,0,0],[2,2,0],[0,2,0],[2,0,0]]}]},
+ {status:'AUTHORITATIVE',faces:[{id:'warped',polygon:[[0,0,0],[2,0,0],[2,2,0],[0,2,1]]}]},
  {status:'AUTHORITATIVE',faces:[facet('duplicate',0,1),facet('duplicate',2,3)]}
 ]){
  const result=sampleAxonRoofEdges(bad,Math.PI/4,Math.PI/6);
