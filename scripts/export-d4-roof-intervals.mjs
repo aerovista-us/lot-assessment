@@ -39,6 +39,6 @@ const payload={schemaVersion:'lotscope-verified-roof-intervals-v1',sourceRepo:'a
  owners};
 const script='(function(global){\n\'use strict\';\nconst manifest='+JSON.stringify(payload,null,2)+';\n'+
  'const api={manifest,matchingOwner};\n'+
- 'function matchingOwner(roof,owner){if(!roof||!owner||!roof.surfaceFaces||roof.ownerId!==owner.ownerId||roof.ownerGeometryKey!==owner.ownerGeometryKey)return false;return JSON.stringify(roof.surfaceFaces.map(f=>[f.id,f.polygon]))===owner.surfaceFacesKey;}\n'+
+ 'function matchingOwner(roof,owner){if(!roof||!owner||!Array.isArray(roof.surfaceFaces)||roof.surfaceFaces.some(f=>!f||typeof f.id!=='string'||!Array.isArray(f.polygon))||roof.ownerId!==owner.ownerId||roof.ownerGeometryKey!==owner.ownerGeometryKey)return false;return JSON.stringify(roof.surfaceFaces.map(f=>[f.id,f.polygon]))===owner.surfaceFacesKey;}\n'+
  'if(typeof module!==\'undefined\'&&module.exports)module.exports=api;\nglobal.Lot2Design4RoofIntervals=api;\n})(typeof window!==\'undefined\'?window:globalThis);\n';
 process.stdout.write(script);
