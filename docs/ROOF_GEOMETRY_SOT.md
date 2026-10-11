@@ -101,20 +101,27 @@ Validated:
 - shared-interface vertical continuity between adjacent roof zones,
 - geometry provenance requirement.
 
+Additional scoped authoritative implementation:
+- Pondy Design 4 Home B's explicitly authored **two-gable plane-envelope** junction is supported by the derived-valley solver, finite surface-mesh audit, exact owner-footprint coverage and continuity checks. This does NOT support arbitrary intersecting-gable topology.
+
 Not yet authoritative:
 - hip roofs,
 - shed roofs,
-- intersecting gables/valleys,
+- arbitrary or more complex intersecting gables/valleys beyond the audited Home B plane-envelope contract,
 - crickets,
 - dormers,
 - curved or warped roof surfaces.
 
 Those forms must remain CONCEPT ONLY until a corresponding solver and tests are added.
 
-## Pondy Design 4
+## Pondy Design 4 — current October 11, 2026 authority
 
-Pondy Design 4 is the first regression fixture.
+The current `pondy-d4` fixture validates **4/4 roof components geometry-locked**: Home A, Home B, Garage A and Garage B. Home B uses the audited `PLANE_ENVELOPE` two-gable junction with two derived valleys, not a fabricated tiled low seam. The exported Pondy consumer handoff is source-pinned; do not substitute a roof lock from an earlier candidate or a rotated owner.
 
-Its four roof components are intentionally present but **UNLOCKED**. No Design 4 pitch, ridge direction, ridge elevation, or plate/bearing datum is currently borrowed from older Pondy designs.
+**Rotation and edits are deliberately fail-closed.** Regression tests require the rotated Design 4 Garage B owner to report `NO_MODEL`, rather than inherit a baseline roof lock; owner footprint changes must invalidate the old lock and force fresh roof validation/export.
 
-That means Design 4 can show schematic roof overlays, but LotScope/Workbench will not call them geometry-locked until exact roof decisions are entered and validated through this contract.
+**Internal roof geometry authority is NOT professional approval.** Eaves/valley drainage, structural capacity, roof snow loading, local code, AHJ approval and construction documents remain external review gates. Customer output remains **CONCEPT ONLY / NOT FOR CONSTRUCTION**.
+
+### Projection and hidden-line boundary
+
+The projection test suite covers cardinal depth crossings, rotations and near-parallel edges; the axon edge sampler deliberately yields `SAMPLED_ONLY`, not a final hidden-line architectural certification. Unresolved, coplanar or near-degenerate projected edges must stay conservative until tested as display-ready visible/hidden linework. The near-degenerate regression was merged in PR #82; rendering acceptance remains distinct from solved roof surface geometry.
