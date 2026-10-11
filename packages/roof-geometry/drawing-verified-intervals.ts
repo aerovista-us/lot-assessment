@@ -112,13 +112,14 @@ function coplanar(first:readonly P3[],second:readonly P3[]):boolean{
  second.every(p=>Math.abs(f([p[0],p[1]])-p[2])<=DEPTH_TOL);
 }
 export function verifyRoofEdgeIntervals(roof:RoofDrawingHandoff,view:RoofViewSpec){
- const withheld=(reason:string)=>({status:'WITHHELD' as const,segments:[] as EdgeInterval[],reason,counts:{visible:0,hidden:0,unresolved:0,internalSeams:0,duplicateShared:0,collapsedEdges:0}});
+ const withheld=(reason:string)=>({status:'WITHHELD' as const,segments:[] as EdgeInterval[],reason,counts:{visible:0,hidden:0,unresolved:0,internalSeams:0,duplicateShared:0,collapsedEdges:0,edgeOnFaces:0}});
  if(roof.status!=='AUTHORITATIVE')return withheld(roof.reason);
  if(!validProjectedFaces(roof))return withheld('Invalid or unbound roof face geometry');
  if(view.kind==='ELEVATION'&&!(['NORTH','SOUTH','EAST','WEST'] as string[]).includes(view.view))return withheld('Invalid cardinal direction');
  if(view.kind==='AXON'&&(!Number.isFinite(view.azimuth)||!Number.isFinite(view.elevation)||view.elevation<=0||view.elevation>=Math.PI/2))return withheld('Invalid camera geometry');
  const faces=roof.faces.map(face=>({id:face.id,world:face.polygon as readonly P3[],points:face.polygon.map(p=>frame(p as P3,view))}));
  const planes=new Map(faces.map(face=>[face.id,depthPlane(face.points)]));
+ const edgeOnFaces=faces.filter(face=>planes.get(face.id)===null).length;
  const segments:EdgeInterval[]=[];
  let collapsedEdges=0;
  for(const face of faces)for(let edgeIndex=0;edgeIndex<face.points.length;edgeIndex++){
@@ -162,7 +163,8 @@ export function verifyRoofEdgeIntervals(roof:RoofDrawingHandoff,view:RoofViewSpe
      if(coplanar(face.points,other.points)&&oppositeSides(a,b,face.points,other.points))sharedSeam=true;
     }
    }
-   if(sharedSeam){visibility='INTERNAL_SEAM';reason='Adjacent coplanar faces: shared non-roof-outline seam';}
+   if(!planes.get(face.id)){visibility='UNRESOLVED';reason='Source roof face projects edge-on; depth ordering is undefined';}
+   else if(sharedSeam){visibility='INTERNAL_SEAM';reason='Adjacent coplanar faces: shared non-roof-outline seam';}
    else if(sharedOwner&&face.id.localeCompare(sharedOwner)>0){visibility='DUPLICATE_SHARED';reason='Same physical edge already emitted by neighboring face';}
    else for(const other of faces)if(other!==face){
     const screen=position(other.points,[mid[0],mid[1]]);
@@ -193,6 +195,7 @@ export function verifyRoofEdgeIntervals(roof:RoofDrawingHandoff,view:RoofViewSpe
   unresolved:segments.filter(x=>x.visibility==='UNRESOLVED').length,
   internalSeams:segments.filter(x=>x.visibility==='INTERNAL_SEAM').length,
   duplicateShared:segments.filter(x=>x.visibility==='DUPLICATE_SHARED').length,
+  edgeOnFaces,
   collapsedEdges
  };
  // Every noncollapsed edge must be partitioned end-to-end. Otherwise withhold.
@@ -204,6 +207,6 @@ export function verifyRoofEdgeIntervals(roof:RoofDrawingHandoff,view:RoofViewSpe
     runs.some((s,i)=>s.t1<=s.t0||i>0&&Math.abs(runs[i-1].t1-s.t0)>TOL))
    return withheld('Roof edge interval coverage is incomplete');
  }
- return {status:counts.unresolved||counts.collapsedEdges?'REVIEW_REQUIRED' as const:'INTERVAL_VERIFIED' as const,
+ return {status:counts.unresolved||counts.collapsedEdges||counts.edgeOnFaces?'REVIEW_REQUIRED' as const:'INTERVAL_VERIFIED' as const,
   segments,counts,reason:'Analytic planar edge intervals against locked source geometry; CONCEPT ONLY, professional drawing and code review pending'};
 }
