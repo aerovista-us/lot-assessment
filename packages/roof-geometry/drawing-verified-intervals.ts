@@ -81,12 +81,18 @@ function depthPlane(poly:readonly P3[]){
  }
  return null;
 }
-function matchingPhysicalEdge(a:P3,b:P3,other:readonly P3[]):boolean{
- for(let i=0;i<other.length;i++){
-  const c=other[i],d=other[(i+1)%other.length];
-  if((near3(a,c)&&near3(b,d))||(near3(a,d)&&near3(b,c)))return true;
- }
- return false;
+function containsWorldPoint(p:P3,c:P3,d:P3):boolean{
+ const v:P3=[d[0]-c[0],d[1]-c[1],d[2]-c[2]];
+ const dd=v[0]**2+v[1]**2+v[2]**2;
+ if(dd<TOL*TOL)return false;
+ const t=((p[0]-c[0])*v[0]+(p[1]-c[1])*v[1]+(p[2]-c[2])*v[2])/dd;
+ return t>=-TOL&&t<=1+TOL&&near3(p,[c[0]+t*v[0],c[1]+t*v[1],c[2]+t*v[2]]);
+}
+function sharedWorldInterval(a:P3,b:P3,other:readonly P3[]):boolean{
+ return other.some((c,k)=>{
+  const d=other[(k+1)%other.length];
+  return containsWorldPoint(a,c,d)&&containsWorldPoint(b,c,d);
+ });
 }
 function oppositeSides(a:P3,b:P3,ours:readonly P3[],other:readonly P3[]):boolean{
  const dir:P2=[b[0]-a[0],b[1]-a[1]];
@@ -145,21 +151,13 @@ export function verifyRoofEdgeIntervals(roof:RoofDrawingHandoff,view:RoofViewSpe
   for(let i=0;i<unique.length-1;i++){
    const t0=unique[i],t1=unique[i+1];
    const start=lerp(a,b,t0),end=lerp(a,b,t1),mid=lerp(a,b,(t0+t1)/2);
-   const middleWorld=lerp(aw,bw,(t0+t1)/2);
    let visibility:EdgeInterval['visibility']='VISIBLE',reason:string|undefined;
    let sharedOwner:string|null=null,sharedSeam=false;
+   const sharedFaces=new Set<string>();
    // A genuine shared 3D edge is a single stroke, not an occlusion ambiguity.
    for(const other of faces)if(other!==face){
-    const hasPhysicalEdge=other.world.some((c,k)=>{
-     const d=other.world[(k+1)%other.world.length];
-     const dist=(p:P3)=>{const v:[number,number,number]=[d[0]-c[0],d[1]-c[1],d[2]-c[2]];
-      const dd=v[0]**2+v[1]**2+v[2]**2;if(dd<TOL*TOL)return false;
-      const t=((p[0]-c[0])*v[0]+(p[1]-c[1])*v[1]+(p[2]-c[2])*v[2])/dd;
-      return t>=-TOL&&t<=1+TOL&&near3(p,[c[0]+t*v[0],c[1]+t*v[1],c[2]+t*v[2]]);
-     };
-     return dist(middleWorld)&&dist(lerp(aw,bw,t0))&&dist(lerp(aw,bw,t1));
-    });
-    if(hasPhysicalEdge){
+    if(sharedWorldInterval(lerp(aw,bw,t0),lerp(aw,bw,t1),other.world)){
+     sharedFaces.add(other.id);
      sharedOwner=sharedOwner===null?other.id:sharedOwner.localeCompare(other.id)<0?sharedOwner:other.id;
      if(coplanar(face.points,other.points)&&oppositeSides(a,b,face.points,other.points))sharedSeam=true;
     }
@@ -169,12 +167,7 @@ export function verifyRoofEdgeIntervals(roof:RoofDrawingHandoff,view:RoofViewSpe
    else for(const other of faces)if(other!==face){
     const screen=position(other.points,[mid[0],mid[1]]);
     if(screen==='OUTSIDE')continue;
-    const physicalShared=other.world.some((c,k)=>{
-     const d=other.world[(k+1)%other.world.length];
-     return onSegment([middleWorld[0],middleWorld[1]],[c[0],c[1]],[d[0],d[1]])&&
-       Math.abs(c[2]-middleWorld[2])<DEPTH_TOL&&Math.abs(d[2]-middleWorld[2])<DEPTH_TOL;
-    });
-    if(physicalShared)continue;
+    if(sharedFaces.has(other.id))continue;
     const plane=planes.get(other.id);
     if(!plane){visibility='UNRESOLVED';reason='Projected face is edge-on';break;}
     const actual=plane([mid[0],mid[1]])-mid[2];
