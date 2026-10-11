@@ -68,6 +68,13 @@ assert.equal(verifyRoofEdgeIntervals({status:'WITHHELD',reason:'rotated stale',f
 assert.equal(verifyRoofEdgeIntervals(roof([{id:'bowtie',polygon:[[0,0,0],[2,0,2],[0,0,2],[2,0,0]]}]),view).status,'WITHHELD');
 assert.equal(verifyRoofEdgeIntervals(roof([a]),{kind:'AXON',azimuth:0,elevation:0}).status,'WITHHELD');
 console.log('PASS stale/malformed/invalid-camera inputs withheld');
+const edgeOnRoof=roof([{id:'edge-on-triangle',polygon:[[0,0,0],[1,0,1],[2,1,2]]}]);
+const edgeOnResult=verifyRoofEdgeIntervals(edgeOnRoof,view);
+assert.equal(edgeOnResult.status,'REVIEW_REQUIRED','Noncollapsed edge-on face must never claim verified');
+assert.equal(edgeOnResult.counts.edgeOnFaces,1);
+assert.equal(edgeOnResult.counts.collapsedEdges,0,'Every source edge has a nonzero screen length');
+assert(edgeOnResult.segments.length===3&&edgeOnResult.segments.every(s=>s.visibility==='UNRESOLVED'));
+console.log('PASS noncollapsed edge-on triangle is review-required, never falsely verified');
 
 const d4=pondyCandidateRegistry.candidates.find(c=>c.id==='pondy-d4');
 assert(d4);
