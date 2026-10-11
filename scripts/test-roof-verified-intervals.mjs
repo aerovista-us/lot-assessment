@@ -112,3 +112,13 @@ const bNorth=verifyRoofEdgeIntervals(roofDrawingHandoff(homeB),view);
 assert.equal(bNorth.status,'REVIEW_REQUIRED','Home B cannot be promoted before junction/edge-on review');
 assert(bNorth.counts.unresolved>0&&bNorth.counts.collapsedEdges>0,'Home B review findings are expected to remain visible');
 console.log('PASS 4/4 locked D4 roof owners, 4 cardinal views + 4 rotated axons each, Home B valleys');
+const pondyCamera={kind:'CUSTOM',screenX:[5.2,-3.2,0],screenY:[-1.55,-1.35,-8.2],depth:[-26.24,-42.64,11.98]};
+for(const item of validated){
+ const locked=roofDrawingHandoff(item);
+ const verified=verifyRoofEdgeIntervals(locked,pondyCamera);
+ assert.equal(verified.status,'INTERVAL_VERIFIED',item.ownerId+' Pondy axon model visibility');
+ assert.equal(verified.counts.unresolved,0);
+ coverage(verified,locked.faces);
+}
+assert.equal(verifyRoofEdgeIntervals(roof([front]),{kind:'CUSTOM',screenX:[1,0,0],screenY:[1,0,0],depth:[0,0,1]}).status,'WITHHELD');
+console.log('PASS exact Pondy camera interval geometry for all four owners, invalid custom camera withheld');
