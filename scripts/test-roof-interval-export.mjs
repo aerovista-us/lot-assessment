@@ -10,6 +10,7 @@ runInNewContext(script,context);
 const module=context.Lot2Design4RoofIntervals;
 assert.equal(module.manifest.schemaVersion,'lotscope-verified-roof-intervals-v1');
 assert.equal(module.manifest.owners.length,4);
+assert.equal(JSON.stringify(module.manifest.camera.cardinalDepthDirections),JSON.stringify({north:'NEGATIVE_Y',south:'POSITIVE_Y',east:'POSITIVE_X',west:'NEGATIVE_X'}));
 for(const source of module.manifest.owners){
  const faces=JSON.parse(source.surfaceFacesKey).map(([id,polygon])=>({id,polygon}));
  const sample={ownerId:source.ownerId,ownerGeometryKey:source.ownerGeometryKey,surfaceFaces:faces};
