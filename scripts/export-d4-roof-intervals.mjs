@@ -8,7 +8,10 @@ if(!candidate)throw Error('Design 4 candidate missing');
 const checked=validateCandidateRoofs(candidate.components);
 if(!checked.safe||checked.results.length!==4||checked.locked!==4)throw Error('Four locked roof owners required');
 const iso={kind:'CUSTOM',screenX:[5.2,-3.2,0],screenY:[-1.55,-1.35,-8.2],depth:[-26.24,-42.64,11.98]};
-// Pondy north looks from -Y, south from +Y. LotScope canonical projector\n// uses depth +Y for NORTH and -Y for SOUTH; swap the source views, then\n// mirror their screen-x axes in the consumer to preserve Pondy site coordinates.\nconst views={north:{kind:'ELEVATION',view:'SOUTH'},south:{kind:'ELEVATION',view:'NORTH'},
+// Pondy north looks from -Y, south from +Y. LotScope canonical projector
+// uses depth +Y for NORTH and -Y for SOUTH; swap the source views, then
+// mirror their screen-x axes in the consumer to preserve Pondy site coordinates.
+const views={north:{kind:'ELEVATION',view:'SOUTH'},south:{kind:'ELEVATION',view:'NORTH'},
  east:{kind:'ELEVATION',view:'EAST'},west:{kind:'ELEVATION',view:'WEST'},'pondy-iso-01':iso};
 const owners=checked.results.map(roof=>{
  const handoff=roofDrawingHandoff(roof);
