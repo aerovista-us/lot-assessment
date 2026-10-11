@@ -5,6 +5,9 @@ on:
     branches: [main]
     paths:
       - 'packages/roof-geometry/**'
+      - 'app/workbench/roof-drawings/**'
+      - 'package.json'
+      - 'scripts/test-roof-interval-component.tsx'
       - 'scripts/test-roof-*.mjs'
       - 'scripts/test-intervention-editor.mjs'
       - 'scripts/test-canonical.mjs'
@@ -12,6 +15,9 @@ on:
   pull_request:
     paths:
       - 'packages/roof-geometry/**'
+      - 'app/workbench/roof-drawings/**'
+      - 'package.json'
+      - 'scripts/test-roof-interval-component.tsx'
       - 'scripts/test-roof-*.mjs'
       - 'scripts/test-intervention-editor.mjs'
       - 'scripts/test-canonical.mjs'
