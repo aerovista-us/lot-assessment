@@ -34,7 +34,7 @@ export default function RoofDrawingInspector(){
     <p>Plan faces: {plan.faces.length} · North elevation faces: {north.faces.length}</p>
     <p>Section intersections: {section.segments.length} · Axon faces: {axon.faces.length}</p>
     <p>Fascia: {handoff.status==='AUTHORITATIVE'&&handoff.fascia?'Approved':'Withheld pending design authority'}</p>
-    <div aria-label="Roof interval verification QA summary">{visibility.map(({view,result})=><p key={view}><strong>{view} intervals:</strong> {result.status==='WITHHELD'?'WITHHELD':`${result.status} · ${result.counts.visible} visible · ${result.counts.hidden} hidden · ${result.counts.unresolved} unresolved · ${result.counts.collapsedEdges} edge-on / collapsed`} · CONCEPT ONLY</p>)}</div>
+    <div aria-label="Roof interval verification QA summary">{visibility.map(({view,result})=><p key={view}><strong>{view} intervals:</strong> {result.status==='WITHHELD'?'WITHHELD':`${result.status} · ${result.counts.visible} visible · ${result.counts.hidden} hidden · ${result.counts.unresolved} unresolved · ${result.counts.edgeOnFaces} edge-on faces · ${result.counts.collapsedEdges} collapsed edges`} · CONCEPT ONLY</p>)}</div>
     <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(240px,1fr))',gap:16,marginTop:16}}>
      <RoofView title="Plan" faces={plan.faces}/>
      <RoofView title="North elevation" faces={north.faces}/>
