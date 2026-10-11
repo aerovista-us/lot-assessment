@@ -89,6 +89,16 @@ for(const item of validated){
   coverage(verified,handoff.faces);
  }
 }
+for(const item of validated){
+ const handoff=roofDrawingHandoff(item);
+ for(const azimuth of [0,Math.PI/2])for(const elevation of [0.001,Math.PI/2-0.001]){
+  const steep=verifyRoofEdgeIntervals(handoff,{kind:'AXON',azimuth,elevation});
+  assert(['INTERVAL_VERIFIED','REVIEW_REQUIRED'].includes(steep.status),item.ownerId+' near-degenerate camera');
+  assert(steep.segments.every(s=>[...s.start,...s.end].every(Number.isFinite)));
+  coverage(steep,handoff.faces);
+ }
+}
+console.log('PASS near-horizon and nearly overhead camera views remain finite and conservatively classified');
 const homeB=validated.find(r=>r.ownerId==='home-b');
 assert(homeB&&homeB.junctions.length>0);
 const bNorth=verifyRoofEdgeIntervals(roofDrawingHandoff(homeB),view);
