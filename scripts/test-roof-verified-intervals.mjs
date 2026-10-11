@@ -28,6 +28,11 @@ assert(bottom.some(s=>s.visibility==='VISIBLE'&&s.start[0]<1));
 assert(bottom.some(s=>s.visibility==='HIDDEN'&&s.end[0]>3));
 assert(bottom.some(s=>Math.abs(s.start[0]-2)<1e-7||Math.abs(s.end[0]-2)<1e-7));
 console.log('PASS exact front/hidden intervals across projected face boundary');
+const siteNorth=verifyRoofEdgeIntervals(roof([face('north-near',1,0,4),face('north-far',3,0,4)]),{kind:'ELEVATION',view:'SOUTH'});
+assert.equal(siteNorth.status,'INTERVAL_VERIFIED');
+assert(partition(siteNorth,'north-near',0).every(s=>s.visibility==='VISIBLE'));
+assert(partition(siteNorth,'north-far',0).every(s=>s.visibility==='HIDDEN'));
+console.log('PASS Pondy north-facing viewer from -Y sees the near roof face in front');
 
 const coincidentScreen=verifyRoofEdgeIntervals(roof([face('far',1,0,4),face('near',3,0,4)]),view);
 assert.equal(coincidentScreen.status,'INTERVAL_VERIFIED');
@@ -112,3 +117,13 @@ const bNorth=verifyRoofEdgeIntervals(roofDrawingHandoff(homeB),view);
 assert.equal(bNorth.status,'REVIEW_REQUIRED','Home B cannot be promoted before junction/edge-on review');
 assert(bNorth.counts.unresolved>0&&bNorth.counts.collapsedEdges>0,'Home B review findings are expected to remain visible');
 console.log('PASS 4/4 locked D4 roof owners, 4 cardinal views + 4 rotated axons each, Home B valleys');
+const pondyCamera={kind:'CUSTOM',screenX:[5.2,-3.2,0],screenY:[-1.55,-1.35,-8.2],depth:[-26.24,-42.64,11.98]};
+for(const item of validated){
+ const locked=roofDrawingHandoff(item);
+ const verified=verifyRoofEdgeIntervals(locked,pondyCamera);
+ assert.equal(verified.status,'INTERVAL_VERIFIED',item.ownerId+' Pondy axon model visibility');
+ assert.equal(verified.counts.unresolved,0);
+ coverage(verified,locked.faces);
+}
+assert.equal(verifyRoofEdgeIntervals(roof([front]),{kind:'CUSTOM',screenX:[1,0,0],screenY:[1,0,0],depth:[0,0,1]}).status,'WITHHELD');
+console.log('PASS exact Pondy camera interval geometry for all four owners, invalid custom camera withheld');
