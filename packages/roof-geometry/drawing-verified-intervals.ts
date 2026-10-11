@@ -12,7 +12,7 @@ import {validProjectedFaces} from '@/packages/roof-geometry/drawing-input-guard'
 type P2=readonly [number,number];
 type P3=readonly [number,number,number];
 type Cardinal='NORTH'|'SOUTH'|'EAST'|'WEST';
-export type RoofViewSpec={kind:'ELEVATION';view:Cardinal}|{kind:'AXON';azimuth:number;elevation:number};
+export type RoofViewSpec={kind:'ELEVATION';view:Cardinal}|{kind:'AXON';azimuth:number;elevation:number}|{kind:'CUSTOM';screenX:readonly [number,number,number];screenY:readonly [number,number,number];depth:readonly [number,number,number]};
 export type EdgeInterval={
  faceId:string;edgeIndex:number;t0:number;t1:number;start:P2;end:P2;
  visibility:'VISIBLE'|'HIDDEN'|'UNRESOLVED'|'INTERNAL_SEAM'|'DUPLICATE_SHARED';
@@ -34,6 +34,7 @@ function frame(p:P3,view:RoofViewSpec):P3{
    case 'WEST':return [y,z,-x];
   }
  }
+ if(view.kind==='CUSTOM')return [view.screenX[0]*x+view.screenX[1]*y+view.screenX[2]*z,view.screenY[0]*x+view.screenY[1]*y+view.screenY[2]*z,view.depth[0]*x+view.depth[1]*y+view.depth[2]*z];
  const ca=Math.cos(view.azimuth),sa=Math.sin(view.azimuth),ce=Math.cos(view.elevation),se=Math.sin(view.elevation);
  return [x*ca+y*sa,-x*sa*se+y*ca*se+z*ce,x*sa*ce-y*ca*ce+z*se];
 }
@@ -117,6 +118,13 @@ export function verifyRoofEdgeIntervals(roof:RoofDrawingHandoff,view:RoofViewSpe
  if(!validProjectedFaces(roof))return withheld('Invalid or unbound roof face geometry');
  if(view.kind==='ELEVATION'&&!(['NORTH','SOUTH','EAST','WEST'] as string[]).includes(view.view))return withheld('Invalid cardinal direction');
  if(view.kind==='AXON'&&(!Number.isFinite(view.azimuth)||!Number.isFinite(view.elevation)||view.elevation<=0||view.elevation>=Math.PI/2))return withheld('Invalid camera geometry');
+ if(view.kind==='CUSTOM'){
+  const rows=[view.screenX,view.screenY,view.depth];
+  if(rows.some(r=>!Array.isArray(r)||r.length!==3||r.some(x=>!Number.isFinite(x))))return withheld('Invalid custom projection matrix');
+  const [u,v,w]=rows;
+  const determinant=u[0]*(v[1]*w[2]-v[2]*w[1])-u[1]*(v[0]*w[2]-v[2]*w[0])+u[2]*(v[0]*w[1]-v[1]*w[0]);
+  if(Math.abs(determinant)<1e-7)return withheld('Degenerate custom projection matrix');
+ }
  const faces=roof.faces.map(face=>({id:face.id,world:face.polygon as readonly P3[],points:face.polygon.map(p=>frame(p as P3,view))}));
  const planes=new Map(faces.map(face=>[face.id,depthPlane(face.points)]));
  const edgeOnFaces=faces.filter(face=>planes.get(face.id)===null).length;
