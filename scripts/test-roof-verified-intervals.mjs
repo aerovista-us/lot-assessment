@@ -43,6 +43,16 @@ assert(adjacent.segments.some(s=>s.visibility==='INTERNAL_SEAM'));
 assert(adjacent.segments.every(s=>s.visibility!=='UNRESOLVED'));
 console.log('PASS coplanar adjacent internal seam suppression');
 
+const gableLeft={id:'gable-left',polygon:[[0,-1,-1],[4,-1,1],[4,1,3],[0,1,1]]};
+const gableRight={id:'gable-right',polygon:[[0,1,1],[4,1,3],[4,3,1],[0,3,-1]]};
+const slopedRidge=verifyRoofEdgeIntervals(roof([gableLeft,gableRight]),{kind:'AXON',azimuth:0,elevation:Math.PI/6});
+assert.equal(slopedRidge.status,'INTERVAL_VERIFIED');
+assert(slopedRidge.segments.some(s=>s.visibility==='DUPLICATE_SHARED'));
+assert(!slopedRidge.segments.some(s=>s.visibility==='UNRESOLVED'));
+coverage(slopedRidge,[gableLeft,gableRight]);
+console.log('PASS sloped shared 3D ridge receives one physical stroke without false unresolved status');
+
+
 const coplanar=verifyRoofEdgeIntervals(roof([face('a',2,0,4),face('b',2,1,3)]),view);
 assert.equal(coplanar.status,'REVIEW_REQUIRED');
 assert(coplanar.segments.some(s=>s.visibility==='UNRESOLVED'));
