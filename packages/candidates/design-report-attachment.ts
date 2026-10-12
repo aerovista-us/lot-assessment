@@ -1,5 +1,6 @@
 import type {CandidateRecord,PlacementComponent,PolygonComponent} from '@/packages/candidates';
 import {validateDesignDocument,type DesignDocument,type P2} from '@/packages/candidates/design-document';
+import {renderUniversalSolvePreview} from '@/packages/candidates/design-solution-report';
 import {placementPolygon} from '@/packages/roof-geometry';
 const escape=(s:unknown)=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
 const fmt=(v:number)=>Number(v.toFixed(3));
@@ -28,5 +29,5 @@ export function renderDesignDocumentAttachment(candidate:CandidateRecord,doc:Des
   '<h2>Attached universal Design Workspace geometry</h2>'+
   '<p class="source-boundary"><b>DRAFT SHAPES ONLY.</b> Floor regions and roof-zone concepts come from the shared multi-design engine, bound to this exact candidate revision. They are not room-plan closure, solved roof geometry, elevations, structure or a permit. If the source footprint changes, the attachment is rejected until reconciled.</p>'+
   '<p>Source revision '+escape(doc.sourceRevision)+' · Design document revision '+doc.revision+' · '+doc.shapes.length+' editable shapes</p>'+
-  '<div class="design-attached-grid">'+figs+'</div></section>';
+  '<div class="design-attached-grid">'+figs+'</div></section>'+renderUniversalSolvePreview(candidate,doc);
 }

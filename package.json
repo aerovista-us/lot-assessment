@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "tsc --noEmit",
     "test:canonical": "node scripts/test-canonical.mjs",
+    "test:universal-design-solving": "node --experimental-loader ./scripts/alias-loader.mjs scripts/test-universal-design-solving.mjs",
     "test:universal-design": "node --experimental-loader ./scripts/alias-loader.mjs scripts/test-universal-design-document.mjs",
     "test:room-packing": "node scripts/test-room-packing.mjs",
     "test:workspace": "node --experimental-loader ./scripts/alias-loader.mjs scripts/test-candidate-workspace.mjs",
