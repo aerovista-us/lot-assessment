@@ -1,5 +1,6 @@
 import type {CandidateRecord,PlacementComponent,PolygonComponent,PathComponent} from '@/packages/candidates';
 import {signedPolygonArea} from '@/packages/candidates/geometry-integrity';
+import {placementPolygon} from '@/packages/roof-geometry';
 
 /** Schematic views consume immutable footprint vertices. They never author
  * missing wall heights, roofs, openings, structural/drainage data or bearings.
@@ -22,10 +23,7 @@ function validatePolygon(poly:ReadonlyArray<P>,id:string){
 }
 export function getPlacementFootprint(c:PlacementComponent):P[]{
  if(!finite(c.x)||!finite(c.y)||!(c.widthFt>0)||!(c.depthFt>0)||!finite(c.rotationDeg??0))throw Error('Invalid placement '+c.id);
- const p: ReadonlyArray<P>=c.polygon?.length?c.polygon:[[c.x,c.y],[c.x+c.widthFt,c.y],[c.x+c.widthFt,c.y+c.depthFt],[c.x,c.y+c.depthFt]];
- validatePolygon(p,c.id);
- const angle=(c.rotationDeg??0)*Math.PI/180,cx=c.x+c.widthFt/2,cy=c.y+c.depthFt/2;
- const out=p.map(([x,y])=>[cx+(x-cx)*Math.cos(angle)-(y-cy)*Math.sin(angle),cy+(x-cx)*Math.sin(angle)+(y-cy)*Math.cos(angle)] as P);
+ const out=placementPolygon(c).map(p=>[p[0],p[1]] as P);
  validatePolygon(out,c.id);
  return out;
 }

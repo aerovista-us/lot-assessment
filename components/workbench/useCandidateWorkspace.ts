@@ -12,6 +12,7 @@ import {
   mergeCandidateRegistry,
   restoreWorkspaceCheckpoint,
   upsertWorkspaceCandidate,
+  saveWorkspaceDesignDocument,
   type CandidateWorkspaceState,
   type ImportMode
 } from "@/packages/candidates/workspace";
@@ -71,6 +72,11 @@ export function useCandidateWorkspace(base: CandidateRegistry) {
     return candidate;
   }, [commit]);
 
+  const saveDesignDocument = useCallback((candidate:CandidateRecord,document:import("@/packages/candidates/design-document").DesignDocument)=>{
+    const next=saveWorkspaceDesignDocument(readWorkspace(),candidate,document);
+    commit(next);return document;
+  },[commit]);
+
   const checkpointCandidate = useCallback((candidateId: string, label?: string) => {
     const current = readWorkspace();
     const merged = mergeCandidateRegistry(base, current);
@@ -110,6 +116,7 @@ export function useCandidateWorkspace(base: CandidateRegistry) {
     workspace,
     registry,
     saveCandidate,
+    saveDesignDocument,
     checkpointCandidate,
     branchCandidate,
     importCandidatePackage,

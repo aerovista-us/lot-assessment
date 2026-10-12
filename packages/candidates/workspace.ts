@@ -11,6 +11,8 @@ import {
   type LotScopePackage
 } from "@/packages/candidates";
 
+import {designSourceSignature, validateDesignDocument, type DesignDocument} from "@/packages/candidates/design-document";
+
 export const WORKSPACE_SCHEMA_VERSION = "lotscope-workspace-v1" as const;
 
 export type CandidateWorkspaceState = {
@@ -18,12 +20,13 @@ export type CandidateWorkspaceState = {
   updatedAt: string;
   candidates: CandidateRecord[];
   checkpoints: CheckpointRecord[];
+  designDocuments?: DesignDocument[];
 };
 
 export type ImportMode = "COPY" | "VARIANT" | "NEW_DESIGN";
 
 export function emptyCandidateWorkspace(updatedAt = new Date().toISOString()): CandidateWorkspaceState {
-  return { schemaVersion: WORKSPACE_SCHEMA_VERSION, updatedAt, candidates: [], checkpoints: [] };
+  return { schemaVersion: WORKSPACE_SCHEMA_VERSION, updatedAt, candidates: [], checkpoints: [], designDocuments: [] };
 }
 function deepCloneEvaluationHistory(candidate: CandidateRecord): CandidateRecord["evaluationHistory"] {
   return candidate.evaluationHistory.map((evaluation) => ({
@@ -68,6 +71,15 @@ export function upsertWorkspaceCandidate(
   if (existing >= 0) candidates[existing] = cloned;
   else candidates.push(cloned);
   return { ...state, updatedAt, candidates };
+}
+
+export function saveWorkspaceDesignDocument(
+  state:CandidateWorkspaceState,candidate:CandidateRecord,document:DesignDocument,
+  now=new Date().toISOString()
+):CandidateWorkspaceState{
+  validateDesignDocument(candidate,document);
+  const remaining=(state.designDocuments??[]).filter(item=>item.candidateId!==candidate.id);
+  return {...state,updatedAt:now,designDocuments:[...remaining,structuredClone(document)]};
 }
 
 function compactToken(iso: string) {
@@ -174,7 +186,11 @@ export function createWorkspaceExportPackage(
   candidateId: string,
   exportedAt = new Date().toISOString()
 ) {
-  return createExportPackage(mergeCandidateRegistry(base, state), candidateId, exportedAt);
+  const pkg=createExportPackage(mergeCandidateRegistry(base,state),candidateId,exportedAt);
+  if(!pkg)return null;
+  const doc=(state.designDocuments??[]).find(x=>x.candidateId===candidateId);
+  if(doc){validateDesignDocument(pkg.candidate,doc);return {...pkg,designDocument:structuredClone(doc)};}
+  return pkg;
 }
 
 export function isLotScopePackage(value: unknown): value is LotScopePackage {
@@ -238,6 +254,17 @@ export function importWorkspacePackage(args: {
     tags: [...new Set([...candidate.tags, "imported", "requires-revalidation"])],
     staffNotes: [...candidate.staffNotes, `Imported from ${args.pkg.candidate.id} using ${mode.toLowerCase()} mode.`]
   };
+  // Imported draft shapes are only carried if their original source matches
+  // the exact supplied package. A new candidate ID is rebound as a DRAFT, never
+  // inheriting roof/room professional approval.
+  let importedDoc:DesignDocument|undefined;
+  if(args.pkg.designDocument){
+    validateDesignDocument(args.pkg.candidate,args.pkg.designDocument);
+    importedDoc={...structuredClone(args.pkg.designDocument),
+      candidateId:candidate.id,projectId:candidate.projectId,sourceRevision:candidate.revisionLabel,
+      sourceSignature:designSourceSignature(candidate),revision:0,updatedAt:createdAt};
+    validateDesignDocument(candidate,importedDoc);
+  }
   const candidateState = upsertWorkspaceCandidate(args.state, candidate, createdAt);
   const imported = importedCheckpoints(args.pkg, candidate.id, token);
   const checkpointIds = new Set(imported.map((checkpoint) => checkpoint.id));
@@ -245,7 +272,8 @@ export function importWorkspacePackage(args: {
     ...candidateState.checkpoints.filter((checkpoint) => !checkpointIds.has(checkpoint.id)),
     ...imported
   ];
-  return { state: { ...candidateState, checkpoints, updatedAt: createdAt }, candidate };
+  const withDoc=importedDoc?saveWorkspaceDesignDocument(candidateState,candidate,importedDoc,createdAt):candidateState;
+  return {state:{...withDoc,checkpoints,updatedAt:createdAt},candidate};
 }
 
 export function restoreWorkspaceCheckpoint(args: {

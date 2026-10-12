@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { CandidatePlan } from "@/components/workbench/CandidatePlan";
+import {UniversalDesignEditor} from "@/components/workbench/UniversalDesignEditor";
 import { createCandidateConceptHtml } from "@/packages/candidates/customer-report";
 import { InterventionEditor } from "@/components/workbench/InterventionEditor";
 import { useCandidateWorkspace } from "@/components/workbench/useCandidateWorkspace";
@@ -147,7 +148,8 @@ export function CandidateWorkspaceClient({ candidateId }: { candidateId: string 
 
   async function createCustomerReport() {
     try {
-      const result=await createCandidateConceptHtml(activeCandidate);
+      const attachment=workspace.workspace.designDocuments?.find(x=>x.candidateId===activeCandidate.id);
+      const result=await createCandidateConceptHtml(activeCandidate,attachment);
       const blob=new Blob([result.html],{type:"text/html;charset=utf-8"});
       const href=URL.createObjectURL(blob);
       const anchor=document.createElement("a");
@@ -190,6 +192,10 @@ export function CandidateWorkspaceClient({ candidateId }: { candidateId: string 
       <p className="microcopy">Customer report is a private, downloadable concept HTML. Full roof views, room plans and elevations require source-approved geometry; no public publishing is triggered.</p>
       {message && <p className="microcopy lifecycle-message">{message}</p>}
     </section>
+
+    <UniversalDesignEditor candidate={activeCandidate}
+      document={workspace.workspace.designDocuments?.find(x=>x.candidateId===activeCandidate.id)}
+      onSave={doc=>{workspace.saveDesignDocument(activeCandidate,doc);setMessage("Design document attached to this candidate revision; Create Customer Report will now include the draft shapes.");}}/>
 
     <section className="candidate-workspace-grid">
       <article className="wb-panel candidate-plan-panel">

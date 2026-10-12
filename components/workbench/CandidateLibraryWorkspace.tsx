@@ -90,7 +90,8 @@ export function CandidateLibraryWorkspace() {
     const candidate=workspace.registry.candidates.find(item=>item.id===candidateId);
     if(!candidate)return setMessage("Candidate not found for report.");
     try{
-      const report=await createCandidateConceptHtml(candidate);
+      const attached=workspace.workspace.designDocuments?.find(x=>x.candidateId===candidate.id);
+      const report=await createCandidateConceptHtml(candidate,attached);
       const blob=new Blob([report.html],{type:"text/html;charset=utf-8"});
       const href=URL.createObjectURL(blob);
       const anchor=document.createElement("a");

@@ -222,6 +222,8 @@ export type LotScopePackage = {
   candidate: CandidateRecord;
   checkpoints: CheckpointRecord[];
   historicalEvidenceOnly: boolean;
+  /** Optional private, candidate-specific draft shapes; never professional authority. */
+  designDocument?: import("@/packages/candidates/design-document").DesignDocument;
 };
 
 export function currentEvaluation(candidate: CandidateRecord) {
