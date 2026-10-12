@@ -11,6 +11,8 @@ on:
       - 'scripts/test-candidate-customer-report.mjs'
       - 'packages/candidates/customer-report.ts'
       - 'packages/candidates/customer-report-views.ts'
+      - 'packages/candidates/customer-report-roof-gallery.ts'
+      - 'scripts/test-customer-report-roof-gallery.mjs'
       - 'components/workbench/CandidateWorkspaceClient.tsx'
       - 'components/workbench/CandidateLibraryWorkspace.tsx'
       - 'package.json'
@@ -45,6 +47,8 @@ jobs:
         run: npm run test:roof-inspector
       - name: Candidate report geometry, 22-feature coverage and roof authority fail-closed
         run: node --experimental-loader ./scripts/alias-loader.mjs scripts/test-candidate-customer-report.mjs
+      - name: Roof gallery all-owner projection evidence and fail-closed acceptance
+        run: node --experimental-loader ./scripts/alias-loader.mjs scripts/test-customer-report-roof-gallery.mjs
       - name: Production build
         run: npm run build
       - name: Anonymous boundary smoke
