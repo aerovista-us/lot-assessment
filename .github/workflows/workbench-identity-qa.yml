@@ -10,6 +10,7 @@ on:
       - 'scripts/test-workbench-handoff-failure.mjs'
       - 'scripts/test-candidate-customer-report.mjs'
       - 'packages/candidates/customer-report.ts'
+      - 'packages/candidates/customer-report-views.ts'
       - 'components/workbench/CandidateWorkspaceClient.tsx'
       - 'components/workbench/CandidateLibraryWorkspace.tsx'
       - 'package.json'

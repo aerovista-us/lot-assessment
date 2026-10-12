@@ -98,7 +98,7 @@ export function CandidateLibraryWorkspace() {
       anchor.download=candidate.id+"-customer-concept.html";
       document.body.appendChild(anchor);anchor.click();anchor.remove();
       window.setTimeout(()=>URL.revokeObjectURL(href),30000);
-      setMessage("Downloaded private customer concept report for "+candidate.revisionLabel+". "+report.features.length+" report topics included; missing roof and architectural sheets are explicitly withheld. Open HTML or Print to PDF.");
+      setMessage("Downloaded private customer concept report for "+candidate.revisionLabel+". "+report.features.length+" report topics included, plus schematic axon, source shells and four model-direction projections. Missing actual roof/room drawings remain withheld. Open HTML or Print to PDF.");
     }catch(cause){setMessage(cause instanceof Error?cause.message:"Unable to generate candidate report.");}
   }
   async function importFile(event: ChangeEvent<HTMLInputElement>) {
