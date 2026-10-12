@@ -4,7 +4,7 @@ import type {CandidateRecord} from "@/packages/candidates";
 import {placementPolygon} from "@/packages/roof-geometry";
 import {
  addDesignShape,addOwnerFootprintShape,emptyDesignDocument,removeDesignShape,addDraftDoor,setDraftRoofParameters,
- sourceBuildingOwners,validateDesignDocument,updateDesignShapePolygon,snapDesignPoint,type DesignDocument,type DesignShape,type P2
+ sourceBuildingOwners,validateDesignDocument,updateDesignShapePolygon,snapDesignPoint,partitionDesignShape,type DesignDocument,type DesignShape,type P2
 } from "@/packages/candidates/design-document";
 import {solveUniversalDesign} from "@/packages/candidates/design-solving";
 type Props={candidate:CandidateRecord;document?:DesignDocument;onSave:(doc:DesignDocument)=>void};
@@ -18,6 +18,8 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
  const [note,setNote]=useState("");
  const [editingShapeId,setEditingShapeId]=useState("");
  const [snapGrid,setSnapGrid]=useState("0.5");
+ const [partitionAxis,setPartitionAxis]=useState<"X"|"Y">("X");
+ const [partitionOffset,setPartitionOffset]=useState("");
  const [drag,setDrag]=useState<{shapeId:string;index:number;point:P2}|null>(null);
  const [wallIndex,setWallIndex]=useState(0);
  const [doorWidth,setDoorWidth]=useState("3");
@@ -82,6 +84,16 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
  function drop(id:string){
   try{if(stale)throw Error("Source geometry changed; prior shapes cannot be edited.");onSave(removeDesignShape(candidate,base,id));setNote("Shape removed from the design document.");}
   catch(e){setNote(e instanceof Error?e.message:"Cannot remove shape.");}
+ }
+ function partitionSelected(){
+  try{
+   if(stale)throw Error("Design source changed; partition unavailable");
+   if(!editingShapeId)throw Error("Choose a floor shape to partition");
+   if(!partitionOffset.trim())throw Error("Enter the model-space cut coordinate");
+   const value=Number(partitionOffset);
+   const next=partitionDesignShape(candidate,base,editingShapeId,partitionAxis,value);
+   onSave(next);setEditingShapeId("");setNote("Floor split into two source-validated polygons; affected doors cleared for re-authoring.");
+  }catch(error){setNote(error instanceof Error?error.message:"Partition failed");}
  }
  function pointerPoint(e:React.PointerEvent<SVGCircleElement>):P2|null{
   const svg=e.currentTarget.ownerSVGElement;
@@ -167,7 +179,12 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
     <select id="design-snap" value={snapGrid} onChange={e=>setSnapGrid(e.target.value)}>
      <option value="0.25">0.25 ft</option><option value="0.5">0.5 ft</option><option value="1">1 ft</option>
     </select>
-    <p className="microcopy">Drag an editable vertex; invalid moves outside the source owner or through polygon edges are rejected. Blue: floor concepts. Amber: roof-zone proposals.</p>
+    <div className="grid" style={{gridTemplateColumns:"1fr 1fr",gap:8}}>
+     <label className="microcopy">Partition axis<select value={partitionAxis} onChange={e=>setPartitionAxis(e.target.value as "X"|"Y")}><option value="X">Vertical cut (X)</option><option value="Y">Horizontal cut (Y)</option></select></label>
+     <label className="microcopy">Cut coordinate (model ft)<input inputMode="decimal" value={partitionOffset} onChange={e=>setPartitionOffset(e.target.value)} placeholder="Absolute model coordinate" /></label>
+    </div>
+    <button className="secondary-button" type="button" onClick={partitionSelected} disabled={stale||!editingShapeId}>Split selected floor shape</button>
+    <p className="microcopy">Drag an editable vertex; invalid moves outside the source owner or through polygon edges are rejected. Partition divides the selected floor polygon along a model X or Y line, validates both halves and clears dependent draft doors. Blue: floor concepts. Amber: roof-zone proposals.</p>
    </div>
   </div>
   <div className="candidate-detail-grid" style={{marginBlock:20}}>
