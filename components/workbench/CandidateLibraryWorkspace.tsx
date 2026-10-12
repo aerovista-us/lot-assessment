@@ -131,7 +131,7 @@ export function CandidateLibraryWorkspace() {
     {message && <p className="microcopy lifecycle-message">{message}</p>}
     {!workspace.ready && <div className="staff-empty-state wb-panel">Loading local candidate workspace…</div>}
     <CandidateSection title="RECOMMENDED" subtitle="Passing, high-value options" candidates={recommended} localIds={localIds} onExport={exportCandidate} onReport={createReport} />
-    <CandidateSection title="ACCEPTABLE FOR INTERVENTION" subtitle="Promising partial failures worth staff time" candidates={intervention} localIds={localIds} onExport={exportCandidate} />
-    <CandidateSection title="DRAFT / REJECTED / HISTORY" subtitle="Preserved work, imported packages and new branches" candidates={history} localIds={localIds} onExport={exportCandidate} />
+    <CandidateSection title="ACCEPTABLE FOR INTERVENTION" subtitle="Promising partial failures worth staff time" candidates={intervention} localIds={localIds} onExport={exportCandidate} onReport={createReport} />
+    <CandidateSection title="DRAFT / REJECTED / HISTORY" subtitle="Preserved work, imported packages and new branches" candidates={history} localIds={localIds} onExport={exportCandidate} onReport={createReport} />
   </>;
 }
