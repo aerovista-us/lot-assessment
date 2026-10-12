@@ -193,3 +193,53 @@ export function snapDesignPoint(point:P2,gridFt:number):P2{
   throw Error('Invalid design snap grid or point');
  return [Math.round(point[0]/gridFt)*gridFt,Math.round(point[1]/gridFt)*gridFt];
 }
+
+/** Split an authored floor shape by an axis-aligned partition in model feet.
+ * This is geometry only; not an approved structure, door or circulation plan.
+ * All doors touching the original room are invalidated rather than retargeted. */
+export function partitionDesignShape(
+ c:CandidateRecord,d:DesignDocument,shapeId:string,axis:'X'|'Y',coordinateFt:number,
+ labels?:[string,string],now=new Date().toISOString()
+):DesignDocument{
+ validateDesignDocument(c,d);
+ const original=d.shapes.find(s=>s.id===shapeId);
+ if(!original||!['ROOM','CIRCULATION','FLOOR_PLATE'].includes(original.kind))
+  throw Error('Only floor shapes may be partitioned');
+ if(!Number.isFinite(coordinateFt)||!['X','Y'].includes(axis))throw Error('Invalid partition line');
+ const index=axis==='X'?0:1;
+ const clip=(less:boolean):P2[]=>{
+  const kept:P2[]=[];
+  const poly=original.polygon;
+  const inside=(p:P2)=>less?p[index]<=coordinateFt+EPS:p[index]>=coordinateFt-EPS;
+  for(let i=0;i<poly.length;i++){
+   const a=poly[i],b=poly[(i+1)%poly.length],inA=inside(a),inB=inside(b);
+   if(inA)kept.push([...a] as P2);
+   if(inA!==inB){
+    const t=(coordinateFt-a[index])/(b[index]-a[index]);
+    kept.push([a[0]+t*(b[0]-a[0]),a[1]+t*(b[1]-a[1])] as P2);
+   }
+  }
+  const distinct:P2[]=[];
+  for(const p of kept)if(!distinct.length||Math.hypot(p[0]-distinct[distinct.length-1][0],p[1]-distinct[distinct.length-1][1])>EPS)distinct.push(p);
+  if(distinct.length>1&&Math.hypot(distinct[0][0]-distinct[distinct.length-1][0],distinct[0][1]-distinct[distinct.length-1][1])<EPS)distinct.pop();
+  return distinct;
+ };
+ const left=clip(true),right=clip(false);
+ if(left.length<3||right.length<3||Math.abs(signedPolygonArea(left))<.01||Math.abs(signedPolygonArea(right))<.01)
+  throw Error('Partition must divide the interior into two nonzero areas');
+ // Single-cut polygons only. Multiple disjoint islands may not be silently stitched.
+ validPolygon(left,shapeId);validPolygon(right,shapeId);
+ const area=Math.abs(signedPolygonArea(original.polygon));
+ if(Math.abs(Math.abs(signedPolygonArea(left))+Math.abs(signedPolygonArea(right))-area)>1e-4)
+  throw Error('Partition produced disjoint or inaccurate geometry');
+ let seq=1;while(d.shapes.some(s=>s.id==='shape-'+seq))seq++;
+ const childId='shape-'+seq;
+ const next:DesignDocument={...d,revision:d.revision+1,updatedAt:now,
+  shapes:d.shapes.flatMap(s=>s.id===shapeId?[
+   {...s,label:labels?.[0]?.trim()||s.label+' A',polygon:left},
+   {...s,id:childId,label:labels?.[1]?.trim()||s.label+' B',polygon:right}
+  ]:[s]),
+  doors:(d.doors??[]).filter(x=>x.fromRoomId!==shapeId&&x.toRoomId!==shapeId)};
+ validateDesignDocument(c,next);
+ return next;
+}
