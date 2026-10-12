@@ -30,6 +30,8 @@ const report=await createCandidateConceptHtml(original);
 assert.equal((report.html.match(/data-report-feature="/g)||[]).length,22);
 assert.equal((report.html.match(/data-roof-camera="/g)||[]).length,20);
 assert(report.html.includes('id="roof-evidence"'));
+assert(report.html.includes('vector-effect:non-scaling-stroke'),'Locked roof lines must use readable screen-space stroke widths');
+assert(report.html.includes('Z-up display'),'Roof camera vertical screen axis must be correctly oriented');
 assert(report.html.includes('Roof source projection and junction evidence'));
 assert(report.html.includes('No drainage, structural, fascia, architectural hidden-line or AHJ approval'));
 assert(report.html.includes('CONCEPT ONLY — NOT FOR CONSTRUCTION'));

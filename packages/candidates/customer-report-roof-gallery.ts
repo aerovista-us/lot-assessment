@@ -63,7 +63,7 @@ function valleySection(roof:RoofDrawingHandoff){
    (bad?emptyReason('Section REVIEW REQUIRED: two locked faces did not prove a valid source intersection.') :
     '<svg role="img" aria-label="'+esc(cut.label+' precise locked roof face profile')+'" viewBox="'+extent(pts,0.15)+'">'+
     segs.map((s,i)=>'<line data-section-face="'+esc(s.faceId)+'" x1="'+fmt(s.a[0])+'" y1="'+fmt(-s.a[1])+
-     '" x2="'+fmt(s.b[0])+'" y2="'+fmt(-s.b[1])+'" stroke="'+(i%2?'#507b90':'#215671')+'" stroke-width=".14">'+
+     '" x2="'+fmt(s.b[0])+'" y2="'+fmt(-s.b[1])+'" stroke="'+(i%2?'#507b90':'#215671')+'" stroke-width="1.5" vector-effect="non-scaling-stroke">'+
      '<title>'+esc(s.faceId)+' actual roof plane / cut</title></line>').join('')+'</svg>')+
    '<p class="roof-evidence-stats">'+esc(cut.status)+' · '+esc(cut.reason)+' · Drainage, flashing and structural review outstanding.</p></article>';
  }).join('');
