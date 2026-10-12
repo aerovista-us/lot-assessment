@@ -49,6 +49,7 @@ function CandidateCard({ candidate, local, onExport, onReport }: { candidate: Ca
       <div className="candidate-card-actions">
         <Link className="primary-button" href={`/workbench/projects/pondy-lot2/candidates/${candidate.id}`}>Open candidate</Link>
         <button className="secondary-button" type="button" onClick={() => onExport(candidate.id)}>Export .lotscope.json</button>
+        <Link className="secondary-button" href={`/workbench/projects/pondy-lot2/candidates/${candidate.id}#universal-design-editor`}>Build / Edit Design</Link>
         <button className="secondary-button" type="button" onClick={() => onReport(candidate.id)}>Create Customer Report</button>
       </div>
     </div>
