@@ -243,3 +243,42 @@ export function partitionDesignShape(
  validateDesignDocument(c,next);
  return next;
 }
+
+/** Deterministic rectangular draft room-packing seed. The resulting areas are
+ * authored ROOM polygons for the existing shared floor solver, NOT habitable
+ * area, circulation, daylight, framing or egress approvals. */
+export function packDraftRooms(
+ c:CandidateRecord,d:DesignDocument,plateId:string,labels:string[],axis:'X'|'Y',
+ now=new Date().toISOString()
+):DesignDocument{
+ validateDesignDocument(c,d);
+ const plate=d.shapes.find(s=>s.id===plateId);
+ if(!plate||plate.kind!=='FLOOR_PLATE'||plate.story===null)throw Error('Choose a floor plate');
+ if(!['X','Y'].includes(axis)||labels.length<2||labels.length>8||labels.some(l=>!l.trim()))
+  throw Error('Specify 2 to 8 named rooms and a packing direction');
+ const x=plate.polygon.map(p=>p[0]),y=plate.polygon.map(p=>p[1]);
+ const minX=Math.min(...x),maxX=Math.max(...x),minY=Math.min(...y),maxY=Math.max(...y);
+ const area=Math.abs(signedPolygonArea(plate.polygon));
+ if(plate.polygon.length!==4||Math.abs(area-(maxX-minX)*(maxY-minY))>EPS||
+  (maxX-minX)<4||(maxY-minY)<4)
+  throw Error('Automatic draft packing currently supports only axis-aligned rectangular floor plates');
+ if(d.shapes.some(s=>s.ownerId===plate.ownerId&&s.story===plate.story&&['ROOM','CIRCULATION','STAIR_ZONE'].includes(s.kind)))
+  throw Error('Existing rooms/stairs require designer reconciliation before auto packing');
+ const run=axis==='X'?maxX-minX:maxY-minY;
+ if(run/labels.length<4)throw Error('Each seeded room must have at least 4 ft along packing axis');
+ const pieces=labels.map((label,i):P2[]=>{
+  const lo=(axis==='X'?minX:minY)+run*i/labels.length;
+  const hi=(axis==='X'?minX:minY)+run*(i+1)/labels.length;
+  return axis==='X'?[[lo,minY],[hi,minY],[hi,maxY],[lo,maxY]]:
+   [[minX,lo],[maxX,lo],[maxX,hi],[minX,hi]];
+ });
+ let seq=1;
+ const existing=new Set(d.shapes.map(s=>s.id));
+ const added=pieces.map((polygon,i):DesignShape=>{
+  while(existing.has('shape-'+seq))seq++;
+  const id='shape-'+seq++;existing.add(id);
+  return {id,ownerId:plate.ownerId,kind:'ROOM',story:plate.story,label:labels[i].trim(),polygon,status:'DRAFT_UNVERIFIED'};
+ });
+ const next:DesignDocument={...d,revision:d.revision+1,updatedAt:now,shapes:[...d.shapes,...added]};
+ validateDesignDocument(c,next);return next;
+}
