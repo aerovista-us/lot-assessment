@@ -172,3 +172,24 @@ export function setDraftRoofParameters(
   roofParameters:[...without,{...input}]};
  validateDesignDocument(c,next);return next;
 }
+
+/** Revisioned polygon edit. Existing door and roof parameters remain draft data;
+ * consumers must re-solve and may not reuse prior model-preview authority. */
+export function updateDesignShapePolygon(
+ c:CandidateRecord,d:DesignDocument,shapeId:string,polygon:P2[],
+ now=new Date().toISOString()
+):DesignDocument{
+ validateDesignDocument(c,d);
+ const target=d.shapes.find(s=>s.id===shapeId);
+ if(!target)throw Error('Unknown design shape');
+ const next:DesignDocument={...d,revision:d.revision+1,updatedAt:now,
+  shapes:d.shapes.map(s=>s.id===shapeId?{...s,polygon:polygon.map(p=>[p[0],p[1]] as P2)}:s)};
+ validateDesignDocument(c,next);
+ return next;
+}
+/** Deterministic designer grid; never silently alters source owner geometry. */
+export function snapDesignPoint(point:P2,gridFt:number):P2{
+ if(!Number.isFinite(gridFt)||gridFt<=0||gridFt>10||point.some(n=>!Number.isFinite(n)))
+  throw Error('Invalid design snap grid or point');
+ return [Math.round(point[0]/gridFt)*gridFt,Math.round(point[1]/gridFt)*gridFt];
+}
