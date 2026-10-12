@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {pondyCandidateRegistry as registry} from '../projects/pondy-lot2/candidate-registry.ts';
 import {placementPolygon} from '../packages/roof-geometry/index.ts';
-import {emptyDesignDocument,addDesignShape,addOwnerFootprintShape,removeDesignShape,updateDesignShapePolygon,snapDesignPoint,validateDesignDocument,designSourceSignature} from '../packages/candidates/design-document.ts';
+import {emptyDesignDocument,addDesignShape,addOwnerFootprintShape,removeDesignShape,updateDesignShapePolygon,snapDesignPoint,partitionDesignShape,validateDesignDocument,designSourceSignature} from '../packages/candidates/design-document.ts';
 import {renderDesignDocumentAttachment} from '../packages/candidates/design-report-attachment.ts';
 import {createCandidateConceptHtml} from '../packages/candidates/customer-report.ts';
 import {emptyCandidateWorkspace,saveWorkspaceDesignDocument,currentWorkspaceDesignDocument,createWorkspaceExportPackage,importWorkspacePackage} from '../packages/candidates/workspace.ts';
@@ -27,6 +27,17 @@ for(const c of cases){
  assert.equal(validateDesignDocument(c,shifted).valid,true);
  assert.throws(()=>updateDesignShapePolygon(c,doc,doc.shapes[0].id,doc.shapes[0].polygon.map(p=>[p[0]+1000,p[1]+1000])),/outside/);
  assert.throws(()=>updateDesignShapePolygon(c,doc,doc.shapes[0].id,[[0,0],[1,0],[2,0]]),/Invalid design polygon/);
+ const plate=doc.shapes[0];
+ const cutX=(Math.min(...plate.polygon.map(p=>p[0]))+Math.max(...plate.polygon.map(p=>p[0])))/2;
+ // Split tests on a rectangular geometry; complex footprint splits must fail closed.
+ const box=plate.polygon.length===4;
+ if(box){
+  const split=partitionDesignShape(c,doc,plate.id,'X',cutX);
+  assert.equal(split.shapes.length,4);
+  assert.equal(split.revision,doc.revision+1);
+  assert.equal(validateDesignDocument(c,split).valid,true);
+  assert.throws(()=>partitionDesignShape(c,doc,plate.id,'X',-1e9),/nonzero areas/);
+ }
  assert.equal(doc.revision,3);
  assert.equal(doc.shapes.length,3);
  assert.equal(validateDesignDocument(c,doc).shapes,3);
