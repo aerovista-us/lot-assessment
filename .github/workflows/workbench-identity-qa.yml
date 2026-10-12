@@ -17,7 +17,7 @@ on:
       - 'packages/candidates/index.ts'
       - 'components/workbench/UniversalDesignEditor.tsx'
       - 'components/workbench/useCandidateWorkspace.ts'
-      - 'scripts/test-universal-design-document.mjs' 
+      - 'scripts/test-universal-design-document.mjs'
       - 'packages/candidates/customer-report-roof-gallery.ts'
       - 'scripts/test-customer-report-roof-gallery.mjs'
       - 'components/workbench/CandidateWorkspaceClient.tsx'
