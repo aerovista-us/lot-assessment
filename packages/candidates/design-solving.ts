@@ -192,3 +192,41 @@ export function solveUniversalDesign(candidate:CandidateRecord,doc:DesignDocumen
   floors,roofs,status:doc.shapes.length===0||roofs.some(r=>r.status==='REVIEW_REQUIRED')||floors.some(f=>f.status==='REVIEW_REQUIRED')?'REVIEW_REQUIRED':'MODEL_GEOMETRY_CHECKED',
   boundary:'MODEL ONLY — NOT ARCHITECTURAL / STRUCTURAL / EGRESS / AHJ ACCEPTANCE' as const};
 }
+
+/** Explicit straight-flight 3D stair preview from an authored stair reservation.
+ * Coordinates are source XY feet, world Z feet. This cannot establish headroom,
+ * guard/handrail, landing, egress, structural or AHJ acceptance. */
+export function solveStraightStairFlight(input:{
+ polygon:P2[];baseZFt:number;floorToFloorFt:number;targetMaxRiserFt:number;
+ treadDepthFt:number;startAtVertex?:number
+}):{status:'MODEL_PREVIEW'|'REVIEW_REQUIRED';reason:string;risers:number;actualRiserFt:number;
+ runFt:number;steps:{index:number;nosing:[number,number,number]}[]}{
+ const rejected=(reason:string)=>({status:'REVIEW_REQUIRED' as const,reason,risers:0,actualRiserFt:0,runFt:0,steps:[]});
+ const {polygon,baseZFt,floorToFloorFt,targetMaxRiserFt,treadDepthFt}=input;
+ if(polygon.length!==4||![baseZFt,floorToFloorFt,targetMaxRiserFt,treadDepthFt].every(Number.isFinite)||
+  floorToFloorFt<=0||targetMaxRiserFt<=0||treadDepthFt<=0)
+  return rejected('Four-vertex stair zone and explicit finite positive dimensions required');
+ const start=input.startAtVertex??0;
+ if(!Number.isInteger(start)||start<0||start>3)return rejected('Invalid flight direction vertex');
+ const a=polygon[start],b=polygon[(start+1)%4],c=polygon[(start+2)%4],d=polygon[(start+3)%4];
+ const along=subtract(b,a),widthEdge=subtract(d,a),length=dist(a,b),width=dist(a,d);
+ if(length<EPS||width<EPS||Math.abs(dot(along,widthEdge))>EPS*length*width||
+  Math.abs(dist(b,c)-width)>.02||Math.abs(dist(c,d)-length)>.02)
+  return rejected('Straight stair requires a rectangular authored reservation');
+ const risers=Math.ceil(floorToFloorFt/targetMaxRiserFt);
+ if(risers<2||risers>100)return rejected('Requested rise/riser combination unsupported');
+ const actualRiserFt=floorToFloorFt/risers;
+ const runFt=(risers-1)*treadDepthFt;
+ if(runFt>length+EPS)return rejected('Stair flight does not fit the reserved plan run');
+ const u:P2=[along[0]/length,along[1]/length],side:P2=[widthEdge[0]/width,widthEdge[1]/width];
+ const steps=Array.from({length:risers},(_,i)=>{
+  const run=Math.min(i,risers-1)*treadDepthFt;
+  return {index:i+1,nosing:[
+   rounded(a[0]+u[0]*run+side[0]*width/2),
+   rounded(a[1]+u[1]*run+side[1]*width/2),
+   rounded(baseZFt+(i+1)*actualRiserFt)
+  ] as [number,number,number]};
+ });
+ return {status:'MODEL_PREVIEW',reason:'Source-aligned straight flight; landings, headroom, handrails and code unverified',
+  risers,actualRiserFt:rounded(actualRiserFt),runFt:rounded(runFt),steps};
+}
