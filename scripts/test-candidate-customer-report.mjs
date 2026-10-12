@@ -51,6 +51,16 @@ for(const alternate of registry.candidates){
  assert(drawBuildingShellPlan(alternate).includes('data-source-footprint'));
  assert(drawAccessPlan(alternate).includes('data-drawing="access-plan"'));
 }
+const tight=structuredClone(locked);
+const current=tight.evaluationHistory.find(x=>x.id===tight.currentEvaluationId);
+assert(current?.gates.length,'The active evaluation needs at least one gate');
+current.gates[0].status='PASS_TIGHT';
+current.gates[0].summary='Tight source-model clearance requires review before customer decisions.';
+const tightHtml=(await createCandidateConceptHtml(tight)).html;
+assert(tightHtml.includes('data-report-risk="active"'));
+assert(tightHtml.includes('PASS_TIGHT'));
+assert(tightHtml.includes('Tight source-model clearance requires review'));
+
 const draft=structuredClone(locked);
 draft.id='draft-local-with-no-roofs';
 draft.label='<script>alert("untrusted")</script>';
