@@ -1,5 +1,14 @@
 # Saved candidate → Customer Concept Report (2026-10-12)
 
+## Current addendum — universal design authoring and source-derived previews
+
+The full flow is now **Save Candidate → Open candidate → Build / Edit Design Shapes → choose exact owner/floor → add custom floor/roof proposals → enter sourced door/roof parameters → review shared solver diagnostics → Create Customer Report**. This workflow is reusable for every candidate; it does not attach a Design 4 plan to another candidate. Phase 1 source-bound draft inputs generate room adjacency/shared-wall/door diagrams and *supported* gable ridge, valley, zero-overhang fascia and roof-face section **MODEL PREVIEWS**. Unsupported roof topologies and missing approvals remain **REVIEW_REQUIRED/WITHHELD**. Actual locked roof gallery still only consumes separately current and validated roof components. The 22-category report remains private standalone HTML with browser print-to-PDF as a convenience, **not** a production-scale native architectural PDF or public PondyFlats Pages update. See [Workbench Guide](WORKBENCH_DESIGN_TO_REPORT_GUIDE.md) and [Universal Master](UNIVERSAL_DESIGN_ENGINE_MASTER.md).
+
+---
+
+*The workflow history and early limitations below describe the first report-button milestone before the universal designer and are kept for provenance.*
+
+
 ## Workbench workflow
 
 After selecting or saving an exploration result, open LotScope Workbench → Pondy Lot 2 → Candidate Library. Every candidate card has **Create Customer Report**; the **Open candidate** detail page has the same button. This compiles the **currently selected** record and downloads a private standalone HTML file. Open in a browser or use Print → Save as PDF. No local candidate is uploaded to a server or published to PondyFlats.
