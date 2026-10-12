@@ -36,6 +36,8 @@ jobs:
         run: npm run lint
       - name: Verify classified broker and founder access failures
         run: node --experimental-loader ./scripts/alias-loader.mjs scripts/test-workbench-handoff-failure.mjs
+      - name: Protected roof inspector React source and valley review acceptance
+        run: npm run test:roof-inspector
       - name: Production build
         run: npm run build
       - name: Anonymous boundary smoke
