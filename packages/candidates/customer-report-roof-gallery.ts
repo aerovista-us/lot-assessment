@@ -34,12 +34,15 @@ function roofView(roof:RoofDrawingHandoff,camera:CameraName):GalleryView{
  if(result.status==='WITHHELD')return {camera,ownerId:roof.ownerId,status:'WITHHELD',counts:baseCounts,html:emptyReason(result.reason)};
  const strokes=result.segments.filter(s=>s.visibility==='VISIBLE'||s.visibility==='HIDDEN'||s.visibility==='UNRESOLVED');
  if(!strokes.length)return {camera,ownerId:roof.ownerId,status:'REVIEW_REQUIRED',counts:baseCounts,html:emptyReason('No independently drawable intervals for this view; source geometry requires review.')};
- const points=strokes.flatMap(s=>[s.start,s.end]);
+ // The source verifier uses +Z up, while SVG screen Y increases downward.
+ // Negate chart ordinate only for elevation/axon DISPLAY; never alter source
+ // world XYZ, the site-plan +Y-down convention, or any interval authority.
+ const points=strokes.flatMap(s=>[s.start,s.end]).map(([u,v])=>[u,-v] as P2);
  const svg='<svg role="img" aria-label="'+esc(roof.ownerId+' '+camera+' source roof visible/hidden/unresolved intervals')+'" viewBox="'+extent(points)+'">'+
  strokes.map((s:EdgeInterval,i)=>{
   const cls=s.visibility==='UNRESOLVED'?'unresolved':s.visibility==='HIDDEN'?'hidden':'visible';
   return '<line data-roof-edge="'+esc(s.faceId)+'-'+s.edgeIndex+'-'+i+'" data-interval-status="'+s.visibility+'"'+
-   ' x1="'+fmt(s.start[0])+'" y1="'+fmt(s.start[1])+'" x2="'+fmt(s.end[0])+'" y2="'+fmt(s.end[1])+'" class="roof-int-'+cls+'">'+
+   ' x1="'+fmt(s.start[0])+'" y1="'+fmt(-s.start[1])+'" x2="'+fmt(s.end[0])+'" y2="'+fmt(-s.end[1])+'" class="roof-int-'+cls+'">'+
    '<title>'+esc(s.faceId+' edge '+s.edgeIndex+' · '+s.visibility+(s.reason?' · '+s.reason:''))+'</title></line>';
  }).join('')+'</svg>';
  const status=result.status;
@@ -53,14 +56,14 @@ function valleySection(roof:RoofDrawingHandoff){
  return cuts.map(cut=>{
   const bad=cut.status!=='SOURCE_INTERSECTION';
   const segs=bad?[]:cut.segments;
-  const pts=segs.flatMap(s=>[s.a,s.b]);
+  const pts=segs.flatMap(s=>[s.a,s.b]).map(([distance,z])=>[distance,-z] as P2);
   return '<article class="roof-valley-card" data-roof-valley="'+esc(cut.sourceId)+'" data-section-status="'+cut.status+'">'+
    '<h4>'+esc(roof.ownerId)+' · '+esc(cut.label)+'</h4>'+
    '<p>Midpoint source XY '+cut.origin.map(fmt).join(', ')+' ft · Locked Z '+fmt(cut.valleyMidZFt)+' ft</p>'+
    (bad?emptyReason('Section REVIEW REQUIRED: two locked faces did not prove a valid source intersection.') :
     '<svg role="img" aria-label="'+esc(cut.label+' precise locked roof face profile')+'" viewBox="'+extent(pts,0.15)+'">'+
-    segs.map((s,i)=>'<line data-section-face="'+esc(s.faceId)+'" x1="'+fmt(s.a[0])+'" y1="'+fmt(s.a[1])+
-     '" x2="'+fmt(s.b[0])+'" y2="'+fmt(s.b[1])+'" stroke="'+(i%2?'#507b90':'#215671')+'" stroke-width=".14">'+
+    segs.map((s,i)=>'<line data-section-face="'+esc(s.faceId)+'" x1="'+fmt(s.a[0])+'" y1="'+fmt(-s.a[1])+
+     '" x2="'+fmt(s.b[0])+'" y2="'+fmt(-s.b[1])+'" stroke="'+(i%2?'#507b90':'#215671')+'" stroke-width=".14">'+
      '<title>'+esc(s.faceId)+' actual roof plane / cut</title></line>').join('')+'</svg>')+
    '<p class="roof-evidence-stats">'+esc(cut.status)+' · '+esc(cut.reason)+' · Drainage, flashing and structural review outstanding.</p></article>';
  }).join('');
@@ -88,7 +91,7 @@ export function buildReportRoofGallery(candidate:CandidateRecord):RoofGallery{
   views.push(...ownerViews);
   const cuts=deriveValleySectionCuts(roof);valleyCount+=cuts.length;
   const viewCards=ownerViews.map(v=>'<figure class="roof-interval-figure" data-roof-camera="'+v.camera+'" data-camera-status="'+v.status+'">'+
-    '<figcaption>'+v.camera+' · '+v.status.replaceAll('_',' ')+'</figcaption>'+v.html+'</figure>').join('');
+    '<figcaption>'+v.camera+' · '+v.status.replaceAll('_',' ')+' · Z-up display</figcaption>'+v.html+'</figure>').join('');
   return '<section class="roof-owner-evidence" data-roof-owner="'+esc(roof.ownerId)+'">'+
    '<h3>'+esc(roof.ownerId)+' · locked model surfaces</h3>'+
    '<p>Owner roof source: '+esc(roof.roofId)+'. Plan shapes are source-bound; camera intervals may still be ambiguous.</p>'+
