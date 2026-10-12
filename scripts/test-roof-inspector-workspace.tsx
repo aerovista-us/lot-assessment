@@ -20,8 +20,8 @@ assert(c);
 const roof=roofDrawingHandoff(validateCandidateRoofs(c.components).results.find(x=>x.ownerId==='home-b')!);
 assert.equal(roof.status,'AUTHORITATIVE');
 for(const [i,cut] of homeB.valleyCuts.entries()){
- const valley=roof.junctions.flatMap(j=>j.segments.filter(s=>s.kind==='VALLEY'))[i];
- assert.equal(cut.sourceId,valley.id);
+ const expectedValleyId:string=roof.junctions.flatMap(j=>j.segments.filter(s=>s.kind==='VALLEY'))[i]!.id;
+ assert.equal(cut.sourceId,expectedValleyId);
  assert.equal(cut.status,'SOURCE_INTERSECTION',cut.id+' must have exact two-surface evidence');
  assert(cut.segments.length>=2);
  assert(Math.abs(cut.valleyMidZFt-22.125)<0.001);
