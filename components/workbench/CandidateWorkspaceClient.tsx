@@ -185,6 +185,7 @@ export function CandidateWorkspaceClient({ candidateId }: { candidateId: string 
         {!editableWorkingCopy && interventionEligible ? <button className="primary-button" type="button" onClick={createIntervention}>Create Intervention</button> : null}
         {localCandidate ? <button className="secondary-button" type="button" onClick={() => branch("VARIANT")}>Branch variant</button> : null}
         <button className="secondary-button" type="button" onClick={() => branch("NEW_DESIGN")}>New design from this</button>
+        <a className="secondary-button" href="#universal-design-editor">Build / Edit Design Shapes</a>
         <button className="primary-button" type="button" onClick={createCustomerReport}>Create Customer Report</button>
         <button className="secondary-button" type="button" onClick={exportCurrent}>Export package</button>
         <Link className="secondary-button" href={`/workbench/projects/pondy-lot2/compare?left=${activeCandidate.id}`}>Compare</Link>
