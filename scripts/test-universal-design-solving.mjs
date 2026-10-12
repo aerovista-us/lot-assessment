@@ -2,10 +2,16 @@ import assert from 'node:assert/strict';
 import {pondyCandidateRegistry as registry} from '../projects/pondy-lot2/candidate-registry.ts';
 import {placementPolygon} from '../packages/roof-geometry/index.ts';
 import {emptyDesignDocument,addDesignShape,addOwnerFootprintShape,validateDesignDocument} from '../packages/candidates/design-document.ts';
-import {solveSharedFloors,solveSharedRoofPreviews,solveUniversalDesign} from '../packages/candidates/design-solving.ts';
+import {solveSharedFloors,solveSharedRoofPreviews,solveUniversalDesign,solveStraightStairFlight} from '../packages/candidates/design-solving.ts';
 import {createCandidateConceptHtml} from '../packages/candidates/customer-report.ts';
 import {setDraftRoofParameters,addDraftDoor} from '../packages/candidates/design-document.ts';
 const C=registry.candidates;assert(C.length>=2);
+const stair=solveStraightStairFlight({polygon:[[0,0],[15,0],[15,4],[0,4]],baseZFt:0,floorToFloorFt:10,targetMaxRiserFt:0.65,treadDepthFt:0.85});
+assert.equal(stair.status,'MODEL_PREVIEW');
+assert(stair.steps.length>=15);
+assert(Math.abs(stair.steps.at(-1).nosing[2]-10)<.00001);
+assert.equal(solveStraightStairFlight({polygon:[[0,0],[5,0],[5,4],[0,4]],baseZFt:0,floorToFloorFt:10,targetMaxRiserFt:0.65,treadDepthFt:0.85}).status,'REVIEW_REQUIRED');
+
 const point=(a,b)=>[(a[0]+b[0])/2,(a[1]+b[1])/2];
 let total=0;
 for(const candidate of C){
