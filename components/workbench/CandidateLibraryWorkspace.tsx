@@ -8,6 +8,7 @@ import { useCandidateWorkspace } from "@/components/workbench/useCandidateWorksp
 import { currentEvaluation, type CandidateRecord, type LotScopePackage } from "@/packages/candidates";
 import {
   createWorkspaceExportPackage,
+  currentWorkspaceDesignDocument,
   isLotScopePackage,
   type ImportMode
 } from "@/packages/candidates/workspace";
@@ -49,6 +50,7 @@ function CandidateCard({ candidate, local, onExport, onReport }: { candidate: Ca
       <div className="candidate-card-actions">
         <Link className="primary-button" href={`/workbench/projects/pondy-lot2/candidates/${candidate.id}`}>Open candidate</Link>
         <button className="secondary-button" type="button" onClick={() => onExport(candidate.id)}>Export .lotscope.json</button>
+        <Link className="secondary-button" href={`/workbench/projects/pondy-lot2/candidates/${candidate.id}#universal-design-editor`}>Build / Edit Design</Link>
         <button className="secondary-button" type="button" onClick={() => onReport(candidate.id)}>Create Customer Report</button>
       </div>
     </div>
@@ -90,7 +92,8 @@ export function CandidateLibraryWorkspace() {
     const candidate=workspace.registry.candidates.find(item=>item.id===candidateId);
     if(!candidate)return setMessage("Candidate not found for report.");
     try{
-      const report=await createCandidateConceptHtml(candidate);
+      const attached=currentWorkspaceDesignDocument(workspace.workspace,candidate);
+      const report=await createCandidateConceptHtml(candidate,attached);
       const blob=new Blob([report.html],{type:"text/html;charset=utf-8"});
       const href=URL.createObjectURL(blob);
       const anchor=document.createElement("a");

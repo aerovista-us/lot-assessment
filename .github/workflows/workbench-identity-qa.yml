@@ -11,6 +11,13 @@ on:
       - 'scripts/test-candidate-customer-report.mjs'
       - 'packages/candidates/customer-report.ts'
       - 'packages/candidates/customer-report-views.ts'
+      - 'packages/candidates/design-document.ts'
+      - 'packages/candidates/design-report-attachment.ts'
+      - 'packages/candidates/workspace.ts'
+      - 'packages/candidates/index.ts'
+      - 'components/workbench/UniversalDesignEditor.tsx'
+      - 'components/workbench/useCandidateWorkspace.ts'
+      - 'scripts/test-universal-design-document.mjs'
       - 'packages/candidates/customer-report-roof-gallery.ts'
       - 'scripts/test-customer-report-roof-gallery.mjs'
       - 'components/workbench/CandidateWorkspaceClient.tsx'
@@ -49,6 +56,8 @@ jobs:
         run: node --experimental-loader ./scripts/alias-loader.mjs scripts/test-candidate-customer-report.mjs
       - name: Roof gallery all-owner projection evidence and fail-closed acceptance
         run: node --experimental-loader ./scripts/alias-loader.mjs scripts/test-customer-report-roof-gallery.mjs
+      - name: Universal owner-bound floor and roof draft document acceptance
+        run: npm run test:universal-design
       - name: Production build
         run: npm run build
       - name: Anonymous boundary smoke

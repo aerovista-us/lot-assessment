@@ -4,11 +4,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { CandidatePlan } from "@/components/workbench/CandidatePlan";
+import {UniversalDesignEditor} from "@/components/workbench/UniversalDesignEditor";
 import { createCandidateConceptHtml } from "@/packages/candidates/customer-report";
 import { InterventionEditor } from "@/components/workbench/InterventionEditor";
 import { useCandidateWorkspace } from "@/components/workbench/useCandidateWorkspace";
 import { currentEvaluation, type CandidateRecord, type PathComponent, type PolygonComponent } from "@/packages/candidates";
-import { createWorkspaceExportPackage } from "@/packages/candidates/workspace";
+import { createWorkspaceExportPackage,currentWorkspaceDesignDocument } from "@/packages/candidates/workspace";
 import { pondyCandidateRegistry } from "@/projects/pondy-lot2/candidate-registry";
 
 function downloadCandidate(candidateId: string, workspace: ReturnType<typeof useCandidateWorkspace>) {
@@ -147,7 +148,8 @@ export function CandidateWorkspaceClient({ candidateId }: { candidateId: string 
 
   async function createCustomerReport() {
     try {
-      const result=await createCandidateConceptHtml(activeCandidate);
+      const attachment=currentWorkspaceDesignDocument(workspace.workspace,activeCandidate);
+      const result=await createCandidateConceptHtml(activeCandidate,attachment);
       const blob=new Blob([result.html],{type:"text/html;charset=utf-8"});
       const href=URL.createObjectURL(blob);
       const anchor=document.createElement("a");
@@ -183,6 +185,7 @@ export function CandidateWorkspaceClient({ candidateId }: { candidateId: string 
         {!editableWorkingCopy && interventionEligible ? <button className="primary-button" type="button" onClick={createIntervention}>Create Intervention</button> : null}
         {localCandidate ? <button className="secondary-button" type="button" onClick={() => branch("VARIANT")}>Branch variant</button> : null}
         <button className="secondary-button" type="button" onClick={() => branch("NEW_DESIGN")}>New design from this</button>
+        <a className="secondary-button" href="#universal-design-editor">Build / Edit Design Shapes</a>
         <button className="primary-button" type="button" onClick={createCustomerReport}>Create Customer Report</button>
         <button className="secondary-button" type="button" onClick={exportCurrent}>Export package</button>
         <Link className="secondary-button" href={`/workbench/projects/pondy-lot2/compare?left=${activeCandidate.id}`}>Compare</Link>
@@ -190,6 +193,10 @@ export function CandidateWorkspaceClient({ candidateId }: { candidateId: string 
       <p className="microcopy">Customer report is a private, downloadable concept HTML. Full roof views, room plans and elevations require source-approved geometry; no public publishing is triggered.</p>
       {message && <p className="microcopy lifecycle-message">{message}</p>}
     </section>
+
+    <UniversalDesignEditor candidate={activeCandidate}
+      document={currentWorkspaceDesignDocument(workspace.workspace,activeCandidate)}
+      onSave={doc=>{workspace.saveDesignDocument(activeCandidate,doc);setMessage("Design document attached to this candidate revision; Create Customer Report will now include the draft shapes.");}}/>
 
     <section className="candidate-workspace-grid">
       <article className="wb-panel candidate-plan-panel">
