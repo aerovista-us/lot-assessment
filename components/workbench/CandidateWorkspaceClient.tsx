@@ -9,7 +9,7 @@ import { createCandidateConceptHtml } from "@/packages/candidates/customer-repor
 import { InterventionEditor } from "@/components/workbench/InterventionEditor";
 import { useCandidateWorkspace } from "@/components/workbench/useCandidateWorkspace";
 import { currentEvaluation, type CandidateRecord, type PathComponent, type PolygonComponent } from "@/packages/candidates";
-import { createWorkspaceExportPackage } from "@/packages/candidates/workspace";
+import { createWorkspaceExportPackage,currentWorkspaceDesignDocument } from "@/packages/candidates/workspace";
 import { pondyCandidateRegistry } from "@/projects/pondy-lot2/candidate-registry";
 
 function downloadCandidate(candidateId: string, workspace: ReturnType<typeof useCandidateWorkspace>) {
@@ -148,7 +148,7 @@ export function CandidateWorkspaceClient({ candidateId }: { candidateId: string 
 
   async function createCustomerReport() {
     try {
-      const attachment=workspace.workspace.designDocuments?.find(x=>x.candidateId===activeCandidate.id);
+      const attachment=currentWorkspaceDesignDocument(workspace.workspace,activeCandidate);
       const result=await createCandidateConceptHtml(activeCandidate,attachment);
       const blob=new Blob([result.html],{type:"text/html;charset=utf-8"});
       const href=URL.createObjectURL(blob);
@@ -195,7 +195,7 @@ export function CandidateWorkspaceClient({ candidateId }: { candidateId: string 
     </section>
 
     <UniversalDesignEditor candidate={activeCandidate}
-      document={workspace.workspace.designDocuments?.find(x=>x.candidateId===activeCandidate.id)}
+      document={currentWorkspaceDesignDocument(workspace.workspace,activeCandidate)}
       onSave={doc=>{workspace.saveDesignDocument(activeCandidate,doc);setMessage("Design document attached to this candidate revision; Create Customer Report will now include the draft shapes.");}}/>
 
     <section className="candidate-workspace-grid">
