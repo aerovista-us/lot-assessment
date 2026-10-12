@@ -157,7 +157,7 @@ export function CandidateWorkspaceClient({ candidateId }: { candidateId: string 
       anchor.click();
       anchor.remove();
       window.setTimeout(()=>URL.revokeObjectURL(href),30000);
-      setMessage("Created private customer concept report: 22 coverage categories, source site plan and validated roof evidence only. Missing architectural plans stay WITHHELD. Open the downloaded HTML; use Print → Save as PDF.");
+      setMessage("Created visual customer concept report: 22 categories, exact site/shell plans, illustrative axon and four model-direction profiles. Actual roof/room/section authority stays clearly gated. Open the downloaded HTML or Print → Save PDF.");
     }catch(cause){setMessage(cause instanceof Error?cause.message:"Customer report generation failed.");}
   }
 
