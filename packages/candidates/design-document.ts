@@ -10,9 +10,21 @@ export type DesignShape={
  story:'GROUND'|'UPPER'|'OTHER'|null;
  status:'DRAFT_UNVERIFIED';
 };
+export type DoorOpeningDraft={
+ id:string;story:'GROUND'|'UPPER'|'OTHER';fromRoomId:string;toRoomId:string;
+ center:P2;widthFt:number;status:'DRAFT_UNVERIFIED';
+};
+export type RoofDesignParameter={
+ shapeId:string;plateZFt:number;pitchRise:number;pitchRun:number;
+ ridgeDirection?:"LONG_AXIS"|"SHORT_AXIS";
+ fasciaDepthFt?:number;fasciaThicknessFt?:number;
+ /** Eave extension explicitly authored; a preview, not locked eave/fascia authority. */
+ overhangFt:number;
+};
 export type DesignDocument={
  schemaVersion:typeof DESIGN_DOCUMENT_SCHEMA;candidateId:string;projectId:string;
  sourceRevision:string;sourceSignature:string;revision:number;updatedAt:string;shapes:DesignShape[];
+ doors?:DoorOpeningDraft[];roofParameters?:RoofDesignParameter[];
 };
 const EPS=1e-7;
 const cross=(a:P2,b:P2,c:P2)=>(b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0]);
@@ -64,7 +76,7 @@ export function designSourceSignature(c:CandidateRecord){
 }
 export function emptyDesignDocument(c:CandidateRecord,now=new Date().toISOString()):DesignDocument{
  return {schemaVersion:DESIGN_DOCUMENT_SCHEMA,candidateId:c.id,projectId:c.projectId,sourceRevision:c.revisionLabel,
- sourceSignature:designSourceSignature(c),revision:0,updatedAt:now,shapes:[]};
+ sourceSignature:designSourceSignature(c),revision:0,updatedAt:now,shapes:[],doors:[],roofParameters:[]};
 }
 export function sourceBuildingOwners(c:CandidateRecord):PlacementComponent[]{
  return c.components.filter((x):x is PlacementComponent=>x.kind==='home'||x.kind==='garage');
@@ -73,7 +85,8 @@ export function validateDesignDocument(c:CandidateRecord,d:DesignDocument){
  if(!d||d.schemaVersion!==DESIGN_DOCUMENT_SCHEMA||d.candidateId!==c.id||d.projectId!==c.projectId||
  d.sourceRevision!==c.revisionLabel||d.sourceSignature!==designSourceSignature(c))
  throw Error('Design document stale: exact candidate source changed');
- if(!Number.isInteger(d.revision)||d.revision<0||!Array.isArray(d.shapes)||d.shapes.length>160)throw Error('Invalid design revision');
+ if(!Number.isInteger(d.revision)||d.revision<0||!Array.isArray(d.shapes)||d.shapes.length>160||
+ (d.doors!==undefined&&!Array.isArray(d.doors))||(d.roofParameters!==undefined&&!Array.isArray(d.roofParameters)))throw Error('Invalid design revision');
  const owners=new Map(sourceBuildingOwners(c).map(o=>[o.id,o]));
  const ids=new Set<string>();
  for(const shape of d.shapes){
@@ -87,6 +100,36 @@ export function validateDesignDocument(c:CandidateRecord,d:DesignDocument){
   const poly=validPolygon(shape.polygon,shape.id);
   const shell=validPolygon(placementPolygon(owner).map(p=>[p[0],p[1]] as P2),owner.id);
   if(!contained(poly,shell))throw Error('Draft shape outside source owner footprint '+shape.id);
+ }
+ const doors=d.doors??[];const roofParams=d.roofParameters??[];
+ if(doors.length>100||roofParams.length>80)throw Error('Too many design parameters');
+ const doorIds=new Set<string>();
+ for(const door of doors){
+  if(!door.id||doorIds.has(door.id)||door.status!=='DRAFT_UNVERIFIED'||
+   !door.fromRoomId||!door.toRoomId||door.fromRoomId===door.toRoomId||
+   !Array.isArray(door.center)||door.center.length!==2||
+   door.center.some(v=>!Number.isFinite(v))||
+   !Number.isFinite(door.widthFt)||door.widthFt<=0)throw Error('Invalid door opening input');
+  doorIds.add(door.id);
+  const a=d.shapes.find(s=>s.id===door.fromRoomId);
+  const b=d.shapes.find(s=>s.id===door.toRoomId);
+  if(!a||!b||a.ownerId!==b.ownerId||a.story!==b.story||a.story!==door.story||
+   !['ROOM','CIRCULATION'].includes(a.kind)||!['ROOM','CIRCULATION'].includes(b.kind))
+   throw Error('Door must join same-story, same-owner rooms/circulation');
+ }
+ const params=new Set<string>();
+ for(const spec of roofParams){
+  if(!spec.shapeId||params.has(spec.shapeId))throw Error('Duplicate roof parameter');
+  params.add(spec.shapeId);
+  const zone=d.shapes.find(s=>s.id===spec.shapeId);
+  if(!zone||zone.story!==null||zone.kind!=='GABLE_ZONE'||
+   (spec.ridgeDirection!==undefined&&!['LONG_AXIS','SHORT_AXIS'].includes(spec.ridgeDirection))||
+   ((spec.fasciaDepthFt===undefined)!==(spec.fasciaThicknessFt===undefined))||
+   (spec.fasciaDepthFt!==undefined&&(!Number.isFinite(spec.fasciaDepthFt)||spec.fasciaDepthFt<=0||spec.fasciaDepthFt>3||
+    !Number.isFinite(spec.fasciaThicknessFt)|| (spec.fasciaThicknessFt??0)<=0||(spec.fasciaThicknessFt??0)>1))||
+   ![spec.plateZFt,spec.pitchRise,spec.pitchRun,spec.overhangFt].every(Number.isFinite)||
+   spec.plateZFt<0||spec.pitchRise<=0||spec.pitchRun<=0||spec.overhangFt<0||spec.overhangFt>4)
+   throw Error('Roof parameter must target draft gable with finite positive pitch and explicit plate Z');
  }
  return {valid:true,shapes:d.shapes.length,unverified:d.shapes.length};
 }
@@ -105,5 +148,27 @@ export function removeDesignShape(c:CandidateRecord,d:DesignDocument,id:string,n
  validateDesignDocument(c,d);
  if(!d.shapes.some(s=>s.id===id))throw Error('Unknown design shape');
  const next={...d,revision:d.revision+1,updatedAt:now,shapes:d.shapes.filter(x=>x.id!==id)};
+ validateDesignDocument(c,next);return next;
+}
+
+/** Attach a door proposal only between two same-owner, same-level spaces.
+ * Geometric center/clear width acceptance is performed by solveSharedFloors. */
+export function addDraftDoor(
+ c:CandidateRecord,d:DesignDocument,input:Omit<DoorOpeningDraft,'id'|'status'>,now=new Date().toISOString()
+):DesignDocument{
+ validateDesignDocument(c,d);
+ let i=1;while((d.doors??[]).some(x=>x.id==='door-'+i))i++;
+ const next:DesignDocument={...d,revision:d.revision+1,updatedAt:now,
+  doors:[...(d.doors??[]),{...input,id:'door-'+i,status:'DRAFT_UNVERIFIED',center:[...input.center] as P2}]};
+ validateDesignDocument(c,next);return next;
+}
+/** User supplies pitch/plate/eave explicitly; the roof solver never assumes them. */
+export function setDraftRoofParameters(
+ c:CandidateRecord,d:DesignDocument,input:RoofDesignParameter,now=new Date().toISOString()
+):DesignDocument{
+ validateDesignDocument(c,d);
+ const without=(d.roofParameters??[]).filter(r=>r.shapeId!==input.shapeId);
+ const next:DesignDocument={...d,revision:d.revision+1,updatedAt:now,
+  roofParameters:[...without,{...input}]};
  validateDesignDocument(c,next);return next;
 }

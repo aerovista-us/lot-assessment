@@ -3,9 +3,10 @@ import {useEffect,useState} from "react";
 import type {CandidateRecord} from "@/packages/candidates";
 import {placementPolygon} from "@/packages/roof-geometry";
 import {
- addDesignShape,addOwnerFootprintShape,emptyDesignDocument,removeDesignShape,
+ addDesignShape,addOwnerFootprintShape,emptyDesignDocument,removeDesignShape,addDraftDoor,setDraftRoofParameters,
  sourceBuildingOwners,validateDesignDocument,type DesignDocument,type DesignShape,type P2
 } from "@/packages/candidates/design-document";
+import {solveUniversalDesign} from "@/packages/candidates/design-solving";
 type Props={candidate:CandidateRecord;document?:DesignDocument;onSave:(doc:DesignDocument)=>void};
 export function UniversalDesignEditor({candidate,document,onSave}:Props){
  const owners=sourceBuildingOwners(candidate);
@@ -15,11 +16,50 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
  const [label,setLabel]=useState("New shape");
  const [vertices,setVertices]=useState("[[0,0],[10,0],[10,10],[0,10]]");
  const [note,setNote]=useState("");
+ const [wallIndex,setWallIndex]=useState(0);
+ const [doorWidth,setDoorWidth]=useState("3");
+ const [selectedRoofId,setSelectedRoofId]=useState("");
+ const [plateZ,setPlateZ]=useState("");
+ const [pitchRise,setPitchRise]=useState("");
+ const [pitchRun,setPitchRun]=useState("");
+ const [overhang,setOverhang]=useState("");
+ const [fasciaDepth,setFasciaDepth]=useState("");
+ const [fasciaThickness,setFasciaThickness]=useState("");
+ const [ridgeDirection,setRidgeDirection]=useState<"LONG_AXIS"|"SHORT_AXIS">("LONG_AXIS");
  useEffect(()=>{setOwnerId(owners[0]?.id??"");setNote("");},[candidate.id]);
  const activeOwner=owners.find(o=>o.id===ownerId);
  const roof=kind==="ROOF_ZONE"||kind==="GABLE_ZONE";
  const base=document??emptyDesignDocument(candidate);
  const stale=Boolean(document&&(()=>{try{validateDesignDocument(candidate,document);return false}catch{return true}})());
+ const solution=stale?null:solveUniversalDesign(candidate,base);
+ const walls=solution?.floors.filter(f=>f.ownerId===ownerId&&f.story===story).flatMap(f=>f.wallSegments)??[];
+ const wall=walls[wallIndex]??walls[0];
+ const roofShapes=base.shapes.filter(s=>s.ownerId===ownerId&&s.kind==="GABLE_ZONE");
+ const chosenRoof=roofShapes.find(s=>s.id===selectedRoofId)??roofShapes[0];
+ const preview=solution?.roofs.find(r=>r.ownerId===ownerId);
+ function putDoor(){
+  try{
+   if(stale||!wall)throw Error("No shared wall. Create two adjacent room/circulation shapes first.");
+   const width=Number(doorWidth);
+   if(!Number.isFinite(width)||width<=0||width>wall.lengthFt)throw Error("Door width must fit inside the shared modeled wall.");
+   const center:P2=[(wall.a[0]+wall.b[0])/2,(wall.a[1]+wall.b[1])/2];
+   const next=addDraftDoor(candidate,base,{fromRoomId:wall.roomA,toRoomId:wall.roomB,center,widthFt:width,story});
+   const checked=solveUniversalDesign(candidate,next);
+   const status=checked.floors.find(f=>f.ownerId===ownerId&&f.story===story)?.doors.at(-1)?.status;
+   if(status!=="GEOMETRY_CHECKED")throw Error("Door does not fit modeled shared wall.");
+   onSave(next);setNote("Door geometry checked. Egress and building-code sizing are still unverified.");
+  }catch(e){setNote(e instanceof Error?e.message:"Door placement invalid");}
+ }
+ function setRoof(){
+  try{
+   if(stale||!chosenRoof)throw Error("Create a GABLE ZONE draft first.");
+   if([plateZ,pitchRise,pitchRun,overhang].some(x=>!x.trim()))throw Error("Enter source plate height, roof rise, run and chosen overhang; no defaults are assumed.");
+   const next=setDraftRoofParameters(candidate,base,{shapeId:chosenRoof.id,plateZFt:Number(plateZ),pitchRise:Number(pitchRise),pitchRun:Number(pitchRun),overhangFt:Number(overhang),ridgeDirection,
+    fasciaDepthFt:fasciaDepth.trim()?Number(fasciaDepth):undefined,
+    fasciaThicknessFt:fasciaThickness.trim()?Number(fasciaThickness):undefined});
+   onSave(next);setNote("Roof design parameters saved for this owner. Solver previews its real ridge/sections when topology is supported; no locked roof is created.");
+  }catch(e){setNote(e instanceof Error?e.message:"Roof design parameters invalid");}
+ }
  function save(fullFootprint:boolean){
   try{
    if(stale)throw Error("Candidate changed; create a new design document or reconcile the old shapes before editing.");
@@ -74,6 +114,47 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
     </svg>
     <p className="microcopy">Blue: floor concepts. Amber: roof-zone proposals. No roof slopes, floor heights or approved rooms are inferred.</p>
    </div>
+  </div>
+  <div className="candidate-detail-grid" style={{marginBlock:20}}>
+   <article className="wb-panel">
+    <p className="eyebrow">FLOOR SOLVER · WALLS, ROOM RELATIONSHIPS AND DOORS</p>
+    <h3>Derived shared wall segments</h3>
+    <p className="microcopy">Generated from authored room/circulation polygons on the selected building and floor. This is geometry checking, not an approved room/egress plan.</p>
+    <label htmlFor="shared-wall-selector" className="microcopy">Shared room wall</label>
+    <select id="shared-wall-selector" value={Math.min(wallIndex,Math.max(0,walls.length-1))} onChange={e=>setWallIndex(Number(e.target.value))}>
+     {walls.length===0?<option value={0}>No adjacency — create rooms first</option>:walls.map((w,i)=><option key={i} value={i}>{w.roomA} ↔ {w.roomB} · {w.lengthFt.toFixed(2)} ft</option>)}
+    </select>
+    <label className="microcopy" htmlFor="door-width">Door opening width, feet (designer-specified)</label>
+    <input id="door-width" inputMode="decimal" value={doorWidth} onChange={e=>setDoorWidth(e.target.value)}/>
+    <button className="secondary-button" type="button" disabled={stale||!wall} onClick={putDoor}>Create centered door on shared wall</button>
+    <div className="component-list">
+     {solution?.floors.filter(f=>f.ownerId===ownerId).map(f=><div key={f.story}><span>{f.story} · {f.status}</span><strong>{f.roomIds.length} rooms · {f.wallSegments.length} shared walls · {f.doors.length} doors</strong>{f.issues.map((issue,i)=><small key={i}>{issue.code}: {issue.detail}</small>)}</div>)}
+    </div>
+   </article>
+   <article className="wb-panel">
+    <p className="eyebrow">ROOF SOLVER · SOURCE-GEOMETRY PREVIEW</p>
+    <h3>Gable pitch, ridge and sections</h3>
+    <label className="microcopy" htmlFor="gable-draft-selector">Roof-zone draft</label>
+    <select id="gable-draft-selector" value={chosenRoof?.id??""} onChange={e=>setSelectedRoofId(e.target.value)}>
+     {roofShapes.length?roofShapes.map(s=><option key={s.id} value={s.id}>{s.label} · {s.id}</option>):<option value="">Create a GABLE ZONE shape first</option>}
+    </select>
+    <label className="microcopy" htmlFor="ridge-direction">Ridge orientation relative to zone</label>
+    <select id="ridge-direction" value={ridgeDirection} onChange={e=>setRidgeDirection(e.target.value as typeof ridgeDirection)}><option value="LONG_AXIS">Along longer rectangle axis</option><option value="SHORT_AXIS">Along shorter rectangle axis / cross-gable</option></select>
+    <div className="grid" style={{gridTemplateColumns:"1fr 1fr",gap:8}}>
+     <label>Plate Z ft<input value={plateZ} inputMode="decimal" onChange={e=>setPlateZ(e.target.value)}/></label>
+     <label>Pitch rise<input value={pitchRise} inputMode="decimal" onChange={e=>setPitchRise(e.target.value)}/></label>
+     <label>Pitch run<input value={pitchRun} inputMode="decimal" onChange={e=>setPitchRun(e.target.value)}/></label>
+     <label>Proposed eave overhang ft<input value={overhang} inputMode="decimal" onChange={e=>setOverhang(e.target.value)}/></label>
+     <label>Fascia depth ft (optional)<input value={fasciaDepth} inputMode="decimal" onChange={e=>setFasciaDepth(e.target.value)}/></label>
+     <label>Fascia thickness ft (optional)<input value={fasciaThickness} inputMode="decimal" onChange={e=>setFasciaThickness(e.target.value)}/></label>
+    </div>
+    <button className="secondary-button" type="button" disabled={stale||!chosenRoof} onClick={setRoof}>Solve draft roof parameters</button>
+    <p className="microcopy"><strong>{preview?.status??"WITHHELD"}</strong> · {preview?.ridges.length??0} ridge(s), {preview?.junctions.length??0} junction segment(s), {preview?.sections.length??0} actual surface intersection cuts.</p>
+    {preview?.fascia&&<p className="microcopy">Fascia: {preview.fascia.status} · {preview.fascia.segments.length} model edges. {preview.fascia.reason}</p>}
+    {preview?.ridges.map(r=><p className="microcopy" key={r.zoneId}>{r.zoneId}: plate {r.plateZFt.toFixed(2)} ft · ridge {r.ridgeZFt.toFixed(2)} ft · pitch {(r.pitch*12).toFixed(2)}/12</p>)}
+    {preview?.issues.map((issue,i)=><p className="microcopy" key={i}>{issue.code}: {issue.detail}</p>)}
+    <p className="microcopy">The computed preview cannot create a locked roof or approve valley drainage, structure, fascia or permit geometry.</p>
+   </article>
   </div>
   <div className="component-list">
    {base.shapes.map(s=><div key={s.id}><span>{s.story??"ROOF"} · DRAFT</span><strong>{s.label}</strong><small>{s.ownerId} · {s.kind} · {s.polygon.length} vertices</small><button className="tiny-action" type="button" disabled={stale} onClick={()=>drop(s.id)}>Remove</button></div>)}
