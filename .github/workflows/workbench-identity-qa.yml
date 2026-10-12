@@ -8,6 +8,10 @@ on:
       - 'app/api/workbench/**'
       - 'lib/aerovista/**'
       - 'scripts/test-workbench-handoff-failure.mjs'
+      - 'scripts/test-candidate-customer-report.mjs'
+      - 'packages/candidates/customer-report.ts'
+      - 'components/workbench/CandidateWorkspaceClient.tsx'
+      - 'components/workbench/CandidateLibraryWorkspace.tsx'
       - 'package.json'
       - '.npmrc'
       - '.github/workflows/workbench-identity-qa.yml'
@@ -38,6 +42,8 @@ jobs:
         run: node --experimental-loader ./scripts/alias-loader.mjs scripts/test-workbench-handoff-failure.mjs
       - name: Protected roof inspector React source and valley review acceptance
         run: npm run test:roof-inspector
+      - name: Candidate report geometry, 22-feature coverage and roof authority fail-closed
+        run: node --experimental-loader ./scripts/alias-loader.mjs scripts/test-candidate-customer-report.mjs
       - name: Production build
         run: npm run build
       - name: Anonymous boundary smoke

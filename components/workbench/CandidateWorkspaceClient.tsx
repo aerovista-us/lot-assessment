@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { CandidatePlan } from "@/components/workbench/CandidatePlan";
+import { createCandidateConceptHtml } from "@/packages/candidates/customer-report";
 import { InterventionEditor } from "@/components/workbench/InterventionEditor";
 import { useCandidateWorkspace } from "@/components/workbench/useCandidateWorkspace";
 import { currentEvaluation, type CandidateRecord, type PathComponent, type PolygonComponent } from "@/packages/candidates";
@@ -144,6 +145,22 @@ export function CandidateWorkspaceClient({ candidateId }: { candidateId: string 
     }
   }
 
+  async function createCustomerReport() {
+    try {
+      const result=await createCandidateConceptHtml(activeCandidate);
+      const blob=new Blob([result.html],{type:"text/html;charset=utf-8"});
+      const href=URL.createObjectURL(blob);
+      const anchor=document.createElement("a");
+      anchor.href=href;
+      anchor.download=activeCandidate.id+"-"+activeCandidate.revisionLabel.replace(/[^a-z0-9_-]+/ig,"-")+".customer-concept.html";
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.setTimeout(()=>URL.revokeObjectURL(href),30000);
+      setMessage("Created private customer concept report: 22 coverage categories, source site plan and validated roof evidence only. Missing architectural plans stay WITHHELD. Open the downloaded HTML; use Print → Save as PDF.");
+    }catch(cause){setMessage(cause instanceof Error?cause.message:"Customer report generation failed.");}
+  }
+
   function exportCurrent() {
     try {
       downloadCandidate(activeCandidate.id, workspace);
@@ -166,9 +183,11 @@ export function CandidateWorkspaceClient({ candidateId }: { candidateId: string 
         {!editableWorkingCopy && interventionEligible ? <button className="primary-button" type="button" onClick={createIntervention}>Create Intervention</button> : null}
         {localCandidate ? <button className="secondary-button" type="button" onClick={() => branch("VARIANT")}>Branch variant</button> : null}
         <button className="secondary-button" type="button" onClick={() => branch("NEW_DESIGN")}>New design from this</button>
+        <button className="primary-button" type="button" onClick={createCustomerReport}>Create Customer Report</button>
         <button className="secondary-button" type="button" onClick={exportCurrent}>Export package</button>
         <Link className="secondary-button" href={`/workbench/projects/pondy-lot2/compare?left=${activeCandidate.id}`}>Compare</Link>
       </div>
+      <p className="microcopy">Customer report is a private, downloadable concept HTML. Full roof views, room plans and elevations require source-approved geometry; no public publishing is triggered.</p>
       {message && <p className="microcopy lifecycle-message">{message}</p>}
     </section>
 
