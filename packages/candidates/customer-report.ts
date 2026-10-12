@@ -35,7 +35,7 @@ const xy=(p:readonly[number,number])=>{if(!Number.isFinite(p[0])||!Number.isFini
 function shape(c:PlacementComponent):ReadonlyArray<readonly[number,number]>{
  if(!(c.widthFt>0&&c.depthFt>0))throw Error('Invalid building footprint');
  const ps=c.polygon?.length?c.polygon:[[c.x,c.y],[c.x+c.widthFt,c.y],[c.x+c.widthFt,c.y+c.depthFt],[c.x,c.y+c.depthFt]];
- if(ps.length<3||Math.abs(signedPolygonArea(ps))<.01)throw Error('Degenerate building footprint');
+ if(ps.length<3||Math.abs(signedPolygonArea(ps as [number,number][]))<.01)throw Error('Degenerate building footprint');
  const deg=(c.rotationDeg||0)*Math.PI/180,midX=c.x+c.widthFt/2,midY=c.y+c.depthFt/2;
  return ps.map(([x,y])=>[midX+(x-midX)*Math.cos(deg)-(y-midY)*Math.sin(deg),midY+(x-midX)*Math.sin(deg)+(y-midY)*Math.cos(deg)]);
 }
