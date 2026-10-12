@@ -4,7 +4,7 @@ import type {CandidateRecord} from "@/packages/candidates";
 import {placementPolygon} from "@/packages/roof-geometry";
 import {
  addDesignShape,addOwnerFootprintShape,emptyDesignDocument,removeDesignShape,addDraftDoor,setDraftRoofParameters,
- sourceBuildingOwners,validateDesignDocument,type DesignDocument,type DesignShape,type P2
+ sourceBuildingOwners,validateDesignDocument,updateDesignShapePolygon,snapDesignPoint,type DesignDocument,type DesignShape,type P2
 } from "@/packages/candidates/design-document";
 import {solveUniversalDesign} from "@/packages/candidates/design-solving";
 type Props={candidate:CandidateRecord;document?:DesignDocument;onSave:(doc:DesignDocument)=>void};
@@ -16,6 +16,9 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
  const [label,setLabel]=useState("New shape");
  const [vertices,setVertices]=useState("[[0,0],[10,0],[10,10],[0,10]]");
  const [note,setNote]=useState("");
+ const [editingShapeId,setEditingShapeId]=useState("");
+ const [snapGrid,setSnapGrid]=useState("0.5");
+ const [drag,setDrag]=useState<{shapeId:string;index:number;point:P2}|null>(null);
  const [wallIndex,setWallIndex]=useState(0);
  const [doorWidth,setDoorWidth]=useState("3");
  const [selectedRoofId,setSelectedRoofId]=useState("");
@@ -80,6 +83,40 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
   try{if(stale)throw Error("Source geometry changed; prior shapes cannot be edited.");onSave(removeDesignShape(candidate,base,id));setNote("Shape removed from the design document.");}
   catch(e){setNote(e instanceof Error?e.message:"Cannot remove shape.");}
  }
+ function pointerPoint(e:React.PointerEvent<SVGCircleElement>):P2|null{
+  const svg=e.currentTarget.ownerSVGElement;
+  const matrix=svg?.getScreenCTM();
+  if(!svg||!matrix)return null;
+  const p=svg.createSVGPoint();p.x=e.clientX;p.y=e.clientY;
+  const mapped=p.matrixTransform(matrix.inverse());
+  return [mapped.x,mapped.y];
+ }
+ function beginVertex(e:React.PointerEvent<SVGCircleElement>,shapeId:string,index:number){
+  if(stale)return;
+  const shape=base.shapes.find(s=>s.id===shapeId);if(!shape)return;
+  e.currentTarget.setPointerCapture(e.pointerId);
+  setDrag({shapeId,index,point:[...shape.polygon[index]] as P2});
+ }
+ function moveVertex(e:React.PointerEvent<SVGCircleElement>){
+  if(!drag)return;
+  try{
+   const point=pointerPoint(e);if(!point)return;
+   setDrag({...drag,point:snapDesignPoint(point,Number(snapGrid))});
+  }catch(error){setNote(error instanceof Error?error.message:"Invalid vertex coordinate");}
+ }
+ function endVertex(e:React.PointerEvent<SVGCircleElement>){
+  if(!drag)return;
+  if(e.currentTarget.hasPointerCapture(e.pointerId))e.currentTarget.releasePointerCapture(e.pointerId);
+  const current=drag;setDrag(null);
+  try{
+   if(stale)throw Error("Design source changed; vertex edit cancelled.");
+   const shape=base.shapes.find(s=>s.id===current.shapeId);
+   if(!shape)throw Error("Edited shape no longer exists.");
+   const polygon=shape.polygon.map((p,i)=>i===current.index?current.point:p);
+   const next=updateDesignShapePolygon(candidate,base,shape.id,polygon);
+   onSave(next);setNote("Vertex moved on "+snapGrid+" ft grid; design revision incremented. Dependent geometry must be solved again.");
+  }catch(error){setNote(error instanceof Error?error.message:"Vertex violates source geometry; change rejected.");}
+ }
  const shell=activeOwner?placementPolygon(activeOwner):[];
  const coords=shell.flatMap(p=>[p[0],p[1]]);
  const xs=shell.map(p=>p[0]),ys=shell.map(p=>p[1]);
@@ -110,9 +147,27 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
    <div><p className="eyebrow">SOURCE FOOTPRINT · DRAFT SHAPES</p>
     <svg viewBox={bb.join(" ")} role="img" aria-label="Source building owner polygon with draft floor and roof zones" style={{width:"100%",maxHeight:330,background:"#f0f4f7"}}>
      {shell.length>0&&<polygon points={pts(shell)} fill="#dce7ed" stroke="#31566d" strokeWidth={.6}/>}
-     {!stale&&base.shapes.filter(s=>s.ownerId===ownerId).map(s=><polygon key={s.id} points={pts(s.polygon)} fill={s.story===null?"#e9bc81":"#95c3cb"} fillOpacity={.35} stroke={s.story===null?"#a16f35":"#326b84"} strokeDasharray="1.8 1" strokeWidth={.7}><title>{s.label} · {s.kind} · draft</title></polygon>)}
+     {!stale&&base.shapes.filter(s=>s.ownerId===ownerId).map(s=>{
+      const poly=s.polygon.map((p,i)=>drag?.shapeId===s.id&&drag.index===i?drag.point:p);
+      return <g key={s.id}>
+       <polygon points={pts(poly)} fill={s.story===null?"#e9bc81":"#95c3cb"} fillOpacity={.35} stroke={s.story===null?"#a16f35":"#326b84"} strokeDasharray="1.8 1" strokeWidth={.7}><title>{s.label} · {s.kind} · draft</title></polygon>
+       {editingShapeId===s.id&&poly.map((p,i)=><circle key={i} cx={p[0]} cy={p[1]} r={0.55} fill="#163d55" stroke="#fff" strokeWidth={0.2}
+        style={{cursor:"grab",touchAction:"none"}} role="button" aria-label={`Drag vertex ${i+1} of ${s.label}`}
+        onPointerDown={e=>beginVertex(e,s.id,i)} onPointerMove={moveVertex} onPointerUp={endVertex}
+        onPointerCancel={()=>setDrag(null)} />)}
+      </g>;
+     })}
     </svg>
-    <p className="microcopy">Blue: floor concepts. Amber: roof-zone proposals. No roof slopes, floor heights or approved rooms are inferred.</p>
+    <label className="microcopy" htmlFor="design-edit-shape">Drag vertices on source XY grid</label>
+    <select id="design-edit-shape" value={editingShapeId} onChange={e=>{setEditingShapeId(e.target.value);setDrag(null);}}>
+     <option value="">Choose a draft shape to edit</option>
+     {base.shapes.filter(s=>s.ownerId===ownerId).map(s=><option value={s.id} key={s.id}>{s.label} · {s.story??"ROOF"}</option>)}
+    </select>
+    <label className="microcopy" htmlFor="design-snap">Grid snapping (ft)</label>
+    <select id="design-snap" value={snapGrid} onChange={e=>setSnapGrid(e.target.value)}>
+     <option value="0.25">0.25 ft</option><option value="0.5">0.5 ft</option><option value="1">1 ft</option>
+    </select>
+    <p className="microcopy">Drag an editable vertex; invalid moves outside the source owner or through polygon edges are rejected. Blue: floor concepts. Amber: roof-zone proposals.</p>
    </div>
   </div>
   <div className="candidate-detail-grid" style={{marginBlock:20}}>
