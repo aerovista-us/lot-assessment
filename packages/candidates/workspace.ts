@@ -73,12 +73,18 @@ export function upsertWorkspaceCandidate(
   return { ...state, updatedAt, candidates };
 }
 
+export function currentWorkspaceDesignDocument(state:CandidateWorkspaceState,candidate:CandidateRecord):DesignDocument|undefined{
+  const sourceSignature=designSourceSignature(candidate);
+  return (state.designDocuments??[]).find(item=>item.candidateId===candidate.id&&item.sourceSignature===sourceSignature);
+}
+
 export function saveWorkspaceDesignDocument(
   state:CandidateWorkspaceState,candidate:CandidateRecord,document:DesignDocument,
   now=new Date().toISOString()
 ):CandidateWorkspaceState{
   validateDesignDocument(candidate,document);
-  const remaining=(state.designDocuments??[]).filter(item=>item.candidateId!==candidate.id);
+  // Preserve older candidate geometry revisions for recovery; only replace the exact source-bound draft.
+  const remaining=(state.designDocuments??[]).filter(item=>item.candidateId!==candidate.id||item.sourceSignature!==document.sourceSignature);
   return {...state,updatedAt:now,designDocuments:[...remaining,structuredClone(document)]};
 }
 
@@ -188,7 +194,7 @@ export function createWorkspaceExportPackage(
 ) {
   const pkg=createExportPackage(mergeCandidateRegistry(base,state),candidateId,exportedAt);
   if(!pkg)return null;
-  const doc=(state.designDocuments??[]).find(x=>x.candidateId===candidateId);
+  const doc=currentWorkspaceDesignDocument(state,pkg.candidate);
   if(doc){validateDesignDocument(pkg.candidate,doc);return {...pkg,designDocument:structuredClone(doc)};}
   return pkg;
 }
