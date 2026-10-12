@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {pondyCandidateRegistry as registry} from '../projects/pondy-lot2/candidate-registry.ts';
 import {placementPolygon} from '../packages/roof-geometry/index.ts';
-import {emptyDesignDocument,addDesignShape,addOwnerFootprintShape,removeDesignShape,updateDesignShapePolygon,snapDesignPoint,partitionDesignShape,validateDesignDocument,designSourceSignature} from '../packages/candidates/design-document.ts';
+import {emptyDesignDocument,addDesignShape,addOwnerFootprintShape,removeDesignShape,updateDesignShapePolygon,snapDesignPoint,partitionDesignShape,packDraftRooms,validateDesignDocument,designSourceSignature} from '../packages/candidates/design-document.ts';
 import {renderDesignDocumentAttachment} from '../packages/candidates/design-report-attachment.ts';
 import {createCandidateConceptHtml} from '../packages/candidates/customer-report.ts';
 import {emptyCandidateWorkspace,saveWorkspaceDesignDocument,currentWorkspaceDesignDocument,createWorkspaceExportPackage,importWorkspacePackage} from '../packages/candidates/workspace.ts';
@@ -34,6 +34,10 @@ for(const c of cases){
  if(box){
   const split=partitionDesignShape(c,doc,plate.id,'X',cutX);
   assert.equal(split.shapes.length,4);
+  const packed=packDraftRooms(c,doc,plate.id,['Living','Kitchen'],'X');
+  assert.equal(packed.shapes.length,5);
+  assert.equal(packed.shapes.filter(s=>s.kind==='ROOM').length,2);
+  assert.equal(validateDesignDocument(c,packed).valid,true);
   assert.equal(split.revision,doc.revision+1);
   assert.equal(validateDesignDocument(c,split).valid,true);
   assert.throws(()=>partitionDesignShape(c,doc,plate.id,'X',-1e9),/nonzero areas/);
