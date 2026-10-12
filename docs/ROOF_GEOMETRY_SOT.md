@@ -1,5 +1,8 @@
 # LotScope Roof Geometry Source of Truth
 
+**2026-10-12 authority note:** PR #98 uses this *existing* solver to compute temporary **MODEL_PREVIEW** gable faces, source-shaped ridges, compatible two-zone valleys and actual roof-face sections for any candidate with explicitly authored parameters. The in-memory preview must **never** be persisted as a `ROOF_GEOMETRY_LOCKED` candidate roof or substituted for a current `RoofDrawingHandoff`. Proposed nonzero overhangs do not yield solved extended fascia. The current generic authoring interface and limits are in [Universal Design Master](UNIVERSAL_DESIGN_ENGINE_MASTER.md); the supported case list is in [Solver Phase 1](UNIVERSAL_DESIGN_SOLVER_PHASE1.md). The historical sampled-edge note below is not permission to interpret all camera projections as certified: interval classifications must be read with their per-view unresolved/review states and exact source identity.
+
+
 **Status:** Active Workbench geometry contract  
 **Core solver:** `packages/roof-geometry/index.ts`  
 **Candidate component:** `kind: "roof"`  

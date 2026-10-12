@@ -1,5 +1,8 @@
 # Roof overhang extension v1 — geometry authority contract
 
+**2026-10-12 status clarification:** The shared design editor can *store* a proposed nonzero overhang in an unverified source-bound roof parameter. The current shared solver can *preview* fascia source-edges **only when overhang = 0** with an explicitly supplied valid fascia depth and thickness. This contract's nonzero extended roof mesh, eaves/rakes/soffits and junction-aware extension **remain unimplemented**; do not interpret a visible overhang input field as solved authority. [Current master](UNIVERSAL_DESIGN_ENGINE_MASTER.md), [solver](UNIVERSAL_DESIGN_SOLVER_PHASE1.md).
+
+
 Status: SPECIFICATION / NOT YET AUTHORIZED FOR CUSTOMER RENDERING
 
 ## Boundary

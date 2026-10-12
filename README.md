@@ -1,5 +1,9 @@
 # LotScope / Lot Assessment
 
+**Current documentation (October 12, 2026):** [Documentation hub](docs/README.md) · [Universal engine master](docs/UNIVERSAL_DESIGN_ENGINE_MASTER.md) · [Workbench user guide](docs/WORKBENCH_DESIGN_TO_REPORT_GUIDE.md) · [current build status](docs/BUILD_STATUS.md). Universal editor PR #97 and shared solver PR #98 are merged/deployed for source-bound **model previews**; arbitrary floor/roof/section completion remains under issue #94. Customer reports remain **CONCEPT ONLY — NOT FOR CONSTRUCTION**.
+
+**Do not confuse the two authorities:** a temporary saved-user roof preview can produce source-based model ridge/valley/section lines but never becomes a `LOCKED` roof or a publishable construction drawing. The authoritative roof gallery requires a separately valid, current roof component. Browser-local candidate drafts must be deliberately exported; the private HTML report does not publish them to public Pages.
+
 **Can I Build That Here?** — an AeroVista Local early-feasibility utility backed by the same deterministic geometry stack used by the internal Workbench.
 
 ## Two surfaces, one engine

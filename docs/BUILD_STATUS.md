@@ -1,5 +1,18 @@
 # LotScope — Build Status
 
+## Current checkpoint — October 12, 2026 (supersedes the September baseline below)
+
+**RUNNING:** Public LotScope, authenticated Workbench, candidate library, source-bound private customer HTML builder, shared DesignDocument editor (PR #97) and common floor/roof model solver (PR #98). PR #98 merged as `79ffc2776000d527921d0c045e808f59b2a5643f`; exact matching Vercel production READY was verified October 12. The independently hosted roof-visibility gate and three hosted QA jobs passed the PR head; independent long benchmark was in progress when merged, not asserted complete.
+
+**NEW MODELED CAPABILITIES:** shared room/circulation polygons and common walls; width-checked doors on shared walls; ground/upper stair XY stack checking; explicitly authored gable pitch/plate Z/ridge direction; a supported cross-gable two-envelope solver with real model valley segments; zero-overhang explicitly specified fascia previews; actual roof-surface section cuts; 22-category customer concept HTML. Source edits invalidate attachments. Drafts stay browser-local with portable candidate export.
+
+**NOT DELIVERED:** automated interior room packing, door swing/egress, structural/framing walls, real 3D stair geometry/headroom, arbitrary >2-zone roof topology, nonzero roof overhang extension, full floor/wall/foundation section set, deterministic scaled native PDF, automatic generic Pondy sheet adapter, server-authoritative multiuser design revisions and client publishing, physical print acceptance and AHJ/professional signoff. Latest geometry is `MODEL_PREVIEW`, **not locked architecture**; all customer outputs remain **CONCEPT ONLY**. See [master](UNIVERSAL_DESIGN_ENGINE_MASTER.md), [user guide](WORKBENCH_DESIGN_TO_REPORT_GUIDE.md), [solver Phase 1](UNIVERSAL_DESIGN_SOLVER_PHASE1.md) and [issue #94](https://github.com/aerovista-us/lot-assessment/issues/94).
+
+---
+
+*The status details and commit SHAs below are retained as the historical September 18 checkpoint. They are not the present runtime state.*
+
+
 Updated: 2026-09-18
 
 ## Status
