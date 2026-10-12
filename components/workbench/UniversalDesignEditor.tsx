@@ -4,7 +4,7 @@ import type {CandidateRecord} from "@/packages/candidates";
 import {placementPolygon} from "@/packages/roof-geometry";
 import {
  addDesignShape,addOwnerFootprintShape,emptyDesignDocument,removeDesignShape,addDraftDoor,setDraftRoofParameters,
- sourceBuildingOwners,validateDesignDocument,updateDesignShapePolygon,snapDesignPoint,partitionDesignShape,type DesignDocument,type DesignShape,type P2
+ sourceBuildingOwners,validateDesignDocument,updateDesignShapePolygon,snapDesignPoint,partitionDesignShape,packDraftRooms,type DesignDocument,type DesignShape,type P2
 } from "@/packages/candidates/design-document";
 import {solveUniversalDesign} from "@/packages/candidates/design-solving";
 type Props={candidate:CandidateRecord;document?:DesignDocument;onSave:(doc:DesignDocument)=>void};
@@ -20,6 +20,8 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
  const [snapGrid,setSnapGrid]=useState("0.5");
  const [partitionAxis,setPartitionAxis]=useState<"X"|"Y">("X");
  const [partitionOffset,setPartitionOffset]=useState("");
+ const [roomLabels,setRoomLabels]=useState("Living, Kitchen, Bedroom");
+ const [packAxis,setPackAxis]=useState<"X"|"Y">("X");
  const [drag,setDrag]=useState<{shapeId:string;index:number;point:P2}|null>(null);
  const [wallIndex,setWallIndex]=useState(0);
  const [doorWidth,setDoorWidth]=useState("3");
@@ -94,6 +96,15 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
    const next=partitionDesignShape(candidate,base,editingShapeId,partitionAxis,value);
    onSave(next);setEditingShapeId("");setNote("Floor split into two source-validated polygons; affected doors cleared for re-authoring.");
   }catch(error){setNote(error instanceof Error?error.message:"Partition failed");}
+ }
+ function packRooms(){
+  try{
+   if(stale)throw Error("Design source changed; packing unavailable");
+   if(!editingShapeId)throw Error("Select a rectangular FLOOR PLATE");
+   const labels=roomLabels.split(",").map(s=>s.trim()).filter(Boolean);
+   const next=packDraftRooms(candidate,base,editingShapeId,labels,packAxis);
+   onSave(next);setEditingShapeId("");setNote("Created source-contained room seed polygons; adjust walls and author doors/stairs before claiming program feasibility.");
+  }catch(error){setNote(error instanceof Error?error.message:"Unable to pack rooms");}
  }
  function pointerPoint(e:React.PointerEvent<SVGCircleElement>):P2|null{
   const svg=e.currentTarget.ownerSVGElement;
@@ -184,6 +195,9 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
      <label className="microcopy">Cut coordinate (model ft)<input inputMode="decimal" value={partitionOffset} onChange={e=>setPartitionOffset(e.target.value)} placeholder="Absolute model coordinate" /></label>
     </div>
     <button className="secondary-button" type="button" onClick={partitionSelected} disabled={stale||!editingShapeId}>Split selected floor shape</button>
+    <label className="microcopy">Room names (comma separated)<input value={roomLabels} onChange={e=>setRoomLabels(e.target.value)} /></label>
+    <label className="microcopy">Room seed direction<select value={packAxis} onChange={e=>setPackAxis(e.target.value as "X"|"Y")}><option value="X">Across X</option><option value="Y">Across Y</option></select></label>
+    <button className="secondary-button" type="button" onClick={packRooms} disabled={stale||!editingShapeId}>Seed rooms from selected floor plate</button>
     <p className="microcopy">Drag an editable vertex; invalid moves outside the source owner or through polygon edges are rejected. Partition divides the selected floor polygon along a model X or Y line, validates both halves and clears dependent draft doors. Blue: floor concepts. Amber: roof-zone proposals.</p>
    </div>
   </div>
