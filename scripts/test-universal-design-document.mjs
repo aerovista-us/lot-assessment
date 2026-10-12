@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {pondyCandidateRegistry as registry} from '../projects/pondy-lot2/candidate-registry.ts';
 import {placementPolygon} from '../packages/roof-geometry/index.ts';
-import {emptyDesignDocument,addDesignShape,addOwnerFootprintShape,removeDesignShape,validateDesignDocument,designSourceSignature} from '../packages/candidates/design-document.ts';
+import {emptyDesignDocument,addDesignShape,addOwnerFootprintShape,removeDesignShape,updateDesignShapePolygon,snapDesignPoint,validateDesignDocument,designSourceSignature} from '../packages/candidates/design-document.ts';
 import {renderDesignDocumentAttachment} from '../packages/candidates/design-report-attachment.ts';
 import {createCandidateConceptHtml} from '../packages/candidates/customer-report.ts';
 import {emptyCandidateWorkspace,saveWorkspaceDesignDocument,currentWorkspaceDesignDocument,createWorkspaceExportPackage,importWorkspacePackage} from '../packages/candidates/workspace.ts';
@@ -17,6 +17,16 @@ for(const c of cases){
  let doc=addOwnerFootprintShape(c,base,{ownerId:owners[0].id,label:'Ground exterior planning plate',kind:'FLOOR_PLATE',story:'GROUND'},'2026-10-12T00:10:00Z');
  doc=addOwnerFootprintShape(c,doc,{ownerId:owners[1].id,label:'Roof zone concept (no ridge or slope)',kind:'GABLE_ZONE',story:null},'2026-10-12T00:20:00Z');
  doc=addOwnerFootprintShape(c,doc,{ownerId:owners[0].id,label:'Upper shell concept',kind:'FLOOR_PLATE',story:'UPPER'},'2026-10-12T00:30:00Z');
+ const unchanged=structuredClone(doc);
+ const snap=snapDesignPoint([1.24,-0.76],0.5);
+ assert.deepEqual(snap,[1,-1]);
+ assert.throws(()=>snapDesignPoint([2,3],0),/snap grid/);
+ const shifted=updateDesignShapePolygon(c,doc,doc.shapes[0].id,doc.shapes[0].polygon);
+ assert.equal(shifted.revision,4);
+ assert.deepEqual(doc,unchanged,'Vertex edits must never mutate an older revision');
+ assert.equal(validateDesignDocument(c,shifted).valid,true);
+ assert.throws(()=>updateDesignShapePolygon(c,doc,doc.shapes[0].id,doc.shapes[0].polygon.map(p=>[p[0]+1000,p[1]+1000])),/outside/);
+ assert.throws(()=>updateDesignShapePolygon(c,doc,doc.shapes[0].id,[[0,0],[1,0],[2,0]]),/Invalid design polygon/);
  assert.equal(doc.revision,3);
  assert.equal(doc.shapes.length,3);
  assert.equal(validateDesignDocument(c,doc).shapes,3);
