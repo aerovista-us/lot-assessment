@@ -8,6 +8,7 @@ import { useCandidateWorkspace } from "@/components/workbench/useCandidateWorksp
 import { currentEvaluation, type CandidateRecord, type LotScopePackage } from "@/packages/candidates";
 import {
   createWorkspaceExportPackage,
+  currentWorkspaceDesignDocument,
   isLotScopePackage,
   type ImportMode
 } from "@/packages/candidates/workspace";
@@ -91,7 +92,7 @@ export function CandidateLibraryWorkspace() {
     const candidate=workspace.registry.candidates.find(item=>item.id===candidateId);
     if(!candidate)return setMessage("Candidate not found for report.");
     try{
-      const attached=workspace.workspace.designDocuments?.find(x=>x.candidateId===candidate.id);
+      const attached=currentWorkspaceDesignDocument(workspace.workspace,candidate);
       const report=await createCandidateConceptHtml(candidate,attached);
       const blob=new Blob([report.html],{type:"text/html;charset=utf-8"});
       const href=URL.createObjectURL(blob);
