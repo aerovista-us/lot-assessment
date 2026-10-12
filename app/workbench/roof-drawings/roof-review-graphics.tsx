@@ -52,14 +52,14 @@ export function RoofValleySection({cut}:{cut:ValleySectionCut}){
  return <figure className="roof-review-figure" data-section={cut.id} data-section-status={cut.status}>
   <figcaption>{cut.label} · perpendicular source-face section</figcaption>
   <svg viewBox="0 0 605 270" role="img"
-   aria-label={cut.label+': '+segments.length+' exact face-section intervals, midpoint elevation '+number(cut.valleyMidZFt)+' feet, '+cut.status}>
+   aria-label={cut.label+': '+segments.length+' exact face-section intervals, midpoint elevation '+cut.valleyMidZFt.toFixed(3)+' feet, '+cut.status}>
    <rect width="605" height="270" rx="12" fill="#f3f6f8"/>
    <line x1={x(0)} y1="35" x2={x(0)} y2="237" stroke="#9e6219" strokeDasharray="4 5" strokeWidth="1.4"/>
    {segments.map((s,i)=><line key={s.faceId+'-'+i} x1={x(s.a[0])} y1={y(s.a[1])}
     x2={x(s.b[0])} y2={y(s.b[1])} stroke={i%2?'#32647c':'#164455'} strokeWidth="3"
     data-section-face={s.faceId}><title>{s.faceId+' · exact source-face intersection'}</title></line>)}
    <circle cx={x(0)} cy={y(cut.valleyMidZFt)} r="6" fill="#f6b34e" stroke="#703708" strokeWidth="2"/>
-   <text x={Math.min(530,x(0)+10)} y={Math.max(35,y(cut.valleyMidZFt)-10)} fontSize="12" fontWeight="800" fill="#85440b">{cut.id+' · '+number(cut.valleyMidZFt)+' ft'}</text>
+   <text x={Math.min(530,x(0)+10)} y={Math.max(35,y(cut.valleyMidZFt)-10)} fontSize="12" fontWeight="800" fill="#85440b">{cut.id+' · '+cut.valleyMidZFt.toFixed(3)+' ft'}</text>
    <text x="20" y="20" fontSize="10" fill="#35485b">LOCKED 3D INTERSECTION · CONCEPT ONLY · NOT FOR CONSTRUCTION</text>
    <text x="20" y="257" fontSize="10" fill="#526575">Distance along cut (ft) · Vertical source datum (ft) · Fit to frame</text>
   </svg>
