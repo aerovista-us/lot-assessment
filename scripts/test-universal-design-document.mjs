@@ -4,7 +4,7 @@ import {placementPolygon} from '../packages/roof-geometry/index.ts';
 import {emptyDesignDocument,addDesignShape,addOwnerFootprintShape,removeDesignShape,validateDesignDocument,designSourceSignature} from '../packages/candidates/design-document.ts';
 import {renderDesignDocumentAttachment} from '../packages/candidates/design-report-attachment.ts';
 import {createCandidateConceptHtml} from '../packages/candidates/customer-report.ts';
-import {emptyCandidateWorkspace,saveWorkspaceDesignDocument,createWorkspaceExportPackage,importWorkspacePackage} from '../packages/candidates/workspace.ts';
+import {emptyCandidateWorkspace,saveWorkspaceDesignDocument,currentWorkspaceDesignDocument,createWorkspaceExportPackage,importWorkspacePackage} from '../packages/candidates/workspace.ts';
 const cases=registry.candidates;
 assert(cases.length>=2);
 let inspected=0;
@@ -45,6 +45,15 @@ for(const c of cases){
  const m=moved.components.find(x=>x.id===owners[0].id);
  m.x+=3;
  await assert.rejects(()=>createCandidateConceptHtml(moved,doc),/stale/);
+ assert.equal(currentWorkspaceDesignDocument(saved,moved),undefined,'Prior geometry shape draft must not silently follow a moved owner');
+ const refreshed=emptyDesignDocument(moved,'2026-10-12T01:45:00Z');
+ saved=saveWorkspaceDesignDocument(saved,moved,refreshed,'2026-10-12T01:45:00Z');
+ assert.equal(saved.designDocuments?.length,2,'Retain older source design instead of deleting historical draft shapes');
+ assert.equal(currentWorkspaceDesignDocument(saved,moved)?.revision,0);
+ assert.equal(currentWorkspaceDesignDocument(saved,c)?.shapes.length,3);
+ const movedPkg=createWorkspaceExportPackage(registry,saved,c.id,'2026-10-12T02:00:00Z');
+ assert.equal(movedPkg?.designDocument?.shapes.length,3,'Export still references exact registered source');
+
  assert.throws(()=>validateDesignDocument(moved,doc),/stale/);
  const outside=placementPolygon(owners[0]).map(p=>[p[0]+1000,p[1]+1000]);
  assert.throws(()=>addDesignShape(c,doc,{ownerId:owners[0].id,label:'Outside',kind:'ROOM',story:'GROUND',polygon:outside}),/outside/);
