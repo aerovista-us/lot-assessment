@@ -1,0 +1,70 @@
+name: Design 5 governed preview deploy
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: design5-governed-preview
+  cancel-in-progress: false
+
+jobs:
+  deploy-preview:
+    # Never deploy this workflow from main or a different feature branch.
+    if: github.ref == 'refs/heads/feat/design5-shared-architecture-contract'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: design5-preview
+    env:
+      NODE_AUTH_TOKEN: ${{ secrets.AEROVISTA_PACKAGES_TOKEN }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+      EXPECTED_PROJECT_ID: prj_qRwvydlg2d9yVbZZfkryxjjEdRt0
+      PREVIEW_BRANCH: feat/design5-shared-architecture-contract
+    steps:
+      - name: Checkout exact branch head
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Validate scoped deployment configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${VERCEL_TOKEN}" || { echo 'VERCEL_TOKEN missing from protected environment'; exit 1; }
+          test -n "${NODE_AUTH_TOKEN}" || { echo 'Package-read credential missing'; exit 1; }
+          test -n "${VERCEL_ORG_ID}" || { echo 'VERCEL_ORG_ID missing'; exit 1; }
+          test "${VERCEL_PROJECT_ID}" = "${EXPECTED_PROJECT_ID}" || { echo 'Wrong Vercel project; refusing deployment'; exit 1; }
+          echo "Deploying branch ${PREVIEW_BRANCH} at ${GITHUB_SHA:0:12} to preview only"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@aerovista-us'
+      - name: Install private packages and Vercel CLI
+        run: |
+          npm ci --no-audit --no-fund
+          npm install --global vercel@latest
+      - name: Verify application and shared solver
+        run: |
+          npm run lint
+          node scripts/test-workbench-preview-return.mjs
+          npm run test:universal-design
+          npm run test:universal-design-solving
+      - name: Pull preview configuration (no production credentials)
+        run: vercel pull --yes --environment=preview --git-branch="$PREVIEW_BRANCH" --token="$VERCEL_TOKEN" --scope="$VERCEL_ORG_ID"
+      - name: Build in Actions using approved package access
+        run: vercel build --yes --target=preview --token="$VERCEL_TOKEN" --scope="$VERCEL_ORG_ID"
+      - name: Publish prebuilt preview (never production)
+        shell: bash
+        run: |
+          set -euo pipefail
+          vercel deploy --prebuilt --target=preview --yes --token="$VERCEL_TOKEN" --scope="$VERCEL_ORG_ID" > "$RUNNER_TEMP/preview-url.txt"
+          echo "Preview deployment submitted; inspect exact SHA and aliases in Vercel"
+          cat "$RUNNER_TEMP/preview-url.txt"
+      - name: Deployment trace
+        if: always()
+        run: echo "Git SHA ${GITHUB_SHA}; workflow ${GITHUB_RUN_ID}; environment design5-preview"
