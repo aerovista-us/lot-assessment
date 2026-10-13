@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {pondyCandidateRegistry as registry} from '../projects/pondy-lot2/candidate-registry.ts';
 import {placementPolygon} from '../packages/roof-geometry/index.ts';
 import {emptyDesignDocument,addDesignShape,addOwnerFootprintShape,validateDesignDocument} from '../packages/candidates/design-document.ts';
-import {solveSharedFloors,solveSharedRoofPreviews,solveUniversalDesign,solveStraightStairFlight} from '../packages/candidates/design-solving.ts';
+import {solveSharedFloors,solveSharedRoofPreviews,solveUniversalDesign,solveStraightStairFlight,evaluateDraftRoomProgram} from '../packages/candidates/design-solving.ts';
 import {createCandidateConceptHtml} from '../packages/candidates/customer-report.ts';
 import {setDraftRoofParameters,addDraftDoor} from '../packages/candidates/design-document.ts';
 const C=registry.candidates;assert(C.length>=2);
@@ -22,6 +22,15 @@ for(const candidate of C){
  let doc=emptyDesignDocument(candidate);
  doc=addDesignShape(candidate,doc,{ownerId:owner.id,label:'Living',kind:'ROOM',story:'GROUND',polygon:[a,ab,dc,d]});
  doc=addDesignShape(candidate,doc,{ownerId:owner.id,label:'Kitchen',kind:'ROOM',story:'GROUND',polygon:[ab,b,c,dc]});
+ const program=evaluateDraftRoomProgram(candidate,doc,{ownerId:owner.id,story:'GROUND',rooms:[
+  {label:'Living',minAreaSqFt:1,adjacentTo:['Kitchen']},
+  {label:'Kitchen',minAreaSqFt:1,adjacentTo:['Living']}
+ ]});
+ assert.equal(program.status,'PROGRAM_GEOMETRY_CHECKED');
+ assert(program.measured.every(x=>x.areaSqFt>0));
+ const impossible=evaluateDraftRoomProgram(candidate,doc,{ownerId:owner.id,story:'GROUND',rooms:[{label:'Kitchen',minAreaSqFt:100000}]});
+ assert.equal(impossible.status,'REVIEW_REQUIRED');
+ assert(impossible.issues.some(x=>x.code==='ROOM_AREA_UNMET'));
  const first=solveSharedFloors(candidate,doc);
  const ground=first.find(x=>x.ownerId===owner.id&&x.story==='GROUND');
  assert(ground);
