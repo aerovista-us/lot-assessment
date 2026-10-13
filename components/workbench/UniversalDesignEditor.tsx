@@ -129,7 +129,8 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
  }
  function endWall(e:React.PointerEvent<SVGLineElement>){
   if(!wallDrag)return;
-  const current=wallDrag;setWallDrag(null);
+  const point=pointerPoint(e);
+  const current={...wallDrag,delta:point?snapDesignPoint([point[0]-wallDrag.start[0],point[1]-wallDrag.start[1]],Number(snapGrid)):wallDrag.delta};setWallDrag(null);
   if(e.currentTarget.hasPointerCapture(e.pointerId))e.currentTarget.releasePointerCapture(e.pointerId);
   try{
    if(stale)throw Error("Source changed; wall drag cancelled");
@@ -169,7 +170,8 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
  function endVertex(e:React.PointerEvent<SVGCircleElement>){
   if(!drag)return;
   if(e.currentTarget.hasPointerCapture(e.pointerId))e.currentTarget.releasePointerCapture(e.pointerId);
-  const current=drag;setDrag(null);
+  const finalPoint=pointerPoint(e);
+  const current={...drag,point:finalPoint?snapDesignPoint(finalPoint,Number(snapGrid)):drag.point};setDrag(null);
   try{
    if(stale)throw Error("Design source changed; vertex edit cancelled.");
    const shape=base.shapes.find(s=>s.id===current.shapeId);
