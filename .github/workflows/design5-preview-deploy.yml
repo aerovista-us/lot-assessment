@@ -46,7 +46,7 @@ jobs:
           scope: '@aerovista-us'
       - name: Install private packages and Vercel CLI
         run: |
-          npm ci --no-audit --no-fund
+          npm install --no-audit --no-fund
           npm install --global vercel@latest
       - name: Verify application and shared solver
         run: |
