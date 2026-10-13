@@ -256,3 +256,20 @@ export function evaluateDraftRoomProgram(candidate:CandidateRecord,doc:DesignDoc
  return {status:issues.length?'REVIEW_REQUIRED' as const:'PROGRAM_GEOMETRY_CHECKED' as const,
   measured,issues,boundary:'NOT A HABITABILITY, STRUCTURAL OR EGRESS APPROVAL' as const};
 }
+
+/** Project the authored straight-flight 3D noses into a run-vs-Z elevation.
+ * No independently drawn or inferred stair elevation geometry. */
+export function stairFlightElevation(
+ flight:ReturnType<typeof solveStraightStairFlight>,baseZFt:number
+){
+ if(flight.status!=='MODEL_PREVIEW'||!Number.isFinite(baseZFt)||flight.steps.length<2)
+  return {status:'WITHHELD' as const,profile:[] as P2[],reason:'No solved stair flight available'};
+ const spacing=flight.runFt/(flight.steps.length-1);
+ const profile:P2[]=[[0,baseZFt]];
+ for(let i=0;i<flight.steps.length;i++){
+  const x=Number((i*spacing).toFixed(5));
+  const z=flight.steps[i].nosing[2];
+  profile.push([x,i===0?baseZFt:flight.steps[i-1].nosing[2]],[x,z]);
+ }
+ return {status:'MODEL_PREVIEW' as const,profile,reason:'Derived from authored stair flight; landings and headroom unverified'};
+}
