@@ -138,6 +138,21 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
    setNote("Wall endpoints moved; all derived roof/floor previews require re-solve.");
   }catch(error){setNote(error instanceof Error?error.message:"Invalid wall movement rejected");}
  }
+ function keyMoveVertex(e:React.KeyboardEvent<SVGCircleElement>,shapeId:string,index:number){
+  const offsets:Record<string,P2>={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]};
+  const direction=offsets[e.key];
+  if(!direction||stale)return;
+  e.preventDefault();
+  const shape=base.shapes.find(x=>x.id===shapeId);
+  if(!shape)return;
+  try{
+   const increment=Number(snapGrid);
+   const start=shape.polygon[index];
+   const p=snapDesignPoint([start[0]+direction[0]*increment,start[1]+direction[1]*increment],increment);
+   onSave(updateDesignShapePolygon(candidate,base,shapeId,shape.polygon.map((v,i)=>i===index?p:v)));
+   setNote("Vertex moved by keyboard grid step; dependent solutions must be rechecked.");
+  }catch(error){setNote(error instanceof Error?error.message:"Keyboard move rejected");}
+ }
  function beginVertex(e:React.PointerEvent<SVGCircleElement>,shapeId:string,index:number){
   if(stale)return;
   const shape=base.shapes.find(s=>s.id===shapeId);if(!shape)return;
@@ -209,7 +224,7 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
         onPointerDown={e=>beginWall(e,s.id,i)} onPointerMove={moveWall} onPointerUp={endWall}
         onPointerCancel={()=>setWallDrag(null)}><title>Drag wall {i+1} of {s.label}</title></line>)}
        {editingShapeId===s.id&&poly.map((p,i)=><circle key={i} cx={p[0]} cy={p[1]} r={0.55} fill="#163d55" stroke="#fff" strokeWidth={0.2}
-        style={{cursor:"grab",touchAction:"none"}} role="button" aria-label={`Drag vertex ${i+1} of ${s.label}`}
+        style={{cursor:"grab",touchAction:"none"}} role="button" tabIndex={0} aria-label={`Move vertex ${i+1} of ${s.label}; arrow keys move by ${snapGrid} feet`} onKeyDown={e=>keyMoveVertex(e,s.id,i)}
         onPointerDown={e=>beginVertex(e,s.id,i)} onPointerMove={moveVertex} onPointerUp={endVertex}
         onPointerCancel={()=>setDrag(null)} />)}
       </g>;
