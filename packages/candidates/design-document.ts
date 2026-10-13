@@ -282,3 +282,20 @@ export function packDraftRooms(
  const next:DesignDocument={...d,revision:d.revision+1,updatedAt:now,shapes:[...d.shapes,...added]};
  validateDesignDocument(c,next);return next;
 }
+
+/** Translate the two endpoints of an authored wall edge; refuse invalid geometry. */
+export function moveDesignWall(
+ c:CandidateRecord,d:DesignDocument,shapeId:string,edgeIndex:number,delta:P2,
+ now=new Date().toISOString()
+):DesignDocument{
+ validateDesignDocument(c,d);
+ const shape=d.shapes.find(s=>s.id===shapeId);
+ if(!shape||!Number.isInteger(edgeIndex)||edgeIndex<0||edgeIndex>=shape.polygon.length)
+  throw Error('Invalid wall edge selection');
+ if(!Array.isArray(delta)||delta.length!==2||!delta.every(Number.isFinite))
+  throw Error('Invalid wall movement');
+ const adjacent=(edgeIndex+1)%shape.polygon.length;
+ const polygon=shape.polygon.map((p,i):P2=>
+  i===edgeIndex||i===adjacent?[p[0]+delta[0],p[1]+delta[1]]:[...p] as P2);
+ return updateDesignShapePolygon(c,d,shapeId,polygon,now);
+}
