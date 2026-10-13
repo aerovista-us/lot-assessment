@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {pondyCandidateRegistry as registry} from '../projects/pondy-lot2/candidate-registry.ts';
 import {placementPolygon} from '../packages/roof-geometry/index.ts';
-import {emptyDesignDocument,addDesignShape,addOwnerFootprintShape,removeDesignShape,updateDesignShapePolygon,snapDesignPoint,partitionDesignShape,packDraftRooms,validateDesignDocument,designSourceSignature} from '../packages/candidates/design-document.ts';
+import {emptyDesignDocument,addDesignShape,addOwnerFootprintShape,removeDesignShape,updateDesignShapePolygon,snapDesignPoint,partitionDesignShape,packDraftRooms,moveDesignWall,validateDesignDocument,designSourceSignature} from '../packages/candidates/design-document.ts';
 import {renderDesignDocumentAttachment} from '../packages/candidates/design-report-attachment.ts';
 import {createCandidateConceptHtml} from '../packages/candidates/customer-report.ts';
 import {emptyCandidateWorkspace,saveWorkspaceDesignDocument,currentWorkspaceDesignDocument,createWorkspaceExportPackage,importWorkspacePackage} from '../packages/candidates/workspace.ts';
@@ -42,6 +42,11 @@ for(const c of cases){
   assert.equal(validateDesignDocument(c,split).valid,true);
   assert.throws(()=>partitionDesignShape(c,doc,plate.id,'X',-1e9),/nonzero areas/);
  }
+ const zeroWall=moveDesignWall(c,doc,doc.shapes[0].id,0,[0,0]);
+ assert.equal(zeroWall.revision,4);
+ assert.deepEqual(zeroWall.shapes[0].polygon,doc.shapes[0].polygon);
+ assert.throws(()=>moveDesignWall(c,doc,doc.shapes[0].id,999,[1,0]),/wall edge/);
+ assert.throws(()=>moveDesignWall(c,doc,doc.shapes[0].id,0,[1000,1000]),/outside/);
  assert.equal(doc.revision,3);
  assert.equal(doc.shapes.length,3);
  assert.equal(validateDesignDocument(c,doc).shapes,3);
