@@ -4,7 +4,7 @@ import type {CandidateRecord} from "@/packages/candidates";
 import {placementPolygon} from "@/packages/roof-geometry";
 import {
  addDesignShape,addOwnerFootprintShape,emptyDesignDocument,removeDesignShape,addDraftDoor,setDraftRoofParameters,
- sourceBuildingOwners,validateDesignDocument,updateDesignShapePolygon,snapDesignPoint,partitionDesignShape,packDraftRooms,type DesignDocument,type DesignShape,type P2
+ sourceBuildingOwners,validateDesignDocument,updateDesignShapePolygon,snapDesignPoint,partitionDesignShape,packDraftRooms,moveDesignWall,type DesignDocument,type DesignShape,type P2
 } from "@/packages/candidates/design-document";
 import {solveUniversalDesign} from "@/packages/candidates/design-solving";
 type Props={candidate:CandidateRecord;document?:DesignDocument;onSave:(doc:DesignDocument)=>void};
@@ -23,6 +23,7 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
  const [roomLabels,setRoomLabels]=useState("Living, Kitchen, Bedroom");
  const [packAxis,setPackAxis]=useState<"X"|"Y">("X");
  const [drag,setDrag]=useState<{shapeId:string;index:number;point:P2}|null>(null);
+ const [wallDrag,setWallDrag]=useState<{shapeId:string;index:number;start:P2;delta:P2}|null>(null);
  const [wallIndex,setWallIndex]=useState(0);
  const [doorWidth,setDoorWidth]=useState("3");
  const [selectedRoofId,setSelectedRoofId]=useState("");
@@ -106,13 +107,36 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
    onSave(next);setEditingShapeId("");setNote("Created source-contained room seed polygons; adjust walls and author doors/stairs before claiming program feasibility.");
   }catch(error){setNote(error instanceof Error?error.message:"Unable to pack rooms");}
  }
- function pointerPoint(e:React.PointerEvent<SVGCircleElement>):P2|null{
+ function pointerPoint(e:React.PointerEvent<SVGCircleElement|SVGLineElement>):P2|null{
   const svg=e.currentTarget.ownerSVGElement;
   const matrix=svg?.getScreenCTM();
   if(!svg||!matrix)return null;
   const p=svg.createSVGPoint();p.x=e.clientX;p.y=e.clientY;
   const mapped=p.matrixTransform(matrix.inverse());
   return [mapped.x,mapped.y];
+ }
+ function beginWall(e:React.PointerEvent<SVGLineElement>,shapeId:string,index:number){
+  if(stale||drag)return;
+  const start=pointerPoint(e);if(!start)return;
+  e.currentTarget.setPointerCapture(e.pointerId);
+  setWallDrag({shapeId,index,start,delta:[0,0]});
+ }
+ function moveWall(e:React.PointerEvent<SVGLineElement>){
+  if(!wallDrag)return;
+  const point=pointerPoint(e);if(!point)return;
+  try{setWallDrag({...wallDrag,delta:snapDesignPoint([point[0]-wallDrag.start[0],point[1]-wallDrag.start[1]],Number(snapGrid))});}
+  catch(error){setNote(error instanceof Error?error.message:"Invalid wall drag");}
+ }
+ function endWall(e:React.PointerEvent<SVGLineElement>){
+  if(!wallDrag)return;
+  const current=wallDrag;setWallDrag(null);
+  if(e.currentTarget.hasPointerCapture(e.pointerId))e.currentTarget.releasePointerCapture(e.pointerId);
+  try{
+   if(stale)throw Error("Source changed; wall drag cancelled");
+   if(Math.hypot(...current.delta)<1e-6)return;
+   onSave(moveDesignWall(candidate,base,current.shapeId,current.index,current.delta));
+   setNote("Wall endpoints moved; all derived roof/floor previews require re-solve.");
+  }catch(error){setNote(error instanceof Error?error.message:"Invalid wall movement rejected");}
  }
  function beginVertex(e:React.PointerEvent<SVGCircleElement>,shapeId:string,index:number){
   if(stale)return;
@@ -171,9 +195,19 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
     <svg viewBox={bb.join(" ")} role="img" aria-label="Source building owner polygon with draft floor and roof zones" style={{width:"100%",maxHeight:330,background:"#f0f4f7"}}>
      {shell.length>0&&<polygon points={pts(shell)} fill="#dce7ed" stroke="#31566d" strokeWidth={.6}/>}
      {!stale&&base.shapes.filter(s=>s.ownerId===ownerId).map(s=>{
-      const poly=s.polygon.map((p,i)=>drag?.shapeId===s.id&&drag.index===i?drag.point:p);
+      const poly=s.polygon.map((p,i)=>{
+       if(drag?.shapeId===s.id&&drag.index===i)return drag.point;
+       if(wallDrag?.shapeId===s.id&&(i===wallDrag.index||i===(wallDrag.index+1)%s.polygon.length))
+        return [p[0]+wallDrag.delta[0],p[1]+wallDrag.delta[1]] as P2;
+       return p;
+      });
       return <g key={s.id}>
        <polygon points={pts(poly)} fill={s.story===null?"#e9bc81":"#95c3cb"} fillOpacity={.35} stroke={s.story===null?"#a16f35":"#326b84"} strokeDasharray="1.8 1" strokeWidth={.7}><title>{s.label} · {s.kind} · draft</title></polygon>
+       {editingShapeId===s.id&&poly.map((p,i)=><line key={"wall-"+i} x1={p[0]} y1={p[1]}
+        x2={poly[(i+1)%poly.length][0]} y2={poly[(i+1)%poly.length][1]}
+        stroke="#175a7e" strokeOpacity={0.4} strokeWidth={1.1} style={{cursor:"move",touchAction:"none"}}
+        onPointerDown={e=>beginWall(e,s.id,i)} onPointerMove={moveWall} onPointerUp={endWall}
+        onPointerCancel={()=>setWallDrag(null)}><title>Drag wall {i+1} of {s.label}</title></line>)}
        {editingShapeId===s.id&&poly.map((p,i)=><circle key={i} cx={p[0]} cy={p[1]} r={0.55} fill="#163d55" stroke="#fff" strokeWidth={0.2}
         style={{cursor:"grab",touchAction:"none"}} role="button" aria-label={`Drag vertex ${i+1} of ${s.label}`}
         onPointerDown={e=>beginVertex(e,s.id,i)} onPointerMove={moveVertex} onPointerUp={endVertex}
@@ -198,7 +232,7 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
     <label className="microcopy">Room names (comma separated)<input value={roomLabels} onChange={e=>setRoomLabels(e.target.value)} /></label>
     <label className="microcopy">Room seed direction<select value={packAxis} onChange={e=>setPackAxis(e.target.value as "X"|"Y")}><option value="X">Across X</option><option value="Y">Across Y</option></select></label>
     <button className="secondary-button" type="button" onClick={packRooms} disabled={stale||!editingShapeId}>Seed rooms from selected floor plate</button>
-    <p className="microcopy">Drag an editable vertex; invalid moves outside the source owner or through polygon edges are rejected. Partition divides the selected floor polygon along a model X or Y line, validates both halves and clears dependent draft doors. Blue: floor concepts. Amber: roof-zone proposals.</p>
+    <p className="microcopy">Drag any highlighted wall or vertex; invalid moves outside the source owner or through polygon edges are rejected. Partition divides the selected floor polygon along a model X or Y line, validates both halves and clears dependent draft doors. Blue: floor concepts. Amber: roof-zone proposals.</p>
    </div>
   </div>
   <div className="candidate-detail-grid" style={{marginBlock:20}}>
