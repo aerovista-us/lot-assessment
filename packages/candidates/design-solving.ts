@@ -230,3 +230,29 @@ export function solveStraightStairFlight(input:{
  return {status:'MODEL_PREVIEW',reason:'Source-aligned straight flight; landings, headroom, handrails and code unverified',
   risers,actualRiserFt:rounded(actualRiserFt),runFt:rounded(runFt),steps};
 }
+
+/** Assess an authored floor program without inventing room areas, dimensions or approvals. */
+export function evaluateDraftRoomProgram(candidate:CandidateRecord,doc:DesignDocument,requirements:{
+ ownerId:string;story:'GROUND'|'UPPER'|'OTHER';rooms:{label:string;minAreaSqFt:number;adjacentTo?:string[]}[]
+}){
+ validateDesignDocument(candidate,doc);
+ const shapes=doc.shapes.filter(s=>s.ownerId===requirements.ownerId&&s.story===requirements.story&&s.kind==='ROOM');
+ const floor=solveSharedFloors(candidate,doc).find(x=>x.ownerId===requirements.ownerId&&x.story===requirements.story);
+ const issues:{code:string;detail:string}[]=[];
+ const measured=requirements.rooms.map(req=>{
+  const shape=shapes.find(s=>s.label.toLowerCase()===req.label.toLowerCase());
+  const areaSqFt=shape?Math.abs(shape.polygon.reduce((sum,p,i)=>{const q=shape.polygon[(i+1)%shape.polygon.length];return sum+p[0]*q[1]-q[0]*p[1];},0)/2):0;
+  if(!shape)issues.push({code:'ROOM_MISSING',detail:req.label});
+  else if(!Number.isFinite(req.minAreaSqFt)||req.minAreaSqFt<=0||areaSqFt<req.minAreaSqFt)
+   issues.push({code:'ROOM_AREA_UNMET',detail:req.label});
+  for(const label of req.adjacentTo??[]){
+   const other=shapes.find(s=>s.label.toLowerCase()===label.toLowerCase());
+   if(shape&&(!other||!floor?.wallSegments.some(w=>(w.roomA===shape.id&&w.roomB===other.id)||(w.roomB===shape.id&&w.roomA===other.id))))
+    issues.push({code:'ADJACENCY_UNMET',detail:req.label+' to '+label});
+  }
+  return {label:req.label,shapeId:shape?.id??null,areaSqFt:Number(areaSqFt.toFixed(3)),minAreaSqFt:req.minAreaSqFt};
+ });
+ if(floor?.issues.some(i=>i.level==='FAIL'))issues.push({code:'FLOOR_GEOMETRY_INVALID',detail:'Underlying floor geometry fails validation'});
+ return {status:issues.length?'REVIEW_REQUIRED' as const:'PROGRAM_GEOMETRY_CHECKED' as const,
+  measured,issues,boundary:'NOT A HABITABILITY, STRUCTURAL OR EGRESS APPROVAL' as const};
+}
