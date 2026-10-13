@@ -8,6 +8,7 @@ on:
       - 'app/api/workbench/**'
       - 'lib/aerovista/**'
       - 'scripts/test-workbench-handoff-failure.mjs'
+      - 'scripts/test-workbench-preview-return.mjs'
       - 'scripts/test-candidate-customer-report.mjs'
       - 'packages/candidates/customer-report.ts'
       - 'packages/candidates/customer-report-views.ts'
@@ -53,6 +54,8 @@ jobs:
         run: npm run lint
       - name: Verify classified broker and founder access failures
         run: node --experimental-loader ./scripts/alias-loader.mjs scripts/test-workbench-handoff-failure.mjs
+      - name: Preview-origin account return and one-time state regression
+        run: node scripts/test-workbench-preview-return.mjs
       - name: Protected roof inspector React source and valley review acceptance
         run: npm run test:roof-inspector
       - name: Candidate report geometry, 22-feature coverage and roof authority fail-closed
