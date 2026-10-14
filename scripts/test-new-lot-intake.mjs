@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import {validateLotIntake,lotAreaSqFt} from "../packages/lot-intake/index.ts";
 const base={schemaVersion:"lotscope-lot-intake-v1",name:"Independent irregular test parcel",polygon:[[0,0],[110,0],[110,70],[75,70],[75,85],[0,85]],frontageLabel:"Test Road",accessEdgeIndex:0,northRotationDeg:0,setbacksFt:{front:20,rear:15,left:5,right:5},units:2,targetLivingSqFt:[1100,1600],sourceNote:"Synthetic geometry regression fixture, not survey",status:"DRAFT_UNVERIFIED"};
 assert.equal(validateLotIntake(base).errors.length,0);
-assert.equal(lotAreaSqFt(base.polygon),8800);
+assert.equal(lotAreaSqFt(base.polygon),8825);
 assert.equal(validateLotIntake({...base,polygon:[[0,0],[100,100],[0,100],[100,0]]}).errors.some(e=>e.includes("self-intersects")),true);
 assert.equal(validateLotIntake({...base,polygon:[[0,0],[0,0],[50,0],[50,50],[0,50]]}).errors.some(e=>e.includes("Duplicate")),true);
 assert.equal(validateLotIntake({...base,accessEdgeIndex:9}).errors.some(e=>e.includes("frontage edge")),true);
