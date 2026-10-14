@@ -17,6 +17,6 @@ export default function ProjectsPage() {
         <strong>Open lot workspace →</strong>
       </Link>
     </section>
-    <section className="wb-panel staff-empty-state"><p className="eyebrow">NEW LOT</p><h2>Intake workflow is the next project-level capability.</h2><p>The registry model now supports additional projects/lots. New-lot form persistence will be wired after the candidate backbone is proven against Pondy.</p></section>
+    <section className="wb-panel staff-empty-state"><p className="eyebrow">NEW LOT</p><h2>Start a new lot draft.</h2><p>Enter a measured parcel polygon, frontage and planning assumptions, then export a validated draft. This does not yet create a persisted project or generate designs.</p><Link className="primary-button" href="/workbench/projects/new-lot">Open new-lot draft intake →</Link></section>
   </main>;
 }

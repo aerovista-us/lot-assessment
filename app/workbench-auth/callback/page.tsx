@@ -1,11 +1,11 @@
 "use client";
 import { createBrowserAppAdapter } from "@aerovista-us/app-adapter/browser";
 import { useEffect, useState } from "react";
-import { LOTSCOPE_APP_ID, safeWorkbenchNext } from "@/lib/aerovista/config";
+import { browserWorkbenchAppId, safeWorkbenchNext } from "@/lib/aerovista/config";
 
 function browserAdapter(){
  return createBrowserAppAdapter({
-  appId:LOTSCOPE_APP_ID,appOrigin:window.location.origin,callbackPath:"/workbench-auth/callback",
+  appId:browserWorkbenchAppId(window.location.origin),appOrigin:window.location.origin,callbackPath:"/workbench-auth/callback",
   localEndpoints:{session:"/api/workbench/auth/session",handoffExchange:"/api/workbench/auth/handoff-exchange",capabilityCheck:"/api/workbench/auth/capability-check",identityMe:"/api/workbench/auth/me",logout:"/api/workbench/auth/logout"}
  });
 }

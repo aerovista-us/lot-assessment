@@ -1,6 +1,16 @@
 name: Workbench Identity QA
 
 on:
+  push:
+    branches:
+      - feat/design5-shared-architecture-contract
+    paths:
+      - 'app/workbench/**'
+      - 'components/workbench/**'
+      - 'packages/lot-intake/**'
+      - 'packages/candidates/**'
+      - 'scripts/test-new-lot-intake.mjs'
+      - '.github/workflows/workbench-identity-qa.yml'
   pull_request:
     paths:
       - 'app/workbench/**'
@@ -8,6 +18,7 @@ on:
       - 'app/api/workbench/**'
       - 'lib/aerovista/**'
       - 'scripts/test-workbench-handoff-failure.mjs'
+      - 'scripts/test-workbench-preview-return.mjs'
       - 'scripts/test-candidate-customer-report.mjs'
       - 'packages/candidates/customer-report.ts'
       - 'packages/candidates/customer-report-views.ts'
@@ -25,6 +36,9 @@ on:
       - 'scripts/test-customer-report-roof-gallery.mjs'
       - 'components/workbench/CandidateWorkspaceClient.tsx'
       - 'components/workbench/CandidateLibraryWorkspace.tsx'
+      - 'packages/lot-intake/**'
+      - 'components/workbench/NewLotIntakeClient.tsx'
+      - 'scripts/test-new-lot-intake.mjs'
       - 'package.json'
       - '.npmrc'
       - '.github/workflows/workbench-identity-qa.yml'
@@ -53,6 +67,8 @@ jobs:
         run: npm run lint
       - name: Verify classified broker and founder access failures
         run: node --experimental-loader ./scripts/alias-loader.mjs scripts/test-workbench-handoff-failure.mjs
+      - name: Preview-origin account return and one-time state regression
+        run: node scripts/test-workbench-preview-return.mjs
       - name: Protected roof inspector React source and valley review acceptance
         run: npm run test:roof-inspector
       - name: Candidate report geometry, 22-feature coverage and roof authority fail-closed
@@ -63,6 +79,8 @@ jobs:
         run: npm run test:universal-design
       - name: Universal floor, roof, wall, door and section solver acceptance
         run: npm run test:universal-design-solving
+      - name: Independent new-lot polygon intake regression
+        run: npm run test:new-lot-intake
       - name: Production build
         run: npm run build
       - name: Anonymous boundary smoke

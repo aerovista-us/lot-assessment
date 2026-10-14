@@ -4,7 +4,7 @@ import type {CandidateRecord} from "@/packages/candidates";
 import {placementPolygon} from "@/packages/roof-geometry";
 import {
  addDesignShape,addOwnerFootprintShape,emptyDesignDocument,removeDesignShape,addDraftDoor,setDraftRoofParameters,
- sourceBuildingOwners,validateDesignDocument,type DesignDocument,type DesignShape,type P2
+ sourceBuildingOwners,validateDesignDocument,updateDesignShapePolygon,snapDesignPoint,partitionDesignShape,packDraftRooms,moveDesignWall,type DesignDocument,type DesignShape,type P2
 } from "@/packages/candidates/design-document";
 import {solveUniversalDesign} from "@/packages/candidates/design-solving";
 type Props={candidate:CandidateRecord;document?:DesignDocument;onSave:(doc:DesignDocument)=>void};
@@ -16,6 +16,14 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
  const [label,setLabel]=useState("New shape");
  const [vertices,setVertices]=useState("[[0,0],[10,0],[10,10],[0,10]]");
  const [note,setNote]=useState("");
+ const [editingShapeId,setEditingShapeId]=useState("");
+ const [snapGrid,setSnapGrid]=useState("0.5");
+ const [partitionAxis,setPartitionAxis]=useState<"X"|"Y">("X");
+ const [partitionOffset,setPartitionOffset]=useState("");
+ const [roomLabels,setRoomLabels]=useState("Living, Kitchen, Bedroom");
+ const [packAxis,setPackAxis]=useState<"X"|"Y">("X");
+ const [drag,setDrag]=useState<{shapeId:string;index:number;point:P2}|null>(null);
+ const [wallDrag,setWallDrag]=useState<{shapeId:string;index:number;start:P2;delta:P2}|null>(null);
  const [wallIndex,setWallIndex]=useState(0);
  const [doorWidth,setDoorWidth]=useState("3");
  const [selectedRoofId,setSelectedRoofId]=useState("");
@@ -80,6 +88,99 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
   try{if(stale)throw Error("Source geometry changed; prior shapes cannot be edited.");onSave(removeDesignShape(candidate,base,id));setNote("Shape removed from the design document.");}
   catch(e){setNote(e instanceof Error?e.message:"Cannot remove shape.");}
  }
+ function partitionSelected(){
+  try{
+   if(stale)throw Error("Design source changed; partition unavailable");
+   if(!editingShapeId)throw Error("Choose a floor shape to partition");
+   if(!partitionOffset.trim())throw Error("Enter the model-space cut coordinate");
+   const value=Number(partitionOffset);
+   const next=partitionDesignShape(candidate,base,editingShapeId,partitionAxis,value);
+   onSave(next);setEditingShapeId("");setNote("Floor split into two source-validated polygons; affected doors cleared for re-authoring.");
+  }catch(error){setNote(error instanceof Error?error.message:"Partition failed");}
+ }
+ function packRooms(){
+  try{
+   if(stale)throw Error("Design source changed; packing unavailable");
+   if(!editingShapeId)throw Error("Select a rectangular FLOOR PLATE");
+   const labels=roomLabels.split(",").map(s=>s.trim()).filter(Boolean);
+   const next=packDraftRooms(candidate,base,editingShapeId,labels,packAxis);
+   onSave(next);setEditingShapeId("");setNote("Created source-contained room seed polygons; adjust walls and author doors/stairs before claiming program feasibility.");
+  }catch(error){setNote(error instanceof Error?error.message:"Unable to pack rooms");}
+ }
+ function pointerPoint(e:React.PointerEvent<SVGCircleElement|SVGLineElement>):P2|null{
+  const svg=e.currentTarget.ownerSVGElement;
+  const matrix=svg?.getScreenCTM();
+  if(!svg||!matrix)return null;
+  const p=svg.createSVGPoint();p.x=e.clientX;p.y=e.clientY;
+  const mapped=p.matrixTransform(matrix.inverse());
+  return [mapped.x,mapped.y];
+ }
+ function beginWall(e:React.PointerEvent<SVGLineElement>,shapeId:string,index:number){
+  if(stale||drag)return;
+  const start=pointerPoint(e);if(!start)return;
+  e.currentTarget.setPointerCapture(e.pointerId);
+  setWallDrag({shapeId,index,start,delta:[0,0]});
+ }
+ function moveWall(e:React.PointerEvent<SVGLineElement>){
+  if(!wallDrag)return;
+  const point=pointerPoint(e);if(!point)return;
+  try{setWallDrag({...wallDrag,delta:snapDesignPoint([point[0]-wallDrag.start[0],point[1]-wallDrag.start[1]],Number(snapGrid))});}
+  catch(error){setNote(error instanceof Error?error.message:"Invalid wall drag");}
+ }
+ function endWall(e:React.PointerEvent<SVGLineElement>){
+  if(!wallDrag)return;
+  const point=pointerPoint(e);
+  const current={...wallDrag,delta:point?snapDesignPoint([point[0]-wallDrag.start[0],point[1]-wallDrag.start[1]],Number(snapGrid)):wallDrag.delta};setWallDrag(null);
+  if(e.currentTarget.hasPointerCapture(e.pointerId))e.currentTarget.releasePointerCapture(e.pointerId);
+  try{
+   if(stale)throw Error("Source changed; wall drag cancelled");
+   if(Math.hypot(...current.delta)<1e-6)return;
+   onSave(moveDesignWall(candidate,base,current.shapeId,current.index,current.delta));
+   setNote("Wall endpoints moved; all derived roof/floor previews require re-solve.");
+  }catch(error){setNote(error instanceof Error?error.message:"Invalid wall movement rejected");}
+ }
+ function keyMoveVertex(e:React.KeyboardEvent<SVGCircleElement>,shapeId:string,index:number){
+  const offsets:Record<string,P2>={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]};
+  const direction=offsets[e.key];
+  if(!direction||stale)return;
+  e.preventDefault();
+  const shape=base.shapes.find(x=>x.id===shapeId);
+  if(!shape)return;
+  try{
+   const increment=Number(snapGrid);
+   const start=shape.polygon[index];
+   const p=snapDesignPoint([start[0]+direction[0]*increment,start[1]+direction[1]*increment],increment);
+   onSave(updateDesignShapePolygon(candidate,base,shapeId,shape.polygon.map((v,i)=>i===index?p:v)));
+   setNote("Vertex moved by keyboard grid step; dependent solutions must be rechecked.");
+  }catch(error){setNote(error instanceof Error?error.message:"Keyboard move rejected");}
+ }
+ function beginVertex(e:React.PointerEvent<SVGCircleElement>,shapeId:string,index:number){
+  if(stale)return;
+  const shape=base.shapes.find(s=>s.id===shapeId);if(!shape)return;
+  e.currentTarget.setPointerCapture(e.pointerId);
+  setDrag({shapeId,index,point:[...shape.polygon[index]] as P2});
+ }
+ function moveVertex(e:React.PointerEvent<SVGCircleElement>){
+  if(!drag)return;
+  try{
+   const point=pointerPoint(e);if(!point)return;
+   setDrag({...drag,point:snapDesignPoint(point,Number(snapGrid))});
+  }catch(error){setNote(error instanceof Error?error.message:"Invalid vertex coordinate");}
+ }
+ function endVertex(e:React.PointerEvent<SVGCircleElement>){
+  if(!drag)return;
+  if(e.currentTarget.hasPointerCapture(e.pointerId))e.currentTarget.releasePointerCapture(e.pointerId);
+  const finalPoint=pointerPoint(e);
+  const current={...drag,point:finalPoint?snapDesignPoint(finalPoint,Number(snapGrid)):drag.point};setDrag(null);
+  try{
+   if(stale)throw Error("Design source changed; vertex edit cancelled.");
+   const shape=base.shapes.find(s=>s.id===current.shapeId);
+   if(!shape)throw Error("Edited shape no longer exists.");
+   const polygon=shape.polygon.map((p,i)=>i===current.index?current.point:p);
+   const next=updateDesignShapePolygon(candidate,base,shape.id,polygon);
+   onSave(next);setNote("Vertex moved on "+snapGrid+" ft grid; design revision incremented. Dependent geometry must be solved again.");
+  }catch(error){setNote(error instanceof Error?error.message:"Vertex violates source geometry; change rejected.");}
+ }
  const shell=activeOwner?placementPolygon(activeOwner):[];
  const coords=shell.flatMap(p=>[p[0],p[1]]);
  const xs=shell.map(p=>p[0]),ys=shell.map(p=>p[1]);
@@ -110,9 +211,45 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
    <div><p className="eyebrow">SOURCE FOOTPRINT · DRAFT SHAPES</p>
     <svg viewBox={bb.join(" ")} role="img" aria-label="Source building owner polygon with draft floor and roof zones" style={{width:"100%",maxHeight:330,background:"#f0f4f7"}}>
      {shell.length>0&&<polygon points={pts(shell)} fill="#dce7ed" stroke="#31566d" strokeWidth={.6}/>}
-     {!stale&&base.shapes.filter(s=>s.ownerId===ownerId).map(s=><polygon key={s.id} points={pts(s.polygon)} fill={s.story===null?"#e9bc81":"#95c3cb"} fillOpacity={.35} stroke={s.story===null?"#a16f35":"#326b84"} strokeDasharray="1.8 1" strokeWidth={.7}><title>{s.label} · {s.kind} · draft</title></polygon>)}
+     {!stale&&base.shapes.filter(s=>s.ownerId===ownerId).map(s=>{
+      const poly=s.polygon.map((p,i)=>{
+       if(drag?.shapeId===s.id&&drag.index===i)return drag.point;
+       if(wallDrag?.shapeId===s.id&&(i===wallDrag.index||i===(wallDrag.index+1)%s.polygon.length))
+        return [p[0]+wallDrag.delta[0],p[1]+wallDrag.delta[1]] as P2;
+       return p;
+      });
+      return <g key={s.id}>
+       <polygon points={pts(poly)} fill={s.story===null?"#e9bc81":"#95c3cb"} fillOpacity={.35} stroke={s.story===null?"#a16f35":"#326b84"} strokeDasharray="1.8 1" strokeWidth={.7}><title>{s.label} · {s.kind} · draft</title></polygon>
+       {editingShapeId===s.id&&poly.map((p,i)=><line key={"wall-"+i} x1={p[0]} y1={p[1]}
+        x2={poly[(i+1)%poly.length][0]} y2={poly[(i+1)%poly.length][1]}
+        stroke="#175a7e" strokeOpacity={0.4} strokeWidth={1.1} style={{cursor:"move",touchAction:"none"}}
+        onPointerDown={e=>beginWall(e,s.id,i)} onPointerMove={moveWall} onPointerUp={endWall}
+        onPointerCancel={()=>setWallDrag(null)}><title>Drag wall {i+1} of {s.label}</title></line>)}
+       {editingShapeId===s.id&&poly.map((p,i)=><circle key={i} cx={p[0]} cy={p[1]} r={0.55} fill="#163d55" stroke="#fff" strokeWidth={0.2}
+        style={{cursor:"grab",touchAction:"none"}} role="button" tabIndex={0} aria-label={`Move vertex ${i+1} of ${s.label}; arrow keys move by ${snapGrid} feet`} onKeyDown={e=>keyMoveVertex(e,s.id,i)}
+        onPointerDown={e=>beginVertex(e,s.id,i)} onPointerMove={moveVertex} onPointerUp={endVertex}
+        onPointerCancel={()=>setDrag(null)} />)}
+      </g>;
+     })}
     </svg>
-    <p className="microcopy">Blue: floor concepts. Amber: roof-zone proposals. No roof slopes, floor heights or approved rooms are inferred.</p>
+    <label className="microcopy" htmlFor="design-edit-shape">Drag vertices on source XY grid</label>
+    <select id="design-edit-shape" value={editingShapeId} onChange={e=>{setEditingShapeId(e.target.value);setDrag(null);}}>
+     <option value="">Choose a draft shape to edit</option>
+     {base.shapes.filter(s=>s.ownerId===ownerId).map(s=><option value={s.id} key={s.id}>{s.label} · {s.story??"ROOF"}</option>)}
+    </select>
+    <label className="microcopy" htmlFor="design-snap">Grid snapping (ft)</label>
+    <select id="design-snap" value={snapGrid} onChange={e=>setSnapGrid(e.target.value)}>
+     <option value="0.25">0.25 ft</option><option value="0.5">0.5 ft</option><option value="1">1 ft</option>
+    </select>
+    <div className="grid" style={{gridTemplateColumns:"1fr 1fr",gap:8}}>
+     <label className="microcopy">Partition axis<select value={partitionAxis} onChange={e=>setPartitionAxis(e.target.value as "X"|"Y")}><option value="X">Vertical cut (X)</option><option value="Y">Horizontal cut (Y)</option></select></label>
+     <label className="microcopy">Cut coordinate (model ft)<input inputMode="decimal" value={partitionOffset} onChange={e=>setPartitionOffset(e.target.value)} placeholder="Absolute model coordinate" /></label>
+    </div>
+    <button className="secondary-button" type="button" onClick={partitionSelected} disabled={stale||!editingShapeId}>Split selected floor shape</button>
+    <label className="microcopy">Room names (comma separated)<input value={roomLabels} onChange={e=>setRoomLabels(e.target.value)} /></label>
+    <label className="microcopy">Room seed direction<select value={packAxis} onChange={e=>setPackAxis(e.target.value as "X"|"Y")}><option value="X">Across X</option><option value="Y">Across Y</option></select></label>
+    <button className="secondary-button" type="button" onClick={packRooms} disabled={stale||!editingShapeId}>Seed rooms from selected floor plate</button>
+    <p className="microcopy">Drag any highlighted wall or vertex; invalid moves outside the source owner or through polygon edges are rejected. Partition divides the selected floor polygon along a model X or Y line, validates both halves and clears dependent draft doors. Blue: floor concepts. Amber: roof-zone proposals.</p>
    </div>
   </div>
   <div className="candidate-detail-grid" style={{marginBlock:20}}>

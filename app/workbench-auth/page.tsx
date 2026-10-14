@@ -1,10 +1,10 @@
 "use client";
 import { createBrowserAppAdapter } from "@aerovista-us/app-adapter/browser";
-import { LOTSCOPE_APP_ID, safeWorkbenchNext } from "@/lib/aerovista/config";
+import { browserWorkbenchAppId, safeWorkbenchNext } from "@/lib/aerovista/config";
 
 function adapter() {
   return createBrowserAppAdapter({
-    appId: LOTSCOPE_APP_ID,
+    appId: browserWorkbenchAppId(window.location.origin),
     appOrigin: window.location.origin,
     callbackPath: "/workbench-auth/callback",
     localEndpoints: {
