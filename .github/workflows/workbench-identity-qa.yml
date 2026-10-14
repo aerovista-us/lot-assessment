@@ -1,6 +1,16 @@
 name: Workbench Identity QA
 
 on:
+  push:
+    branches:
+      - feat/design5-shared-architecture-contract
+    paths:
+      - 'app/workbench/**'
+      - 'components/workbench/**'
+      - 'packages/lot-intake/**'
+      - 'packages/candidates/**'
+      - 'scripts/test-new-lot-intake.mjs'
+      - '.github/workflows/workbench-identity-qa.yml'
   pull_request:
     paths:
       - 'app/workbench/**'
