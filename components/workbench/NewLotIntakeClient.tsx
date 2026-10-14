@@ -19,7 +19,7 @@ export function NewLotIntakeClient(){
  const [message,setMessage]=useState("");
  let result:{areaSqFt:number;errors:string[]};
  try{result=validateLotIntake({...draft,polygon:parsePolygon(polygonText)});}catch(e){result={areaSqFt:0,errors:[e instanceof Error?e.message:"Invalid parcel polygon"]};}
- const update=<K extends keyof LotIntakeDraft>(key:K,value:LotIntakeDraft[K])=>setDraft(prev=>({...prev,[key]:value}));
+ const update=<K extends keyof LotIntakeDraft,>(key:K,value:LotIntakeDraft[K])=>setDraft(prev=>({...prev,[key]:value}));
  const updateSetback=(key:keyof LotIntakeDraft["setbacksFt"],value:number)=>setDraft(prev=>({...prev,setbacksFt:{...prev.setbacksFt,[key]:value}}));
  function exportDraft(){
   try{
