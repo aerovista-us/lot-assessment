@@ -8,7 +8,7 @@ const needsInformation = pondyCandidateRegistry.lots.filter((lot) => pondyCandid
 const readyToPresent = pondyCandidateRegistry.candidates.filter((item) => item.status === "FROZEN");
 
 const cards = [
-  { title: "New Lot", value: "—", copy: "New-lot intake is planned; the project registry can represent more lots, but Workbench intake and persistence are not yet available.", href: "/workbench/projects", state: "PLANNED" },
+  { title: "New Lot", value: "+", copy: "Create and export a validated local draft. Server persistence and candidate generation are not yet available.", href: "/workbench/projects/new-lot", state: "DRAFT" },
   { title: "Active Lots", value: String(activeProject.lotIds.length), copy: "Continue project intake, exploration, candidate review and evidence work.", href: "/workbench/projects", state: "ACTIVE" },
   { title: "Intervention Queue", value: String(intervention.length), copy: "Promising partial failures selected by machine rules for staff attention.", href: "/workbench/projects/pondy-lot2/candidates", state: "REVIEW" },
   { title: "Ready for Decision", value: String(passing.length), copy: "Passing candidates awaiting human preference selection. Selection never changes evidence.", href: "/workbench/projects/pondy-lot2/candidates", state: "DECIDE" },
