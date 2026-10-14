@@ -54,6 +54,7 @@ jobs:
           node scripts/test-workbench-preview-return.mjs
           npm run test:universal-design
           npm run test:universal-design-solving
+          npm run test:new-lot-intake
       - name: Pull preview configuration (no production credentials)
         run: vercel pull --yes --environment=preview --git-branch="$PREVIEW_BRANCH" --token="$VERCEL_TOKEN" --scope="$VERCEL_ORG_ID"
       - name: Build in Actions using approved package access
