@@ -22,6 +22,14 @@ export default function PondyLotWorkspace() {
       <article className="wb-panel"><p className="eyebrow">OPEN INFORMATION</p><h2>Professional / AHJ confirmation</h2><p>Accessory-structure interpretation, close garage separation, civil grading/drainage and final permit-level validation remain outside the current automated proof.</p><span className="repair-watch">DO NOT PROMOTE AS RESOLVED</span></article>
     </section>
 
+    <section className="wb-panel" aria-labelledby="design5-entry-heading">
+      <p className="eyebrow">DESIGN 5 · SHARED ARCHITECTURAL EDITOR PREVIEW</p>
+      <h2 id="design5-entry-heading">Create a new design from a saved candidate.</h2>
+      <p>Design 5 is the reusable editing workflow, not a fifth released candidate or a separate solver. Review a source candidate, choose <strong>New design from this</strong> to preserve the original, then use <strong>Build / Edit Design Shapes</strong> on the child revision. New geometry and dependent roof/report evidence must be validated again before any customer release.</p>
+      <div className="hero-actions"><Link className="primary-button" href="/workbench/projects/pondy-lot2/candidates">Choose source candidate</Link><Link className="secondary-button" href="/workbench/projects/pondy-lot2/compare">Compare existing candidates</Link></div>
+      <p className="microcopy">Internal founder preview. Designs 1–4 remain existing report concepts; a new Design 5 customer report has not been approved or published.</p>
+    </section>
+
     <section className="wb-panel lot-automation-callout"><div><p className="eyebrow">AUTOMATION-FIRST RULE</p><h2>Staff does not start by drawing.</h2></div><p>Broad search and ranking stay first. Human intervention is reserved for candidates the machine classifies as worth repairing. Any future component edit creates a child revision and makes prior evidence stale until the pipeline reruns it.</p></section>
   </main>;
 }
