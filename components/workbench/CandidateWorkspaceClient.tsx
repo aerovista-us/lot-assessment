@@ -25,7 +25,7 @@ function downloadCandidate(candidateId: string, workspace: ReturnType<typeof use
   URL.revokeObjectURL(href);
 }
 
-export function CandidateWorkspaceClient({ candidateId }: { candidateId: string }) {
+export function CandidateWorkspaceClient({ candidateId, allowEditorV2 = false }: { candidateId: string; allowEditorV2?: boolean }) {
   const workspace = useCandidateWorkspace(pondyCandidateRegistry);
   const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
@@ -195,7 +195,7 @@ export function CandidateWorkspaceClient({ candidateId }: { candidateId: string 
       {message && <p className="microcopy lifecycle-message">{message}</p>}
     </section>
 
-    {process.env.NEXT_PUBLIC_LOTSCOPE_EDITOR_V2 === "enabled" ? (
+    {allowEditorV2 ? (
       <UniversalDesignEditorV2 candidate={activeCandidate}
         document={currentWorkspaceDesignDocument(workspace.workspace,activeCandidate)}
         onSave={doc=>{workspace.saveDesignDocument(activeCandidate,doc);setMessage("Design document attached to this candidate revision; Create Customer Report will now include the draft shapes.");}}/>
