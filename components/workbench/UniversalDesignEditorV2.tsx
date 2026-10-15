@@ -8,7 +8,7 @@ import {
 } from "@/packages/candidates/design-document";
 import {solveUniversalDesign} from "@/packages/candidates/design-solving";
 type Props={candidate:CandidateRecord;document?:DesignDocument;onSave:(doc:DesignDocument)=>void};
-export function UniversalDesignEditor({candidate,document,onSave}:Props){
+export function UniversalDesignEditorV2({candidate,document,onSave}:Props){
  const owners=sourceBuildingOwners(candidate);
  const [ownerId,setOwnerId]=useState(owners[0]?.id??"");
  const [kind,setKind]=useState<DesignShape["kind"]>("FLOOR_PLATE");
