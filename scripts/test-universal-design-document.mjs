@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {pondyCandidateRegistry as registry} from '../projects/pondy-lot2/candidate-registry.ts';
 import {placementPolygon} from '../packages/roof-geometry/index.ts';
-import {emptyDesignDocument,addDesignShape,addOwnerFootprintShape,removeDesignShape,validateDesignDocument,designSourceSignature} from '../packages/candidates/design-document.ts';
+import {emptyDesignDocument,addDesignShape,addOwnerFootprintShape,removeDesignShape,updateDesignShapePolygon,snapDesignPoint,partitionDesignShape,packDraftRooms,moveDesignWall,validateDesignDocument,designSourceSignature} from '../packages/candidates/design-document.ts';
 import {renderDesignDocumentAttachment} from '../packages/candidates/design-report-attachment.ts';
 import {createCandidateConceptHtml} from '../packages/candidates/customer-report.ts';
 import {emptyCandidateWorkspace,saveWorkspaceDesignDocument,currentWorkspaceDesignDocument,createWorkspaceExportPackage,importWorkspacePackage} from '../packages/candidates/workspace.ts';
@@ -17,6 +17,36 @@ for(const c of cases){
  let doc=addOwnerFootprintShape(c,base,{ownerId:owners[0].id,label:'Ground exterior planning plate',kind:'FLOOR_PLATE',story:'GROUND'},'2026-10-12T00:10:00Z');
  doc=addOwnerFootprintShape(c,doc,{ownerId:owners[1].id,label:'Roof zone concept (no ridge or slope)',kind:'GABLE_ZONE',story:null},'2026-10-12T00:20:00Z');
  doc=addOwnerFootprintShape(c,doc,{ownerId:owners[0].id,label:'Upper shell concept',kind:'FLOOR_PLATE',story:'UPPER'},'2026-10-12T00:30:00Z');
+ const unchanged=structuredClone(doc);
+ const snap=snapDesignPoint([1.24,-0.76],0.5);
+ assert.deepEqual(snap,[1,-1]);
+ assert.throws(()=>snapDesignPoint([2,3],0),/snap grid/);
+ const shifted=updateDesignShapePolygon(c,doc,doc.shapes[0].id,doc.shapes[0].polygon);
+ assert.equal(shifted.revision,4);
+ assert.deepEqual(doc,unchanged,'Vertex edits must never mutate an older revision');
+ assert.equal(validateDesignDocument(c,shifted).valid,true);
+ assert.throws(()=>updateDesignShapePolygon(c,doc,doc.shapes[0].id,doc.shapes[0].polygon.map(p=>[p[0]+1000,p[1]+1000])),/outside/);
+ assert.throws(()=>updateDesignShapePolygon(c,doc,doc.shapes[0].id,[[0,0],[1,0],[2,0]]),/Invalid design polygon/);
+ const plate=doc.shapes[0];
+ const cutX=(Math.min(...plate.polygon.map(p=>p[0]))+Math.max(...plate.polygon.map(p=>p[0])))/2;
+ // Split tests on a rectangular geometry; complex footprint splits must fail closed.
+ const box=plate.polygon.length===4;
+ if(box){
+  const split=partitionDesignShape(c,doc,plate.id,'X',cutX);
+  assert.equal(split.shapes.length,4);
+  const packed=packDraftRooms(c,doc,plate.id,['Living','Kitchen'],'X');
+  assert.equal(packed.shapes.length,5);
+  assert.equal(packed.shapes.filter(s=>s.kind==='ROOM').length,2);
+  assert.equal(validateDesignDocument(c,packed).valid,true);
+  assert.equal(split.revision,doc.revision+1);
+  assert.equal(validateDesignDocument(c,split).valid,true);
+  assert.throws(()=>partitionDesignShape(c,doc,plate.id,'X',-1e9),/nonzero areas/);
+ }
+ const zeroWall=moveDesignWall(c,doc,doc.shapes[0].id,0,[0,0]);
+ assert.equal(zeroWall.revision,4);
+ assert.deepEqual(zeroWall.shapes[0].polygon,doc.shapes[0].polygon);
+ assert.throws(()=>moveDesignWall(c,doc,doc.shapes[0].id,999,[1,0]),/wall edge/);
+ assert.throws(()=>moveDesignWall(c,doc,doc.shapes[0].id,0,[1000,1000]),/outside/);
  assert.equal(doc.revision,3);
  assert.equal(doc.shapes.length,3);
  assert.equal(validateDesignDocument(c,doc).shapes,3);
