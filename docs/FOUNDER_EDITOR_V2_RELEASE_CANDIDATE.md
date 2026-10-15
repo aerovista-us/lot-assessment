@@ -5,14 +5,14 @@
 - Copies the improved universal editor as a separate `UniversalDesignEditorV2` component with wall/vertex editing, partition and program/stair previews.
 - Adds updated universal design-document and solving regression fixtures.
 - Preserves existing production Workbench authentication, session, handoff and app identity unchanged.
-- `CandidateWorkspaceClient` defaults to the **existing production editor**. Experimental V2 UI requires explicitly setting `NEXT_PUBLIC_LOTSCOPE_EDITOR_V2=enabled`.
+- `CandidateWorkspaceClient` defaults to the **existing production editor**. Experimental V2 UI requires explicitly setting `LOTSCOPE_EDITOR_V2_RELEASE=enabled` **on the server** plus live AVCC capability `lotscope.workbench.editor_v2` for an identity with `founder` role.
 
 ## Critical flag boundary
-`NEXT_PUBLIC_*` is a client-side **release toggle, NOT an authorization control**. Enabling it globally for production users is NOT approved. Production must keep it unset until server-authoritative founder-only authorization is implemented or the Workbench capability is verified to permit founders exclusively. The existing Workbench access capability is still enforced, but this alone is not proof of a founder-specific audience.
+The candidate page now calls `mayUseEditorV2()` server-side. It defaults off, verifies the existing Workbench session/capability, requires the founder role in the returned Identity descriptor, and requires a **distinct** AVCC `lotscope.workbench.editor_v2` capability. Any missing role, permission, session, configuration or backend error fails closed to the legacy editor. Assign the new capability only to approved founders via the existing AVCC entitlement process; confirm IdentityDescriptor exposes effectiveRoles or roles before enabling. No client-side flag is an authorization mechanism.
 
 ## QA and deployment release gates
 1. CI: exact-head install/lint, universal design-document/solver regression, auth/identity, roof, circulation, and Pondy benchmark; verify the V2 and legacy TypeScript build together.
-2. Independent security review: founder-only eligibility **server-side**, deny staff/client/guest, no reliance on public environment variables.
+2. Independent security review: verify new `LOTSCOPE_EDITOR_V2_RELEASE` server gate plus founder role + `lotscope.workbench.editor_v2` capability; prove founder allow and staff/client/guest/anonymous deny using live AVCC responses. Confirm identity role descriptor shape and entitlement provisioning.
 3. Deploy candidate in an authorized preview/staging environment with authentication proof, or a narrowly scoped internal canary using existing production Account identity and an approved rollback. Do not switch preview to production credentials.
 4. Browser: founder login/logout/session reload; drag wall/vertex and cancel; keyboard nudges; invalid shapes rejected; save/reload; roof and report source invalidation; desktop/mobile; verify correct jogged boundary orientation.
 5. Record exact commit/SHA and deploy ID. Only then approve any staged rollout; keep V2 flag disabled until reviewed.
