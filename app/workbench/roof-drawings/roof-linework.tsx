@@ -12,6 +12,7 @@ export default function RoofLinework({title,segments,status,selectedIndex=null,s
  if(status==='WITHHELD'||!segments.length)return <figure><figcaption>{title}</figcaption><p>Linework withheld; no valid geometry claim.</p></figure>;
  const plot=segments.filter(s=>s.visibility!=='INTERNAL_SEAM'&&s.visibility!=='DUPLICATE_SHARED');
  if(!plot.length)return <figure><figcaption>{title}</figcaption><p>No independently visible edge intervals; review locked roof surfaces.</p></figure>;
+ const hasUnresolved=plot.some(s=>s.visibility==='UNRESOLVED');
  const pts=plot.flatMap(s=>[s.start,s.end]);
  const minX=Math.min(...pts.map(p=>p[0])),maxX=Math.max(...pts.map(p=>p[0]));
  const minY=Math.min(...pts.map(p=>p[1])),maxY=Math.max(...pts.map(p=>p[1]));
@@ -26,7 +27,7 @@ export default function RoofLinework({title,segments,status,selectedIndex=null,s
    <rect width="400" height="240" rx="8" fill="#f4f7f9"/>
    {plot.map((s,i)=>{
     const selected=i===selectedIndex;
-    const muted=emphasizeUnresolved&&s.visibility!=='UNRESOLVED'&&!selected;
+    const muted=emphasizeUnresolved&&hasUnresolved&&s.visibility!=='UNRESOLVED'&&!selected;
     const color=s.visibility==='UNRESOLVED'?'#b05c0b':s.visibility==='HIDDEN'?'#6d8191':'#183e52';
     return <g key={s.faceId+'-'+s.edgeIndex+'-'+i} data-edge-id={'E'+(i+1)}
      data-source-face={s.faceId} data-source-edge={s.edgeIndex} data-visibility={s.visibility}>

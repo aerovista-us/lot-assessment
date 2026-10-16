@@ -63,6 +63,7 @@ try{
   assert(await page.$eval('.roof-review-controls input',e=>e.checked));
   await tap('.roof-review-controls>label',1);
   assert(await page.$$eval('.roof-review-controls input',els=>els[1].checked));
+  assert(await page.$$eval('.roof-primary-grid line[data-visibility]',els=>els.every(e=>e.getAttribute('opacity')!=='0.18')),'Emphasize unresolved must not fade fully resolved drawings');
   await tap('.roof-valley-tabs button',1);
   assert.equal(await page.$eval('.roof-valley-tabs button:nth-child(2)',e=>e.getAttribute('aria-pressed')),'true');
   assert.equal((await page.$$('[data-section]')).length,2);
