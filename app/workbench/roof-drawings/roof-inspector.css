@@ -56,9 +56,8 @@
  .roof-summary,.roof-review-focus{padding:15px}
  .roof-summary-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
  .roof-section-grid{grid-template-columns:1fr}
- .roof-review-controls .roof-edge-picker{justify-content:flex-start;flex-wrap:wrap;width:100%}
- .roof-edge-picker select{width:100%}
- .roof-edge-picker select{font-size:16px}
+ .roof-review-controls .roof-edge-picker{flex:0 0 100%;justify-content:flex-start;flex-wrap:wrap;width:100%}
+ .roof-edge-picker select{width:100%;font-size:16px}
  .roof-section-heading{flex-direction:column;align-items:flex-start}
  .roof-view-tabs button{padding:10px;font-size:12px}
 }
