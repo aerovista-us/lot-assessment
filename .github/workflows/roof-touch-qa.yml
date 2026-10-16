@@ -1,0 +1,45 @@
+name: Roof inspector touch emulation
+on:
+  pull_request:
+    paths:
+      - 'app/workbench/roof-drawings/**'
+      - 'app/globals.css'
+      - 'packages/roof-geometry/**'
+      - 'projects/pondy-lot2/**'
+      - 'scripts/test-roof-inspector-touch.mjs'
+      - 'package.json'
+      - '.github/workflows/roof-touch-qa.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  touch-component:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify exact candidate head
+        env:
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+      - name: Install isolated public QA dependencies
+        run: npm install --prefix "$RUNNER_TEMP/roof-ui-qa" --registry=https://registry.npmjs.org --no-package-lock --ignore-scripts --no-audit --no-fund react@19.2.8 react-dom@19.2.8 esbuild@0.25.12 puppeteer-core@25.12.0
+      - name: Real component and CSS on phone, tablet and desktop viewports
+        env:
+          CHROME_BIN: /usr/bin/google-chrome
+          ROOF_QA_MODULES: ${{ runner.temp }}/roof-ui-qa/node_modules
+          ROOF_QA_OUTPUT: ${{ runner.temp }}/roof-touch-evidence
+        run: npm run test:roof-touch
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: roof-touch-${{ github.event.pull_request.head.sha || github.sha }}
+          path: ${{ runner.temp }}/roof-touch-evidence/
+          retention-days: 21
+          if-no-files-found: warn
