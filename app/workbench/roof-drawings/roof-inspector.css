@@ -37,8 +37,8 @@
 .roof-review-figure figcaption{font-size:16px;font-weight:750;margin:0 0 10px;color:#edf3f8}
 .roof-review-figure svg{width:100%;height:auto;display:block;border:1px solid #a3b1bc;border-radius:12px;overflow:visible}
 .roof-review-note{font-size:12px;color:#acb6c3;line-height:1.55;margin:9px 0 0}
-.roof-edge-evidence{margin-top:15px;padding:15px;border:1px solid rgba(245,158,11,.28);border-radius:11px;background:#1d231f;display:flex;flex-direction:column;gap:5px;color:#c6ced8;font-size:13px;overflow-wrap:anywhere}
-.roof-edge-evidence strong{font-size:14px;color:#ffcf81}
+.roof-edge-evidence,.roof-acceptance-boundary{margin-top:15px;padding:15px;border:1px solid rgba(245,158,11,.28);border-radius:11px;background:#1d231f;display:flex;flex-direction:column;gap:5px;color:#c6ced8;font-size:13px;overflow-wrap:anywhere}
+.roof-edge-evidence strong,.roof-acceptance-boundary strong{font-size:14px;color:#ffcf81}
 .roof-view-metrics,.roof-cut-metrics{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
 .roof-view-metrics span,.roof-cut-metrics span{padding:7px 10px;border:1px solid rgba(255,255,255,.12);border-radius:8px;color:#d2dae3;font-size:12px;background:#1b2530}
 .roof-view-metrics .roof-unresolved{color:#ffbc66;border-color:#ad6e26}
@@ -61,3 +61,5 @@
  .roof-section-heading{flex-direction:column;align-items:flex-start}
  .roof-view-tabs button{padding:10px;font-size:12px}
 }
+
+.roof-edge-evidence summary{min-height:44px;cursor:pointer;touch-action:manipulation}

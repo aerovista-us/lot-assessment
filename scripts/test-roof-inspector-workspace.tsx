@@ -47,7 +47,8 @@ assert(owners.filter(x=>x.ownerId!=='home-b').every(x=>x.valleyCuts.length===0))
 for(const v of ['NORTH','SOUTH','EAST','WEST'] as const){
  assert.equal(homeB.intervals[v].status,'INTERVAL_VERIFIED');
  assert.equal(homeB.intervals[v].counts.unresolved,0);
- assert.equal(homeB.intervals[v].projectionProof?.collapsedProjection.length,homeB.intervals[v].counts.collapsedEdges);
+ const interval=homeB.intervals[v];assert('projectionProof' in interval);
+ assert.equal(interval.projectionProof?.collapsedProjection.length,interval.counts.collapsedEdges);
 }
 const html=renderToStaticMarkup(React.createElement(RoofInspectorWorkspace,{owners}));
 assert.match(html,/data-inspected-owner="home-b"/,'Home B default selected');
