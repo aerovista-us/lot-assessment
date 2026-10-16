@@ -44,8 +44,11 @@ if(moved.status==='AUTHORITATIVE'){
 }
 assert.equal(deriveValleySectionCuts({status:'WITHHELD',reason:'stale owner',ownerId:'home-b',roofId:'r',faces:[],junctions:[],fascia:null}).length,0);
 assert(owners.filter(x=>x.ownerId!=='home-b').every(x=>x.valleyCuts.length===0));
-assert.equal(homeB.intervals.NORTH.status,'REVIEW_REQUIRED','visual upgrade must not promote Home B north hidden lines');
-assert(homeB.intervals.NORTH.counts.unresolved>0);
+for(const v of ['NORTH','SOUTH','EAST','WEST'] as const){
+ assert.equal(homeB.intervals[v].status,'INTERVAL_VERIFIED');
+ assert.equal(homeB.intervals[v].counts.unresolved,0);
+ assert.equal(homeB.intervals[v].projectionProof?.collapsedProjection.length,homeB.intervals[v].counts.collapsedEdges);
+}
 const html=renderToStaticMarkup(React.createElement(RoofInspectorWorkspace,{owners}));
 assert.match(html,/data-inspected-owner="home-b"/,'Home B default selected');
 assert.match(html,/data-section="V1"/);
@@ -55,7 +58,9 @@ assert.match(html,/data-valley-id="V2"/);
 assert.match(html,/data-edge-id="E1"/);
 assert.match(html,/CONCEPT ONLY/);
 assert.match(html,/NOT FOR CONSTRUCTION/);
-assert.match(html,/REVIEW REQUIRED/);
+assert.match(html,/Drawing acceptance remains OPEN/);
+assert.match(html,/Roof publication remains disabled/);
+assert.match(html,/edges project to points/);
 assert.equal((html.match(/class="roof-owner-tab/g)||[]).length,4,'one tab per current roof owner');
 assert(!html.includes('href="/api/workbench/auth/handoff-exchange"'),'no auth bypass');
 console.log('PASS Home B first; both derived valley section cuts, two-face evidence, source XY/Z, stale/invalid fail-closed, 4 selectable owners, unresolved preserved');

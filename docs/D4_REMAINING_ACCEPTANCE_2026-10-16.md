@@ -2,15 +2,15 @@
 
 Roof publication remains disabled. `customerPublicationAllowed=false`, `approvedCandidateSignature=null`, and `approvedForConstruction=false` remain the release boundary. CI, source locks and model-verified axons do not grant drawing, print, professional or AHJ acceptance.
 
-## Cardinal candidate
+## Reviewed cardinal integration
 
-The current production verifier intentionally returns REVIEW_REQUIRED for Home B's four cardinal cameras. A rank-one projected face has no single screen-to-depth plane; that does not necessarily mean its front depth along a cardinal viewing ray is unknowable.
+The protected D4 inspector and interval exporter now explicitly request the shared cardinal ray-depth verifier. The generic verifier's omitted-option behavior remains conservative for other consumers. No geometry, roof lock, candidate signature or publication flag changes.
 
-`verifyRoofEdgeIntervals(roof, view, {resolveCardinalEdgeOn:true})` is an **opt-in candidate only**. No production caller or export enables it. The candidate derives the affine boundary-depth envelope of an edge-on face, partitions source edges at depth crossings, proves internal seams in world coordinates, and explicitly records collapsed source edges as projected points. Unrelated depth ties remain unresolved; malformed/stale handoffs remain withheld. Camera-specific interval verification still grants no drafting approval.
+Review found and corrected a concave self-occlusion partition gap: an edge-on face's own projected boundary vertices must split its source edges, alongside other-face boundaries. A reproducer incorrectly marked the entire x=0..4 edge hidden; it now partitions at x=3 (t=.75), leaving x=3..4 visible. The independent oracle uses ear-clipped 3D triangles, including coplanar ray clipping, so it does not fill concave notches with a vertex fan. Tests include reversed/cyclic vertex orders, rotations/translations, depth ties, malformed/stale inputs and complete edge accounting.
 
-`scripts/test-cardinal-ray-depth.mjs` compares emitted visible/hidden intervals against an independent 3D ray/triangle intersection oracle, including coplanar ray clipping. Current local result: 2,667 comparisons across four owners, four cardinal cameras, reversed face order, 30/90/131-degree rotations with translation, partial occlusion and edge-on fixtures. Coverage checks account for every source edge; invalid, stale and unrelated overlapping faces stay closed. Existing roof regressions also pass. Default output matched the original verifier exactly in 24 owner/camera comparisons; the hosted Workbench typecheck and production build passed on the initial candidate head. Final-head checks remain required after revisions. These finite oracle probes supplement the analytic partition proof; they are not a general mathematical certification.
+Pondy's v2 export preserves t0/t1, source face/edge IDs, suppressed seams/shared strokes and explicit collapsed-edge source endpoints. The adapter validates current owner/face binding, camera coordinates, full nonoverlapping edge coverage, counts and projected-point records. Only the shared LotScope engine classifies visibility; the consumer does not invent a second solver. Older v1 or incomplete evidence is withheld. Unrelated depth ties remain review-required. A collapsed edge produces no stroke; its source endpoints remain inspectable.
 
-Before enabling this mode: review the algorithm and exact-head CI; agree how projected-point records and seam suppression appear in consumers; regenerate source camera intervals and Pondy exports; then visually inspect every cardinal camera, axon and both real V1/V2 cuts on the actual served revision. Until then retain the current REVIEW_REQUIRED display. Any geometry change or rotation invalidates the old evidence and requires regeneration and revalidation.
+All four locked owners' five exported camera views are model-interval verified in the regenerated candidate. This does not close served-revision visual/drawing acceptance. Review the exact deployed revision's N/S/E/W, axon and V1/V2 before any promotion. Any geometry edit or rotation requires complete revalidation and regeneration. Physical print, actual-phone and professional/AHJ dispositions remain external gates. See `docs/D4_CARDINAL_ALGORITHM_REVIEW_2026-10-16.md` for review findings and contract decisions.
 
 ## Touch regression and device gate
 
@@ -34,7 +34,7 @@ Physical measurement and professional/AHJ decisions require the operator and aut
 
 1. The status-only correction in Pondy #55 is separate from roof acceptance. Its merge conveys no roof approval.
 2. Freeze and bind candidate hash → exact owner keys → locked faces → camera intervals → Pondy source → standalone exports. Retain the source-chain audit output and file digests.
-3. Review/promote the cardinal algorithm only after its own checks; regenerate the complete evidence chain if enabled. Review Home B N/S/E/W, axon and V1/V2 on the exact served SHA; unresolved intervals remain review/withheld.
+3. The inspector/export integration requires its own exact-head checks and a regenerated complete evidence chain. Review Home B N/S/E/W, axon and V1/V2 on the exact served SHA; unresolved intervals remain review/withheld.
 4. Confirm actual Pages/Vercel deployment SHA, then inspect desktop, tablet, phone and standalone exports. Repository-only evidence is insufficient.
 5. Obtain physical print readings, dimension/legibility disposition and the professional/AHJ decisions needed for the intended promotion. Keep approval fields closed until the applicable gates have evidence.
 6. Reuse the single shared sheet engine for Designs 3 → 2 → 1 after D4 acceptance. No per-design engine fork is proposed.

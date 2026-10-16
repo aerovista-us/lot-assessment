@@ -17,12 +17,15 @@ export default function RoofInspectorWorkspace({owners}:{owners:RoofReviewOwner[
  const current=owners.find(o=>o.ownerId===ownerId);
  if(!current)return <p>Roof review unavailable: no validated roof owners.</p>;
  const active=current.intervals[view];
+ const collapsed=active.projectionProof?.collapsedProjection??[];
  const plot=active.segments.filter(s=>s.visibility!=='INTERNAL_SEAM'&&s.visibility!=='DUPLICATE_SHARED');
  const selectedEdge=plot[edgeIndex];
  const flagged=VIEW_ORDER.filter(k=>current.intervals[k].status!=='INTERVAL_VERIFIED');
  function chooseOwner(id:string){setOwnerId(id);setView('NORTH');setEdgeIndex(-1);setSelectedValley('V1');}
  function chooseView(id:ReviewView){setView(id);setEdgeIndex(-1);}
  return <div className="roof-inspector-workspace" data-inspected-owner={current.ownerId}>
+  <p className="roof-edge-evidence"><strong>Drawing acceptance remains OPEN</strong>
+   <span>Roof publication remains disabled. Model interval verification does not close physical-print calibration, actual-phone review, professional or AHJ acceptance.</span></p>
   <nav className="roof-owner-selector" aria-label="Select locked roof owner">
    {owners.map(o=><button key={o.ownerId} type="button" onClick={()=>chooseOwner(o.ownerId)}
     className={o.ownerId===current.ownerId?'roof-owner-tab active':'roof-owner-tab'}
@@ -41,7 +44,7 @@ export default function RoofInspectorWorkspace({owners}:{owners:RoofReviewOwner[
    <div className="roof-summary-stats">
     <div><small>Source faces</small><strong>{current.faceCount}</strong></div>
     <div><small>Derived valleys</small><strong>{current.valleyCuts.length}</strong></div>
-    <div><small>Views requiring review</small><strong>{flagged.length} / {VIEW_ORDER.length}</strong></div>
+    <div><small>Cameras with unresolved model intervals</small><strong>{flagged.length} / {VIEW_ORDER.length}</strong></div>
     <div><small>Fascia</small><strong>{current.fasciaAuthorized?'Source-authorized':'Withheld'}</strong></div>
    </div>
   </section>
@@ -88,6 +91,11 @@ export default function RoofInspectorWorkspace({owners}:{owners:RoofReviewOwner[
     <span>{'Edge-on faces '+active.counts.edgeOnFaces}</span><span>{'Collapsed edges '+active.counts.collapsedEdges}</span>
     <span>{'Suppressed seams '+active.counts.internalSeams}</span>
    </div>
+   {active.projectionProof?<details className="roof-edge-evidence">
+    <summary>Projection evidence · {collapsed.length} edges project to points · {active.counts.internalSeams} internal seams</summary>
+    <p>Zero-length projected edges produce no line stroke. Their original endpoints remain recorded below. Internal seams are suppressed only after a world-space coplanarity and opposite-side proof; shared strokes are emitted once. These are model claims, not accepted drafting.</p>
+    <ul>{collapsed.map(s=><li key={s.faceId+'-'+s.edgeIndex}>{s.faceId+' / edge '+s.edgeIndex+' · source '+JSON.stringify(s.sourceA)+' → '+JSON.stringify(s.sourceB)+' · projected '+JSON.stringify(s.point)}</li>)}</ul>
+   </details>:null}
   </section>
   <section className="roof-review-focus">
    <div className="roof-section-heading"><div><p className="eyebrow">02 · INTERSECT THE ACTUAL ROOF VALLEYS</p>

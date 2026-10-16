@@ -112,7 +112,7 @@ function coplanar(first:readonly P3[],second:readonly P3[]):boolean{
  return first.every(p=>Math.abs(s([p[0],p[1]])-p[2])<=DEPTH_TOL)&&
  second.every(p=>Math.abs(f([p[0],p[1]])-p[2])<=DEPTH_TOL);
 }
-/** Candidate-only cardinal solver: a rank-one projected face still has an
+/** Opt-in cardinal solver: a rank-one projected face still has an
  * analytic front-depth envelope along its projected support. The production
  * verifier stays conservative unless this mode is explicitly requested. */
 function edgeOnSupport(poly:readonly P3[]){
@@ -183,7 +183,9 @@ export function verifyRoofEdgeIntervals(roof:RoofDrawingHandoff,view:RoofViewSpe
    collapsedEdges++;collapsedProjection.push({faceId:face.id,edgeIndex,point:[a[0],a[1]],sourceA:aw,sourceB:bw});continue;
   }
   const cuts=[0,1];
-  for(const other of faces)if(other!==face)for(let k=0;k<other.points.length;k++)
+  // An edge-on concave face can occlude itself. Its own projected vertices
+  // must partition coverage/front-envelope changes, just like other faces.
+  for(const other of faces)if(other!==face||resolveEdgeOn)for(let k=0;k<other.points.length;k++)
    cuts.push(...boundaryCuts(a,b,other.points[k],other.points[(k+1)%other.points.length]));
   const sorted=[...cuts].filter(t=>t>=0&&t<=1).sort((x,y)=>x-y);
   const bounds=sorted.filter((t,i)=>i===0||t-sorted[i-1]>TOL);

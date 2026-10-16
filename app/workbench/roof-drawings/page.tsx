@@ -13,7 +13,7 @@ export default function RoofDrawingInspector(){
    <div>
     <p className="eyebrow">WORKBENCH · DESIGN 4 · SOURCE-AUTHORITATIVE ROOF REVIEW</p>
     <h1>Architectural roof interval inspector</h1>
-    <p>CONCEPT ONLY · NOT FOR CONSTRUCTION. Roof surfaces and valley section cuts derive from locked LotScope geometry. Analytic visible/hidden intervals are camera-specific; unresolved edges and edge-on faces require review. This does not certify structural loads, drainage, fascia, setbacks or permits.</p>
+    <p>CONCEPT ONLY · NOT FOR CONSTRUCTION. Roof surfaces and valley section cuts derive from locked LotScope geometry. Analytic visible/hidden intervals are camera-specific; unresolved intervals require review; edges that project to points remain in the source evidence. Drawing acceptance remains open. This does not certify structural loads, drainage, fascia, setbacks or permits.</p>
    </div>
    <Link className="secondary-button" href="/workbench">Back to Workbench</Link>
   </header>

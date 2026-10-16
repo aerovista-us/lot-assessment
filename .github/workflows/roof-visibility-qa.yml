@@ -38,16 +38,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
       - name: Prove exact source head
+        env:
+          EXPECTED_SOURCE_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SOURCE_HEAD"
           mkdir -p "$RUNNER_TEMP/roof-visibility-qa"
           printf 'sha=%s\nref=%s\nnode=' "$GITHUB_SHA" "$GITHUB_REF" > "$RUNNER_TEMP/roof-visibility-qa/provenance.txt"
           node --version >> "$RUNNER_TEMP/roof-visibility-qa/provenance.txt"

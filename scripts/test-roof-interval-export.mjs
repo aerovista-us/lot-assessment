@@ -8,7 +8,7 @@ const script=execFileSync(process.execPath,
 const context={};
 runInNewContext(script,context);
 const module=context.Lot2Design4RoofIntervals;
-assert.equal(module.manifest.schemaVersion,'lotscope-verified-roof-intervals-v1');
+assert.equal(module.manifest.schemaVersion,'lotscope-verified-roof-intervals-v2');
 assert.equal(module.manifest.owners.length,4);
 assert.equal(JSON.stringify(module.manifest.camera.cardinalDepthDirections),JSON.stringify({north:'NEGATIVE_Y',south:'POSITIVE_Y',east:'POSITIVE_X',west:'NEGATIVE_X'}));
 for(const source of module.manifest.owners){
@@ -26,5 +26,12 @@ for(const source of module.manifest.owners){
  }
 }
 assert(module.manifest.owners.every(o=>o.views['pondy-iso-01'].status==='INTERVAL_VERIFIED'));
-assert(module.manifest.owners.find(o=>o.ownerId==='home-b').views.north.status==='REVIEW_REQUIRED');
-console.log('PASS four canonical roof snapshot bindings, stale/malformed faces withheld, Home B cardinal review retained');
+for(const o of module.manifest.owners)for(const id of ['north','south','east','west']){
+ const view=o.views[id];assert.equal(view.status,'INTERVAL_VERIFIED');assert.equal(view.counts.unresolved,0);
+ assert.equal(view.projectionProof.method,'CARDINAL_RAY_DEPTH_V1');
+ assert.equal(view.projectionProof.collapsedProjection.length,view.counts.collapsedEdges);
+ assert.equal(view.suppressedSegments.length,view.counts.internalSeams+view.counts.duplicateShared);
+ assert(view.segments.every(s=>Number.isFinite(s.t0)&&s.t0<s.t1));
+}
+
+console.log('PASS four canonical roof snapshot bindings, stale/malformed faces withheld, complete cardinal source-edge proof retained; model verification grants no drawing acceptance');

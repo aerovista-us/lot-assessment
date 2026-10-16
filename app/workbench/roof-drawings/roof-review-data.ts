@@ -15,7 +15,7 @@ export function buildRoofReviewOwners(){
   const handoff=roofDrawingHandoff(roof);
   const plan=projectAuthorizedRoof(handoff,'PLAN');
   const axon=projectRoofAxon(handoff,Math.PI/4,Math.PI/6);
-  const view=(v:'NORTH'|'SOUTH'|'EAST'|'WEST')=>verifyRoofEdgeIntervals(handoff,{kind:'ELEVATION',view:v});
+  const view=(v:'NORTH'|'SOUTH'|'EAST'|'WEST')=>verifyRoofEdgeIntervals(handoff,{kind:'ELEVATION',view:v},{resolveCardinalEdgeOn:true});
   return {
    ownerId:roof.ownerId,roofId:roof.roofId,status:handoff.status,
    faceCount:handoff.faces.length,fasciaAuthorized:handoff.status==='AUTHORITATIVE'&&!!handoff.fascia,

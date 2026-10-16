@@ -39,6 +39,7 @@ try{
   await page.setViewport({width,height,isMobile:touch,hasTouch:touch,deviceScaleFactor:1});
   await page.goto(`http://127.0.0.1:${server.address().port}`,{waitUntil:'networkidle0'});
   await page.waitForSelector('[data-inspected-owner="home-b"]');
+  assert.match(await page.$eval('body',e=>e.textContent),/Drawing acceptance remains OPEN/);
   const tap=async(selector,index=0)=>{
    const elements=await page.$$(selector),element=elements[index];assert(element,selector+' '+index);
    await element.evaluate(e=>e.scrollIntoView({block:'center',behavior:'instant'}));
@@ -55,7 +56,7 @@ try{
   for(let index=0;index<5;index++){
    await tap('.roof-view-tabs button',index);
    await page.waitForFunction(i=>document.querySelectorAll('.roof-view-tabs button')[i].getAttribute('aria-pressed')==='true',{},index);
-   assert.equal(await page.$eval('.roof-review-status',e=>e.textContent),index===4?'INTERVAL VERIFIED':'REVIEW REQUIRED');
+   assert.equal(await page.$eval('.roof-review-status',e=>e.textContent),'INTERVAL VERIFIED');
    await noOverflow();
   }
   await tap('.roof-review-controls>label',0);

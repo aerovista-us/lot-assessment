@@ -33,10 +33,32 @@ function rayTriangle(p,d,triangle){
  }
  return lo<=hi?hi:-Infinity;
 }
+// Ear clipping is independent of the verifier's projected-support envelope and
+// supports simple concave source faces (a vertex fan would fill their notches).
+function triangles(poly){
+ const normal=poly.slice(1,-1).map((p,i)=>cross(sub(p,poly[0]),sub(poly[i+2],poly[0]))).find(n=>Math.hypot(...n)>1e-10);
+ assert(normal);
+ const drop=normal.map(Math.abs).indexOf(Math.max(...normal.map(Math.abs)));
+ const flat=poly.map(p=>p.filter((_,i)=>i!==drop));
+ const orient=(a,b,c)=>(b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0]);
+ const area=flat.reduce((v,a,i)=>{const b=flat[(i+1)%flat.length];return v+a[0]*b[1]-a[1]*b[0];},0);
+ const sign=Math.sign(area),ids=poly.map((_,i)=>i),out=[];
+ while(ids.length>3){
+  let found=false;
+  for(let k=0;k<ids.length;k++){
+   const a=ids[(k+ids.length-1)%ids.length],b=ids[k],c=ids[(k+1)%ids.length];
+   if(orient(flat[a],flat[b],flat[c])*sign<=1e-10)continue;
+   if(ids.some(j=>![a,b,c].includes(j)&&[[a,b],[b,c],[c,a]].every(([u,v])=>orient(flat[u],flat[v],flat[j])*sign>=-1e-10)))continue;
+   out.push([poly[a],poly[b],poly[c]]);ids.splice(k,1);found=true;break;
+  }
+  assert(found,'Independent triangulator could not find an ear');
+ }
+ out.push(ids.map(i=>poly[i]));return out;
+}
 function oracle(roof,p,d){
  let front=-Infinity;
- for(const face of roof.faces)for(let k=1;k<face.polygon.length-1;k++)
-  front=Math.max(front,rayTriangle(p,d,[face.polygon[0],face.polygon[k],face.polygon[k+1]]));
+ for(const face of roof.faces)for(const triangle of triangles(face.polygon))
+  front=Math.max(front,rayTriangle(p,d,triangle));
  return front>1e-5?'HIDDEN':'VISIBLE';
 }
 let checked=0;
@@ -74,6 +96,7 @@ for(const roof of roofs)for(const view of Object.keys(directions)){
  const signature=r=>r.segments.map(s=>`${s.faceId}/${s.edgeIndex}/${s.t0.toFixed(7)}/${s.t1.toFixed(7)}/${s.visibility}`).sort();
  assert.deepEqual(signature(result),signature(reversed),'Face iteration order must not change visibility');
 }
+for(const roof of roofs)for(const view of Object.keys(directions))compare({...roof,faces:roof.faces.map(f=>({...f,polygon:[...f.polygon].reverse()}))},view);
 for(const roof of roofs)for(const angle of [Math.PI/6,Math.PI/2,131*Math.PI/180]){
  const ca=Math.cos(angle),sa=Math.sin(angle);
  const transformed={...roof,faces:roof.faces.map(f=>({...f,polygon:f.polygon.map(([x,y,z])=>[x*ca-y*sa+1000,x*sa+y*ca-500,z+30])}))};
@@ -85,6 +108,18 @@ const partial={status:'AUTHORITATIVE',faces:[
 compare(partial,'NORTH');
 const edgeOn={status:'AUTHORITATIVE',faces:[{id:'edge-on',polygon:[[0,0,0],[1,0,1],[2,1,2]]}]};
 compare(edgeOn,'NORTH');
+// Concave edge-on face: its front branch ends at x=3. The long source edge
+// x=0..4 is hidden only through t=.75, then visible. No other face supplies cuts.
+const concave={status:'AUTHORITATIVE',faces:[{id:'concave',polygon:
+ [[0,0],[4,0],[4,-2],[-2,-2],[-2,2],[3,2],[3,1],[-1,1],[-1,-1],[0,-1]].map(([u,d])=>[u,d,u])}]};
+for(const offset of [1,3,6]){
+ const p=concave.faces[0].polygon;
+ compare({...concave,faces:[{...concave.faces[0],polygon:[...p.slice(offset),...p.slice(0,offset)]}]},'NORTH');
+}
+const concaveResult=compare(concave,'NORTH');
+const longEdge=concaveResult.segments.filter(s=>s.edgeIndex===0);
+assert(longEdge.some(s=>s.visibility==='HIDDEN'&&Math.abs(s.t1-.75)<1e-7));
+assert(longEdge.some(s=>s.visibility==='VISIBLE'&&Math.abs(s.t0-.75)<1e-7));
 const face=(id,y,x0,x1)=>({id,polygon:[[x0,y,0],[x1,y,0],[x1,y,2],[x0,y,2]]});
 const overlap={status:'AUTHORITATIVE',faces:[face('a',2,0,4),face('b',2,1,3)]};
 assert.equal(verifyRoofEdgeIntervals(overlap,{kind:'ELEVATION',view:'NORTH'},{resolveCardinalEdgeOn:true}).status,'REVIEW_REQUIRED');
@@ -93,4 +128,4 @@ assert.equal(verifyRoofEdgeIntervals(malformed,{kind:'ELEVATION',view:'NORTH'},{
 assert.equal(verifyRoofEdgeIntervals({status:'WITHHELD',reason:'stale owner',faces:[]},{kind:'ELEVATION',view:'NORTH'},{resolveCardinalEdgeOn:true}).status,'WITHHELD');
 const homeB=roofs.find(r=>r.ownerId==='home-b');
 assert.equal(verifyRoofEdgeIntervals(homeB,{kind:'ELEVATION',view:'NORTH'}).status,'REVIEW_REQUIRED','Production default remains conservative until consumer and rendered acceptance');
-console.log(`PASS candidate cardinal ray-depth: ${checked} independent 3D ray comparisons; four owners/four views, order invariance, complete source-edge accounting, invalid/stale/tied rejection; production default unchanged`);
+console.log(`PASS reviewed cardinal ray-depth: ${checked} independent 3D ray comparisons; four owners/four views, order invariance, complete source-edge accounting, invalid/stale/tied rejection; legacy default remains conservative; inspector/export explicitly enable reviewed mode`);
