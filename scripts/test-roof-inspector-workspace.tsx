@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import React from 'react';
 import {renderToStaticMarkup} from 'react-dom/server';
-import {buildRoofReviewOwners} from '../app/workbench/roof-drawings/roof-review-data';
+import {buildRoofReviewOwners,type RoofReviewOwner} from '../app/workbench/roof-drawings/roof-review-data';
 import RoofInspectorWorkspace from '../app/workbench/roof-drawings/roof-inspector-workspace';
 import {pondyCandidateRegistry} from '../projects/pondy-lot2/candidate-registry';
 import {validateCandidateRoofs} from '../packages/roof-geometry';
@@ -47,7 +47,7 @@ assert(owners.filter(x=>x.ownerId!=='home-b').every(x=>x.valleyCuts.length===0))
 for(const v of ['NORTH','SOUTH','EAST','WEST'] as const){
  assert.equal(homeB.intervals[v].status,'INTERVAL_VERIFIED');
  assert.equal(homeB.intervals[v].counts.unresolved,0);
- const interval=homeB.intervals[v];assert('projectionProof' in interval);
+ const interval:RoofReviewOwner['intervals']['NORTH']=homeB.intervals[v];assert('projectionProof' in interval);
  assert.equal(interval.projectionProof?.collapsedProjection.length,interval.counts.collapsedEdges);
 }
 const html=renderToStaticMarkup(React.createElement(RoofInspectorWorkspace,{owners}));
