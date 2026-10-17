@@ -24,17 +24,18 @@ const owners=checked.results.map(roof=>{
  };
  const results={};
  for(const [id,spec] of Object.entries(views)){
-  const verified=verifyRoofEdgeIntervals(handoff,spec);
+  const verified=verifyRoofEdgeIntervals(handoff,spec,{resolveCardinalEdgeOn:true});
   if(!['INTERVAL_VERIFIED','REVIEW_REQUIRED'].includes(verified.status))throw Error(roof.ownerId+' '+id+' withheld: '+verified.reason);
-  const keep=verified.segments.filter(s=>!['INTERNAL_SEAM','DUPLICATE_SHARED'].includes(s.visibility));
-  results[id]={status:verified.status,counts:verified.counts,segments:keep.map(s=>({
-   faceId:s.faceId,edgeIndex:s.edgeIndex,visibility:s.visibility,
-   start:s.start.map(n=>Number(n.toFixed(8))),end:s.end.map(n=>Number(n.toFixed(8)))
-  }))};
+  const encode=s=>({faceId:s.faceId,edgeIndex:s.edgeIndex,t0:s.t0,t1:s.t1,visibility:s.visibility,
+   start:s.start.map(n=>Number(n.toFixed(8))),end:s.end.map(n=>Number(n.toFixed(8))),...(s.reason?{reason:s.reason}:{})});
+  results[id]={status:verified.status,counts:verified.counts,
+   segments:verified.segments.filter(s=>!['INTERNAL_SEAM','DUPLICATE_SHARED'].includes(s.visibility)).map(encode),
+   suppressedSegments:verified.segments.filter(s=>['INTERNAL_SEAM','DUPLICATE_SHARED'].includes(s.visibility)).map(encode),
+   ...(verified.projectionProof?{projectionProof:verified.projectionProof}:{})};
  }
  return {ownerId:roof.ownerId,roofId:roof.roofId,...bindings,views:results};
 });
-const payload={schemaVersion:'lotscope-verified-roof-intervals-v1',sourceRepo:'aerovista-us/lot-assessment',
+const payload={schemaVersion:'lotscope-verified-roof-intervals-v2',sourceRepo:'aerovista-us/lot-assessment',
  sourceSnapshot:'pondy-d4',sourceRoofSchema:checked.schemaVersion,
  renderScope:'CONCEPT_ONLY_NOT_FOR_CONSTRUCTION',
  camera:{id:'pondy-iso-01',screenX:iso.screenX,screenY:iso.screenY,depth:iso.depth,

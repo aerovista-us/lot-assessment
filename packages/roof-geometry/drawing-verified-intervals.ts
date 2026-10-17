@@ -112,7 +112,47 @@ function coplanar(first:readonly P3[],second:readonly P3[]):boolean{
  return first.every(p=>Math.abs(s([p[0],p[1]])-p[2])<=DEPTH_TOL)&&
  second.every(p=>Math.abs(f([p[0],p[1]])-p[2])<=DEPTH_TOL);
 }
-export function verifyRoofEdgeIntervals(roof:RoofDrawingHandoff,view:RoofViewSpec){
+/** Opt-in cardinal solver: a rank-one projected face still has an
+ * analytic front-depth envelope along its projected support. The production
+ * verifier stays conservative unless this mode is explicitly requested. */
+function edgeOnSupport(poly:readonly P3[]){
+ let a=poly[0],b=poly[0],length=0;
+ for(const p of poly)for(const q of poly){const n=Math.hypot(q[0]-p[0],q[1]-p[1]);if(n>length){a=p;b=q;length=n;}}
+ if(length<=TOL)return null;
+ const r:P2=[b[0]-a[0],b[1]-a[1]];
+ if(poly.some(p=>Math.abs(cross(r,[p[0]-a[0],p[1]-a[1]]))/length>TOL))return null;
+ return (point:P2)=>{
+  const functions:Array<(p:P2)=>number>=[];
+  for(let i=0;i<poly.length;i++){
+   const c=poly[i],d=poly[(i+1)%poly.length];
+   if(!onSegment(point,[c[0],c[1]],[d[0],d[1]]))continue;
+   const dx=d[0]-c[0],dy=d[1]-c[1],dd=dx*dx+dy*dy;
+   if(dd<=TOL*TOL)continue;
+   functions.push(p=>c[2]+((p[0]-c[0])*dx+(p[1]-c[1])*dy)/dd*(d[2]-c[2]));
+  }
+  return functions;
+ };
+}
+const cross3=(a:P3,b:P3):P3=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+const sub3=(a:P3,b:P3):P3=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]];
+const dot3=(a:P3,b:P3)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+function worldInternalSeam(a:P3,b:P3,ours:readonly P3[],other:readonly P3[]){
+ let normal:P3|null=null;
+ for(let i=1;i<ours.length-1;i++){
+  const n=cross3(sub3(ours[i],ours[0]),sub3(ours[i+1],ours[0])),length=Math.hypot(...n);
+  if(length>TOL){normal=[n[0]/length,n[1]/length,n[2]/length];break;}
+ }
+ if(!normal||other.some(p=>Math.abs(dot3(normal!,sub3(p,ours[0])))>TOL))return false;
+ const axis=sub3(b,a);
+ const side=(poly:readonly P3[])=>{
+  const values=poly.map(p=>dot3(normal!,cross3(axis,sub3(p,a))));
+  const positive=values.some(v=>v>TOL),negative=values.some(v=>v< -TOL);
+  return positive&&!negative?1:negative&&!positive?-1:0;
+ };
+ return side(ours)*side(other)<0;
+}
+export function verifyRoofEdgeIntervals(roof:RoofDrawingHandoff,view:RoofViewSpec,options?:{resolveCardinalEdgeOn?:boolean}){
+ const resolveEdgeOn=options?.resolveCardinalEdgeOn===true&&view.kind==='ELEVATION';
  const withheld=(reason:string)=>({status:'WITHHELD' as const,segments:[] as EdgeInterval[],reason,counts:{visible:0,hidden:0,unresolved:0,internalSeams:0,duplicateShared:0,collapsedEdges:0,edgeOnFaces:0}});
  if(roof.status!=='AUTHORITATIVE')return withheld(roof.reason);
  if(!validProjectedFaces(roof))return withheld('Invalid or unbound roof face geometry');
@@ -127,15 +167,25 @@ export function verifyRoofEdgeIntervals(roof:RoofDrawingHandoff,view:RoofViewSpe
  }
  const faces=roof.faces.map(face=>({id:face.id,world:face.polygon as readonly P3[],points:face.polygon.map(p=>frame(p as P3,view))}));
  const planes=new Map(faces.map(face=>[face.id,depthPlane(face.points)]));
+ const supports=new Map(faces.map(face=>[face.id,resolveEdgeOn&&!planes.get(face.id)?edgeOnSupport(face.points):null]));
+ const depthFunctions=(face:typeof faces[number],p:P2)=>{
+  const plane=planes.get(face.id);
+  return plane?[plane]:supports.get(face.id)?.(p)??[];
+ };
  const edgeOnFaces=faces.filter(face=>planes.get(face.id)===null).length;
+ const collapsedProjection:Array<{faceId:string;edgeIndex:number;point:P2;sourceA:P3;sourceB:P3}>=[];
  const segments:EdgeInterval[]=[];
  let collapsedEdges=0;
  for(const face of faces)for(let edgeIndex=0;edgeIndex<face.points.length;edgeIndex++){
   const a=face.points[edgeIndex],b=face.points[(edgeIndex+1)%face.points.length];
   const aw=face.world[edgeIndex],bw=face.world[(edgeIndex+1)%face.world.length];
-  if(Math.hypot(b[0]-a[0],b[1]-a[1])<=TOL){collapsedEdges++;continue;}
+  if(Math.hypot(b[0]-a[0],b[1]-a[1])<=TOL){
+   collapsedEdges++;collapsedProjection.push({faceId:face.id,edgeIndex,point:[a[0],a[1]],sourceA:aw,sourceB:bw});continue;
+  }
   const cuts=[0,1];
-  for(const other of faces)if(other!==face)for(let k=0;k<other.points.length;k++)
+  // An edge-on concave face can occlude itself. Its own projected vertices
+  // must partition coverage/front-envelope changes, just like other faces.
+  for(const other of faces)if(other!==face||resolveEdgeOn)for(let k=0;k<other.points.length;k++)
    cuts.push(...boundaryCuts(a,b,other.points[k],other.points[(k+1)%other.points.length]));
   const sorted=[...cuts].filter(t=>t>=0&&t<=1).sort((x,y)=>x-y);
   const bounds=sorted.filter((t,i)=>i===0||t-sorted[i-1]>TOL);
@@ -144,15 +194,15 @@ export function verifyRoofEdgeIntervals(roof:RoofDrawingHandoff,view:RoofViewSpe
   for(let i=0;i<bounds.length-1;i++){
    const lo=bounds[i],hi=bounds[i+1],mid=lerp(a,b,(lo+hi)/2);
    const p:P2=[mid[0],mid[1]];
-   for(const other of faces)if(other!==face&&position(other.points,p)!=='OUTSIDE'){
-    const plane=planes.get(other.id);
-    if(!plane)continue; // The edge-on face is assessed as an ambiguity below.
-    const x=lerp(a,b,lo),y=lerp(a,b,hi);
-    const d0=plane([x[0],x[1]])-x[2],d1=plane([y[0],y[1]])-y[2];
-    const den=d0-d1;
-    if(Math.abs(den)<=TOL)continue;
-    const root=lo+(hi-lo)*d0/den;
-    if(root>lo+TOL&&root<hi-TOL)cuts.push(root);
+   for(const other of faces)if((other!==face||resolveEdgeOn)&&position(other.points,p)!=='OUTSIDE'){
+    for(const plane of depthFunctions(other,p)){
+     const x=lerp(a,b,lo),y=lerp(a,b,hi);
+     const d0=plane([x[0],x[1]])-x[2],d1=plane([y[0],y[1]])-y[2];
+     const den=d0-d1;
+     if(Math.abs(den)<=TOL)continue;
+     const root=lo+(hi-lo)*d0/den;
+     if(root>lo+TOL&&root<hi-TOL)cuts.push(root);
+    }
    }
   }
   cuts.sort((x,y)=>x-y);
@@ -168,10 +218,35 @@ export function verifyRoofEdgeIntervals(roof:RoofDrawingHandoff,view:RoofViewSpe
     if(sharedWorldInterval(lerp(aw,bw,t0),lerp(aw,bw,t1),other.world)){
      sharedFaces.add(other.id);
      sharedOwner=sharedOwner===null?other.id:sharedOwner.localeCompare(other.id)<0?sharedOwner:other.id;
-     if(coplanar(face.points,other.points)&&oppositeSides(a,b,face.points,other.points))sharedSeam=true;
+     if(resolveEdgeOn?worldInternalSeam(lerp(aw,bw,t0),lerp(aw,bw,t1),face.world,other.world):coplanar(face.points,other.points)&&oppositeSides(a,b,face.points,other.points))sharedSeam=true;
     }
    }
-   if(!planes.get(face.id)){visibility='UNRESOLVED';reason='Source roof face projects edge-on; depth ordering is undefined';}
+   if(resolveEdgeOn){
+    let unknown:string|undefined;
+    let hidden=false;
+    for(const other of faces){
+     const screen=position(other.points,[mid[0],mid[1]]);
+     if(screen==='OUTSIDE')continue;
+     const functions=depthFunctions(other,[mid[0],mid[1]]);
+     if(!functions.length){unknown='Unable to prove projected rank-one face support';continue;}
+     const depths=functions.map(fn=>fn([mid[0],mid[1]])-mid[2]);
+     if(depths.some(n=>!Number.isFinite(n))){unknown='Nonfinite ray depth';continue;}
+     if(depths.some(n=>n>DEPTH_TOL))hidden=true;
+     // Own face and known physical shared edges may tie at this world point.
+     // Unrelated coplanar/overlapping surfaces remain explicitly unresolved.
+     if(other!==face&&!sharedFaces.has(other.id)&&depths.some(n=>Math.abs(n)<=DEPTH_TOL))unknown='Unrelated coplanar or depth-tied roof interval';
+     for(const fn of functions){
+      const d0=fn([start[0],start[1]])-start[2],d1=fn([end[0],end[1]])-end[2];
+      if((d0>DEPTH_TOL&&d1< -DEPTH_TOL)||(d0< -DEPTH_TOL&&d1>DEPTH_TOL))unknown='Unpartitioned ray-depth transition';
+     }
+    }
+    if(sharedSeam){visibility='INTERNAL_SEAM';reason='Adjacent world-coplanar faces: internal seam';}
+    else if(sharedOwner&&face.id.localeCompare(sharedOwner)>0){visibility='DUPLICATE_SHARED';reason='Same physical edge already emitted by neighboring face';}
+    else if(hidden){visibility='HIDDEN';reason='A source surface lies strictly in front along the exact cardinal ray';}
+    else if(unknown){visibility='UNRESOLVED';reason=unknown;}
+    else {visibility='VISIBLE';reason='Nearest source edge on the analytic cardinal ray';}
+   }
+   else if(!planes.get(face.id)){visibility='UNRESOLVED';reason='Source roof face projects edge-on; depth ordering is undefined';}
    else if(sharedSeam){visibility='INTERNAL_SEAM';reason='Adjacent coplanar faces: shared non-roof-outline seam';}
    else if(sharedOwner&&face.id.localeCompare(sharedOwner)>0){visibility='DUPLICATE_SHARED';reason='Same physical edge already emitted by neighboring face';}
    else for(const other of faces)if(other!==face){
@@ -215,6 +290,7 @@ export function verifyRoofEdgeIntervals(roof:RoofDrawingHandoff,view:RoofViewSpe
     runs.some((s,i)=>s.t1<=s.t0||i>0&&Math.abs(runs[i-1].t1-s.t0)>TOL))
    return withheld('Roof edge interval coverage is incomplete');
  }
- return {status:counts.unresolved||counts.collapsedEdges||counts.edgeOnFaces?'REVIEW_REQUIRED' as const:'INTERVAL_VERIFIED' as const,
+ return {status:counts.unresolved||(!resolveEdgeOn&&(counts.collapsedEdges||counts.edgeOnFaces))?'REVIEW_REQUIRED' as const:'INTERVAL_VERIFIED' as const,
+  ...(resolveEdgeOn?{projectionProof:{method:'CARDINAL_RAY_DEPTH_V1' as const,collapsedProjection}}:{}),
   segments,counts,reason:'Analytic planar edge intervals against locked source geometry; CONCEPT ONLY, professional drawing and code review pending'};
 }

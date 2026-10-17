@@ -37,8 +37,8 @@
 .roof-review-figure figcaption{font-size:16px;font-weight:750;margin:0 0 10px;color:#edf3f8}
 .roof-review-figure svg{width:100%;height:auto;display:block;border:1px solid #a3b1bc;border-radius:12px;overflow:visible}
 .roof-review-note{font-size:12px;color:#acb6c3;line-height:1.55;margin:9px 0 0}
-.roof-edge-evidence{margin-top:15px;padding:15px;border:1px solid rgba(245,158,11,.28);border-radius:11px;background:#1d231f;display:flex;flex-direction:column;gap:5px;color:#c6ced8;font-size:13px;overflow-wrap:anywhere}
-.roof-edge-evidence strong{font-size:14px;color:#ffcf81}
+.roof-edge-evidence,.roof-acceptance-boundary{margin-top:15px;padding:15px;border:1px solid rgba(245,158,11,.28);border-radius:11px;background:#1d231f;display:flex;flex-direction:column;gap:5px;color:#c6ced8;font-size:13px;overflow-wrap:anywhere}
+.roof-edge-evidence strong,.roof-acceptance-boundary strong{font-size:14px;color:#ffcf81}
 .roof-view-metrics,.roof-cut-metrics{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
 .roof-view-metrics span,.roof-cut-metrics span{padding:7px 10px;border:1px solid rgba(255,255,255,.12);border-radius:8px;color:#d2dae3;font-size:12px;background:#1b2530}
 .roof-view-metrics .roof-unresolved{color:#ffbc66;border-color:#ad6e26}
@@ -46,6 +46,8 @@
 .roof-source-axon{max-width:850px}
 .roof-empty-valleys,.roof-section-void{padding:26px;border:1px dashed #8a7153;border-radius:10px;color:#d1c5b7}
 .roof-review-footer{text-align:center;padding:30px 10px;font-size:12px;color:#a5afb9}
+.roof-owner-tab,.roof-view-tabs button,.roof-valley-tabs button,.roof-edge-picker select{min-height:44px;touch-action:manipulation}
+.roof-review-controls>label{min-height:44px}
 @media(max-width:980px){.roof-summary{flex-direction:column;align-items:stretch}.roof-summary-stats{min-width:0}.roof-owner-selector{grid-template-columns:repeat(2,minmax(0,1fr))}.roof-primary-grid{grid-template-columns:1fr}}
 @media(max-width:650px){.roof-inspector{width:calc(100% - 20px)}
  .roof-inspector-hero{padding:20px 0;flex-direction:column;align-items:stretch;gap:12px}
@@ -54,8 +56,10 @@
  .roof-summary,.roof-review-focus{padding:15px}
  .roof-summary-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
  .roof-section-grid{grid-template-columns:1fr}
- .roof-review-controls .roof-edge-picker{justify-content:flex-start;flex-wrap:wrap;width:100%}
- .roof-edge-picker select{width:100%}
+ .roof-review-controls .roof-edge-picker{flex:0 0 100%;justify-content:flex-start;flex-wrap:wrap;width:100%}
+ .roof-edge-picker select{width:100%;font-size:16px}
  .roof-section-heading{flex-direction:column;align-items:flex-start}
  .roof-view-tabs button{padding:10px;font-size:12px}
 }
+
+.roof-edge-evidence summary{min-height:44px;cursor:pointer;touch-action:manipulation}
