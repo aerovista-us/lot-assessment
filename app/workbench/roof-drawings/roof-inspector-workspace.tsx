@@ -1,5 +1,6 @@
 "use client";
 import {useState} from 'react';
+import {d4ExternalAcceptance} from '@/projects/pondy-lot2/d4-external-acceptance';
 import RoofLinework from './roof-linework';
 import RoofView from './roof-view';
 import {RoofValleyPlan,RoofValleySection} from './roof-review-graphics';
@@ -25,8 +26,10 @@ export default function RoofInspectorWorkspace({owners}:{owners:RoofReviewOwner[
  function chooseOwner(id:string){setOwnerId(id);setView('NORTH');setEdgeIndex(-1);setSelectedValley('V1');}
  function chooseView(id:ReviewView){setView(id);setEdgeIndex(-1);}
  return <div className="roof-inspector-workspace" data-inspected-owner={current.ownerId}>
-  <p className="roof-acceptance-boundary"><strong>Drawing acceptance remains OPEN</strong>
-   <span>Roof publication remains disabled. Model interval verification does not close physical-print calibration, actual-phone review, professional or AHJ acceptance.</span></p>
+  <details className="roof-acceptance-tag" data-d4-external-acceptance={d4ExternalAcceptance.status}>
+   <summary>{d4ExternalAcceptance.label}</summary>
+   <p><strong>Drawing acceptance remains OPEN.</strong> {d4ExternalAcceptance.detail} Phone checklist: user accepted.</p>
+  </details>
   <nav className="roof-owner-selector" aria-label="Select locked roof owner">
    {owners.map(o=><button key={o.ownerId} type="button" onClick={()=>chooseOwner(o.ownerId)}
     className={o.ownerId===current.ownerId?'roof-owner-tab active':'roof-owner-tab'}
