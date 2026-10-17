@@ -63,3 +63,8 @@
 }
 
 .roof-edge-evidence summary{min-height:44px;cursor:pointer;touch-action:manipulation}
+
+.roof-acceptance-tag{margin:8px 0 14px;font-size:12px;line-height:1.5;color:#d7c2a1;overflow-wrap:anywhere}
+.roof-acceptance-tag summary{cursor:pointer;min-height:44px;width:fit-content;max-width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #9e762f;border-radius:16px;background:#302718;color:#ffcf81}
+.roof-acceptance-tag summary:focus-visible{outline:2px solid #ffcf81;outline-offset:3px}
+.roof-acceptance-tag p{max-width:85ch;margin:8px 0}
