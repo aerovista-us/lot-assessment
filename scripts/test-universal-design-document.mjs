@@ -38,6 +38,24 @@ for(const c of cases){
   assert.equal(packed.shapes.length,5);
   assert.equal(packed.shapes.filter(s=>s.kind==='ROOM').length,2);
   assert.equal(validateDesignDocument(c,packed).valid,true);
+  const practical=packDraftRooms(c,doc,plate.id,['Primary Bath','Laundry','Living','Primary Bedroom','Kitchen'],'X');
+  const zones=practical.shapes.filter(s=>s.kind==='ROOM');
+  assert.deepEqual(zones.map(z=>z.label),['Laundry','Living','Kitchen','Primary Bedroom','Primary Bath']);
+  const area=p=>Math.abs(p.reduce((acc,v,i)=>acc+v[0]*p[(i+1)%p.length][1]-p[(i+1)%p.length][0]*v[1],0)/2);
+  assert(area(zones[1].polygon)>area(zones[0].polygon),'Living zone should have more area than laundry');
+  assert.equal(Math.round(zones.reduce((n,z)=>n+area(z.polygon),0)*100),Math.round(area(plate.polygon)*100));
+  assert(zones.every(z=>z.status==='DRAFT_UNVERIFIED'));
+
+  // Convex and concave plates remain source-bound and cannot fabricate missing area.
+  const corners=plate.polygon;
+  const blend=(a,b,t)=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t];
+  const lShape=[corners[0],corners[1],blend(corners[1],corners[2],.6),
+    blend(blend(corners[0],corners[1],.6),blend(corners[3],corners[2],.6),.6),
+    blend(corners[0],corners[3],.6),corners[3]];
+  const bent=updateDesignShapePolygon(c,doc,plate.id,lShape);
+  const lPacked=packDraftRooms(c,bent,plate.id,['Living','Kitchen'],'X');
+  assert.equal(lPacked.shapes.filter(s=>s.kind==='ROOM').length,2);
+  assert.equal(validateDesignDocument(c,lPacked).valid,true);
   assert.equal(split.revision,doc.revision+1);
   assert.equal(validateDesignDocument(c,split).valid,true);
   assert.throws(()=>partitionDesignShape(c,doc,plate.id,'X',-1e9),/nonzero areas/);

@@ -244,9 +244,11 @@ export function partitionDesignShape(
  return next;
 }
 
-/** Deterministic rectangular draft room-packing seed. The resulting areas are
- * authored ROOM polygons for the existing shared floor solver, NOT habitable
- * area, circulation, daylight, framing or egress approvals. */
+/** A geometry-safe, purpose-aware *draft* seed, not a complete home plan.
+ * Local axes follow the floor plate's first edge, so rotation does not change
+ * layout. Concave slices are only admitted when clipping preserves exact area,
+ * connectivity, containment and practical room depth; otherwise fail visibly.
+ * No auto-generated doors, approval, or invented garage connections. */
 export function packDraftRooms(
  c:CandidateRecord,d:DesignDocument,plateId:string,labels:string[],axis:'X'|'Y',
  now=new Date().toISOString()
@@ -256,28 +258,79 @@ export function packDraftRooms(
  if(!plate||plate.kind!=='FLOOR_PLATE'||plate.story===null)throw Error('Choose a floor plate');
  if(!['X','Y'].includes(axis)||labels.length<2||labels.length>8||labels.some(l=>!l.trim()))
   throw Error('Specify 2 to 8 named rooms and a packing direction');
- const x=plate.polygon.map(p=>p[0]),y=plate.polygon.map(p=>p[1]);
- const minX=Math.min(...x),maxX=Math.max(...x),minY=Math.min(...y),maxY=Math.max(...y);
- const area=Math.abs(signedPolygonArea(plate.polygon));
- if(plate.polygon.length!==4||Math.abs(area-(maxX-minX)*(maxY-minY))>EPS||
-  (maxX-minX)<4||(maxY-minY)<4)
-  throw Error('Automatic draft packing currently supports only axis-aligned rectangular floor plates');
  if(d.shapes.some(s=>s.ownerId===plate.ownerId&&s.story===plate.story&&['ROOM','CIRCULATION','STAIR_ZONE'].includes(s.kind)))
   throw Error('Existing rooms/stairs require designer reconciliation before auto packing');
- const run=axis==='X'?maxX-minX:maxY-minY;
- if(run/labels.length<4)throw Error('Each seeded room must have at least 4 ft along packing axis');
- const pieces=labels.map((label,i):P2[]=>{
-  const lo=(axis==='X'?minX:minY)+run*i/labels.length;
-  const hi=(axis==='X'?minX:minY)+run*(i+1)/labels.length;
-  return axis==='X'?[[lo,minY],[hi,minY],[hi,maxY],[lo,maxY]]:
-   [[minX,lo],[maxX,lo],[maxX,hi],[minX,hi]];
+ const original=plate.polygon;
+ const start=original[0],edge=original[1];
+ const length=Math.hypot(edge[0]-start[0],edge[1]-start[1]);
+ if(length<EPS)throw Error('Floor plate has degenerate first edge');
+ const u:P2=[(edge[0]-start[0])/length,(edge[1]-start[1])/length];
+ const v:P2=[-u[1],u[0]];
+ const local=(p:P2):P2=>{const dx=p[0]-start[0],dy=p[1]-start[1];return [dx*u[0]+dy*u[1],dx*v[0]+dy*v[1]]};
+ const world=(p:P2):P2=>[start[0]+p[0]*u[0]+p[1]*v[0],start[1]+p[0]*u[1]+p[1]*v[1]];
+ const poly=original.map(local),idx=axis==='X'?0:1;
+ const min=Math.min(...poly.map(p=>p[idx])),max=Math.max(...poly.map(p=>p[idx]));
+ const extent=max-min;
+ if(extent<8)throw Error('Floor plate has insufficient depth for automatic rooms');
+ // A balanced social zone needs more space than laundry or a bathroom.
+ const classify=(name:string)=>{
+  const n=name.toLowerCase();
+  if(/living|great room|family room/.test(n))return {kind:'PUBLIC',weight:1.7};
+  if(/kitchen|dining/.test(n))return {kind:'PUBLIC',weight:1.25};
+  if(/mud|utility|laundry|mechanical|pantry/.test(n))return {kind:'SERVICE',weight:.65};
+  if(/primary|master/.test(n)&&/bath/.test(n))return {kind:'ENSUITE',weight:.8};
+  if(/primary|master/.test(n))return {kind:'PRIMARY',weight:1.5};
+  if(/bath|powder|wc/.test(n))return {kind:'BATH',weight:.7};
+  if(/bed|guest|office|study/.test(n))return {kind:'PRIVATE',weight:1.2};
+  return {kind:'OTHER',weight:1};
+ };
+ const spec=labels.map((label,i)=>({label:label.trim(),...classify(label),i}));
+ const rank:Record<string,number>={SERVICE:0,PUBLIC:1,OTHER:2,BATH:3,PRIVATE:4,PRIMARY:5,ENSUITE:6};
+ // Group service next to daily living, private suite next to its bathroom.
+ const ordered=[...spec].sort((a,b)=>rank[a.kind]-rank[b.kind]||a.i-b.i);
+ // Prefer service nearest the source garage center (when one exists).
+ const garage=sourceBuildingOwners(c).filter(o=>o.kind==='garage');
+ if(garage.length){
+  const garageCenters=garage.map(g=>{const q=placementPolygon(g);return local([q.reduce((n,p)=>n+p[0],0)/q.length,q.reduce((n,p)=>n+p[1],0)/q.length])});
+  const dist=(edge:number)=>Math.min(...garageCenters.map(g=>Math.abs(g[idx]-edge)));
+  if(dist(max)<dist(min))ordered.reverse();
+ }
+ // Deterministic half-plane clipping in building-local coordinates.
+ const clip=(input:P2[],threshold:number,keepUpper:boolean):P2[]=>{
+  const out:P2[]=[];
+  const allowed=(p:P2)=>keepUpper?p[idx]>=threshold-EPS:p[idx]<=threshold+EPS;
+  for(let i=0;i<input.length;i++){
+   const a=input[i],b=input[(i+1)%input.length],ia=allowed(a),ib=allowed(b);
+   if(ia)out.push(a);
+   if(ia!==ib){const t=(threshold-a[idx])/(b[idx]-a[idx]);out.push([a[0]+t*(b[0]-a[0]),a[1]+t*(b[1]-a[1])]);}
+  }
+  const dedup:P2[]=[];
+  for(const p of out)if(!dedup.length||Math.hypot(p[0]-dedup[dedup.length-1][0],p[1]-dedup[dedup.length-1][1])>EPS)dedup.push(p);
+  if(dedup.length>1&&Math.hypot(dedup[0][0]-dedup[dedup.length-1][0],dedup[0][1]-dedup[dedup.length-1][1])<=EPS)dedup.pop();
+  return dedup;
+ };
+ const total=ordered.reduce((n,s)=>n+s.weight,0);
+ let cumulative=0;
+ const pieces=ordered.map(s=>{
+  const lo=min+extent*cumulative/total;cumulative+=s.weight;
+  const hi=min+extent*cumulative/total;
+  if(hi-lo<4)throw Error('Insufficient space for a practical '+s.label+' zone (under 4 ft)');
+  const piece=clip(clip(poly,lo,true),hi,false).map(world);
+  if(piece.length<3)throw Error('Irregular footprint splits '+s.label+' into disconnected regions; manual layout required');
+  validPolygon(piece,s.label);
+  if(!contained(piece,original))throw Error('Concave footprint makes '+s.label+' disconnected or outside the floor plate');
+  if(Math.abs(signedPolygonArea(piece))<16)throw Error('Unusable '+s.label+' draft area');
+  return {spec:s,polygon:piece};
  });
- let seq=1;
- const existing=new Set(d.shapes.map(s=>s.id));
- const added=pieces.map((polygon,i):DesignShape=>{
+ const parentArea=Math.abs(signedPolygonArea(original));
+ const childrenArea=pieces.reduce((n,p)=>n+Math.abs(signedPolygonArea(p.polygon)),0);
+ if(Math.abs(parentArea-childrenArea)>Math.max(.001,parentArea*1e-6))
+  throw Error('Irregular plate packing cannot preserve area; refine the footprint or pack manually');
+ let seq=1;const existing=new Set(d.shapes.map(s=>s.id));
+ const added=pieces.map(({spec:room,polygon}):DesignShape=>{
   while(existing.has('shape-'+seq))seq++;
   const id='shape-'+seq++;existing.add(id);
-  return {id,ownerId:plate.ownerId,kind:'ROOM',story:plate.story,label:labels[i].trim(),polygon,status:'DRAFT_UNVERIFIED'};
+  return {id,ownerId:plate.ownerId,kind:'ROOM',story:plate.story,label:room.label,polygon,status:'DRAFT_UNVERIFIED'};
  });
  const next:DesignDocument={...d,revision:d.revision+1,updatedAt:now,shapes:[...d.shapes,...added]};
  validateDesignDocument(c,next);return next;
