@@ -4,7 +4,7 @@ import type {CandidateRecord} from "@/packages/candidates";
 import {placementPolygon} from "@/packages/roof-geometry";
 import {
  addDesignShape,addOwnerFootprintShape,emptyDesignDocument,removeDesignShape,addDraftDoor,setDraftRoofParameters,
- sourceBuildingOwners,validateDesignDocument,updateDesignShapePolygon,snapDesignPoint,partitionDesignShape,packDraftRooms,moveDesignWall,type DesignDocument,type DesignShape,type P2
+ sourceBuildingOwners,validateDesignDocument,updateDesignShapePolygon,snapDesignPoint,partitionDesignShape,packDraftRooms,rankDraftRoomLayouts,moveDesignWall,type DesignDocument,type DesignShape,type P2
 } from "@/packages/candidates/design-document";
 import {solveUniversalDesign} from "@/packages/candidates/design-solving";
 type Props={candidate:CandidateRecord;document?:DesignDocument;onSave:(doc:DesignDocument)=>void};
@@ -101,10 +101,12 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
  function packRooms(){
   try{
    if(stale)throw Error("Design source changed; packing unavailable");
-   if(!editingShapeId)throw Error("Select a rectangular FLOOR PLATE");
+   if(!editingShapeId)throw Error("Select a FLOOR PLATE");
    const labels=roomLabels.split(",").map(s=>s.trim()).filter(Boolean);
-   const next=packDraftRooms(candidate,base,editingShapeId,labels,packAxis);
-   onSave(next);setEditingShapeId("");setNote("Created source-contained room seed polygons; adjust walls and author doors/stairs before claiming program feasibility.");
+   const alternatives=rankDraftRoomLayouts(candidate,base,editingShapeId,labels,packAxis);
+   if(!alternatives.length)throw Error("No safe layout alternatives found. Adjust constraints or edit manually.");
+   const chosen=alternatives[0];
+   onSave(chosen.document);setEditingShapeId("");setNote(`Evaluated ${alternatives.length} draft alternatives. Chosen concept score ${chosen.assessment.score}; ${chosen.assessment.relationships.filter(r=>r.satisfied).length}/${chosen.assessment.relationships.length} proximity preferences met. Door access, circulation and garage connection remain unverified.`);
   }catch(error){setNote(error instanceof Error?error.message:"Unable to pack rooms");}
  }
  function pointerPoint(e:React.PointerEvent<SVGCircleElement|SVGLineElement>):P2|null{

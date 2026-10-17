@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {pondyCandidateRegistry as registry} from '../projects/pondy-lot2/candidate-registry.ts';
 import {placementPolygon} from '../packages/roof-geometry/index.ts';
-import {emptyDesignDocument,addDesignShape,addOwnerFootprintShape,removeDesignShape,updateDesignShapePolygon,snapDesignPoint,partitionDesignShape,packDraftRooms,moveDesignWall,validateDesignDocument,designSourceSignature} from '../packages/candidates/design-document.ts';
+import {emptyDesignDocument,addDesignShape,addOwnerFootprintShape,removeDesignShape,updateDesignShapePolygon,snapDesignPoint,partitionDesignShape,packDraftRooms,rankDraftRoomLayouts,moveDesignWall,validateDesignDocument,designSourceSignature} from '../packages/candidates/design-document.ts';
 import {renderDesignDocumentAttachment} from '../packages/candidates/design-report-attachment.ts';
 import {createCandidateConceptHtml} from '../packages/candidates/customer-report.ts';
 import {emptyCandidateWorkspace,saveWorkspaceDesignDocument,currentWorkspaceDesignDocument,createWorkspaceExportPackage,importWorkspacePackage} from '../packages/candidates/workspace.ts';
@@ -45,6 +45,14 @@ for(const c of cases){
   assert(area(zones[1].polygon)>area(zones[0].polygon),'Living zone should have more area than laundry');
   assert.equal(Math.round(zones.reduce((n,z)=>n+area(z.polygon),0)*100),Math.round(area(plate.polygon)*100));
   assert(zones.every(z=>z.status==='DRAFT_UNVERIFIED'));
+  const alternatives=rankDraftRoomLayouts(c,doc,plate.id,['Laundry','Kitchen','Living','Primary Bedroom','Primary Bath'],'X');
+  assert(alternatives.length>=2&&alternatives.length<=3);
+  assert(alternatives.every(a=>a.document.shapes.filter(s=>s.kind==='ROOM').length===5));
+  assert(alternatives.every(a=>a.assessment.sourceRevision===doc.revision));
+  assert(alternatives.every(a=>a.assessment.limitations.some(x=>x.includes('no openings'))));
+  assert(alternatives.every((a,i)=>!i||alternatives[i-1].assessment.score>=a.assessment.score));
+  assert(alternatives[0].assessment.relationships.some(x=>x.priority==='MUST'));
+  assert.throws(()=>rankDraftRoomLayouts(c,doc,plate.id,['Kitchen','Kitchen'],'X'),/unique/);
 
   // Convex and concave plates remain source-bound and cannot fabricate missing area.
   const corners=plate.polygon;

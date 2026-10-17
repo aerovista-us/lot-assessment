@@ -251,7 +251,7 @@ export function partitionDesignShape(
  * No auto-generated doors, approval, or invented garage connections. */
 export function packDraftRooms(
  c:CandidateRecord,d:DesignDocument,plateId:string,labels:string[],axis:'X'|'Y',
- now=new Date().toISOString()
+ now=new Date().toISOString(),preferredOrder?:string[]
 ):DesignDocument{
  validateDesignDocument(c,d);
  const plate=d.shapes.find(s=>s.id===plateId);
@@ -287,10 +287,11 @@ export function packDraftRooms(
  const spec=labels.map((label,i)=>({label:label.trim(),...classify(label),i}));
  const rank:Record<string,number>={SERVICE:0,PUBLIC:1,OTHER:2,BATH:3,PRIVATE:4,PRIMARY:5,ENSUITE:6};
  // Group service next to daily living, private suite next to its bathroom.
- const ordered=[...spec].sort((a,b)=>rank[a.kind]-rank[b.kind]||a.i-b.i);
+ const ordered=preferredOrder ? preferredOrder.map(label=>{const item=spec.find(x=>x.label===label);if(!item)throw Error('Unknown room in packing order');return item;}) : [...spec].sort((a,b)=>rank[a.kind]-rank[b.kind]||a.i-b.i);
+ if(ordered.length!==spec.length||new Set(ordered.map(s=>s.i)).size!==spec.length)throw Error('Packing order must include each room once');
  // Prefer service nearest the source garage center (when one exists).
  const garage=sourceBuildingOwners(c).filter(o=>o.kind==='garage');
- if(garage.length){
+ if(garage.length&&!preferredOrder){
   const garageCenters=garage.map(g=>{const q=placementPolygon(g);return local([q.reduce((n,p)=>n+p[0],0)/q.length,q.reduce((n,p)=>n+p[1],0)/q.length])});
   const dist=(edge:number)=>Math.min(...garageCenters.map(g=>Math.abs(g[idx]-edge)));
   if(dist(max)<dist(min))ordered.reverse();
@@ -334,6 +335,65 @@ export function packDraftRooms(
  });
  const next:DesignDocument={...d,revision:d.revision+1,updatedAt:now,shapes:[...d.shapes,...added]};
  validateDesignDocument(c,next);return next;
+}
+
+/** Deterministic ranked concepts; evidence never implies a door or usable circulation. */
+export type DraftLayoutAssessment={
+ schema:'lotscope-layout-assessment-v1';score:number;sourceRevision:number;
+ relationships:{a:string;b:string;priority:'MUST'|'PREFER'|'SEPARATE';satisfied:boolean;reason:string}[];
+ explanations:string[];limitations:string[];
+};
+export type RankedDraftLayout={document:DesignDocument;assessment:DraftLayoutAssessment;order:string[]};
+function overlapBoundary(a:P2[],b:P2[]):number{
+ let shared=0;
+ for(let i=0;i<a.length;i++)for(let j=0;j<b.length;j++){
+  const x=a[i],y=a[(i+1)%a.length],q=b[j],r=b[(j+1)%b.length];
+  const dx=y[0]-x[0],dy=y[1]-x[1],len=Math.hypot(dx,dy);
+  if(len<EPS||Math.abs(cross(x,y,q))/len>1e-5||Math.abs(cross(x,y,r))/len>1e-5)continue;
+  const t=(p:P2)=>((p[0]-x[0])*dx+(p[1]-x[1])*dy)/len;
+  shared+=Math.max(0,Math.min(len,Math.max(t(q),t(r)))-Math.max(0,Math.min(t(q),t(r))));
+ }return shared;
+}
+export function rankDraftRoomLayouts(c:CandidateRecord,d:DesignDocument,plateId:string,labels:string[],axis:'X'|'Y',limit=3):RankedDraftLayout[]{
+ if(!Number.isInteger(limit)||limit<1||limit>5)throw Error('Choose 1–5 concept alternatives');
+ if(new Set(labels.map(x=>x.trim().toLowerCase())).size!==labels.length)throw Error('Room labels must be unique for relationships');
+ const role=(name:string)=>{const n=name.toLowerCase();return /primary|master/.test(n)&&/bath/.test(n)?'ENSUITE':/primary|master/.test(n)?'PRIMARY':/bath|powder/.test(n)?'BATH':/laundry|mud|utility/.test(n)?'SERVICE':/kitchen/.test(n)?'KITCHEN':/living|family|great room/.test(n)?'LIVING':/dining/.test(n)?'DINING':/bed|guest/.test(n)?'BED':'OTHER'};
+ const roles=labels.map(label=>({label,role:role(label)}));
+ const rules:{a:string;b:string;priority:'MUST'|'PREFER'|'SEPARATE';reason:string}[]=[];
+ const pair=(a:string,b:string,priority:'MUST'|'PREFER'|'SEPARATE',reason:string)=>{
+  for(const x of roles.filter(x=>x.role===a))for(const y of roles.filter(y=>y.role===b))if(x.label!==y.label)rules.push({a:x.label,b:y.label,priority,reason});
+ };
+ pair('PRIMARY','ENSUITE','MUST','Primary suite and ensuite should share a usable boundary; a connecting door still needs verification');
+ pair('KITCHEN','LIVING','PREFER','Kitchen and living should support an open social zone');
+ pair('KITCHEN','DINING','PREFER','Dining should be convenient to the kitchen');
+ pair('SERVICE','KITCHEN','PREFER','Service-to-kitchen proximity supports groceries and household chores');
+ pair('PRIMARY','LIVING','SEPARATE','A privacy buffer from the public living zone is useful');
+ const seed=labels.map(x=>x.trim());
+ const byRole=(r:string)=>roles.filter(x=>x.role===r).map(x=>x.label);
+ const prioritized=[...byRole('SERVICE'),...byRole('KITCHEN'),...byRole('LIVING'),...byRole('DINING'),...byRole('OTHER'),...byRole('BED'),...byRole('BATH'),...byRole('PRIMARY'),...byRole('ENSUITE')];
+ const orders:string[][]=[prioritized,[...prioritized].reverse(),seed,[...seed].reverse()];
+ for(let i=0;i<prioritized.length-1;i++){const o=[...prioritized];[o[i],o[i+1]]=[o[i+1],o[i]];orders.push(o);}
+ const seen=new Set<string>();const results:RankedDraftLayout[]=[];
+ for(const order of orders){
+  const key=order.join('\0');if(seen.has(key))continue;seen.add(key);
+  let document:DesignDocument;
+  try{document=packDraftRooms(c,d,plateId,labels,axis,d.updatedAt,order);}catch{continue;}
+  const added=document.shapes.filter(s=>s.kind==='ROOM'&&!d.shapes.some(t=>t.id===s.id));
+  const byName=new Map(added.map(x=>[x.label,x]));
+  const relationships=rules.map(rule=>{
+   const a=byName.get(rule.a),b=byName.get(rule.b);
+   const touching=!!a&&!!b&&overlapBoundary(a.polygon,b.polygon)>=2;
+   const satisfied=rule.priority==='SEPARATE'?!touching:touching;
+   return {...rule,satisfied};
+  });
+  const score=relationships.reduce((n,r)=>n+(r.satisfied?1:0)*(r.priority==='MUST'?35:r.priority==='PREFER'?15:8),0)-relationships.reduce((n,r)=>n+(!r.satisfied&&r.priority==='MUST'?40:0),0);
+  const assessment:DraftLayoutAssessment={schema:'lotscope-layout-assessment-v1',score,sourceRevision:d.revision,
+   relationships,explanations:relationships.filter(r=>r.satisfied).map(r=>r.reason),
+   limitations:['Concept-level shared-wall assessment only; no openings, walkable circulation, garage passage, plumbing or code compliance established','Human architectural review required before reporting a relationship as functional']};
+  results.push({document,assessment,order});
+ }
+ results.sort((a,b)=>b.assessment.score-a.assessment.score||a.order.join('|').localeCompare(b.order.join('|')));
+ return results.slice(0,limit);
 }
 
 /** Translate the two endpoints of an authored wall edge; refuse invalid geometry. */

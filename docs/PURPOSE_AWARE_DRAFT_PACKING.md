@@ -21,3 +21,10 @@ Weighted strip layouts are **seed proposals only**. They do not prove that a mud
 
 ## Authority
 No architectural, structural, egress, fire, roof or AHJ acceptance from automatic packing. Existing roof publication and physical print gates remain unaffected.
+
+## Relationship-graph candidate optimizer (subsequent slice)
+- `rankDraftRoomLayouts` generates deterministic permutations of the same source-contained draft subdivision and ranks up to five concepts by room-pair boundary evidence, not merely utilization.
+- Scoring contract `lotscope-layout-assessment-v1` includes room labels, MUST/PREFER/SEPARATE proximity relationships, boolean shared-wall satisfaction, explanatory text, source document revision, score, and explicit limitations.
+- Workbench's Pack Rooms now takes the top-ranked *draft*, showing number of alternatives, numeric score and preference count. The same canonical candidate geometry and revision validation remain in effect.
+- Ranking is currently an ordering/search baseline, **not yet a complete room-relationship graph optimizer**: no doorway/path/access or furniture simulation, no proof of garage-side route, no open-plan wall removal, no user-configured household profiles or persisted assessment. This distinction must remain visible in generated reports. Scores are comparative only and must not be labeled percentages of functional design quality.
+- The eventual report should present: household brief, chosen adjacency and access rationale, rejected alternatives with concrete reasons, comparative scores and constraints, source revision, clear concept/verification limitations, and project-wide consistent source-backed captions wherever each design choice appears.
