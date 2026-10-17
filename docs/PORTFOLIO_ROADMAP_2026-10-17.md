@@ -69,3 +69,6 @@ Percentages are subjective scoped product-planning estimates, **not** measured p
 - Reconcile Pondy PR #24/#29/#36/#39 for consumer-report alignment, consistent cross-design comparisons and evidentiary labels.
 - Regenerate D4 circulation and roof source evidence and record physical/phone/professional dispositions separately.
 - Maintain this document with PR links, checks, deployed URLs and timestamps at each gate.
+
+## Golden journey acceptance update
+The release sequence begins with a first-time user drawing a lot and ends with a full Pondy-quality customer report. A preset Design 4 export does **not** qualify as an end-to-end acceptance test. See [`LOT_TO_REPORT_GOLDEN_JOURNEY.md`](LOT_TO_REPORT_GOLDEN_JOURNEY.md) for the nine source-bound checkpoints, household decision rationale, persistent report handoff, adversarial tests and cross-design regression. Lot-intake validation and fixed-registry report rendering are individually available in the Design 5 feature branch, but their live end-to-end connection is **not yet proven**. This becomes the highest-priority product gate above isolated enhancements.
