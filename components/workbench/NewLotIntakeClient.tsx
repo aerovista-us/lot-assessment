@@ -20,10 +20,10 @@ export function NewLotIntakeClient(){
  const [message,setMessage]=useState("");
  let result:{areaSqFt:number;errors:string[]};
  try{result=validateLotIntake({...draft,polygon:parsePolygon(polygonText)});}catch(e){result={areaSqFt:0,errors:[e instanceof Error?e.message:"Invalid parcel polygon"]};}
- const polygon:(LotPoint[]) = (()=>{try{return parsePolygon(polygonText);}catch{return [];}})();
+ const polygon:LotPoint[] = (()=>{try{const points=parsePolygon(polygonText);return points.length>=3&&points.length<=100&&points.every(p=>p.every(n=>Number.isFinite(n)&&Math.abs(n)<=1e6))?points:[];}catch{return [];}})();
  const xx=polygon.map(p=>p[0]),yy=polygon.map(p=>p[1]);
  const frame=polygon.length?[Math.min(...xx)-5,Math.min(...yy)-5,Math.max(20,Math.max(...xx)-Math.min(...xx)+10),Math.max(20,Math.max(...yy)-Math.min(...yy)+10)]:[0,0,100,100];
- const frontage=polygon.length>2&&draft.accessEdgeIndex>=0&&draft.accessEdgeIndex<polygon.length?[polygon[draft.accessEdgeIndex],polygon[(draft.accessEdgeIndex+1)%polygon.length]]:null;
+ const frontage=polygon.length>2&&Number.isInteger(draft.accessEdgeIndex)&&draft.accessEdgeIndex>=0&&draft.accessEdgeIndex<polygon.length?[polygon[draft.accessEdgeIndex],polygon[(draft.accessEdgeIndex+1)%polygon.length]]:null;
  const update=<K extends keyof LotIntakeDraft,>(key:K,value:LotIntakeDraft[K])=>setDraft(prev=>({...prev,[key]:value}));
  const updateSetback=(key:keyof LotIntakeDraft["setbacksFt"],value:number)=>setDraft(prev=>({...prev,setbacksFt:{...prev.setbacksFt,[key]:value}}));
  function exportDraft(){
@@ -48,7 +48,8 @@ export function NewLotIntakeClient(){
      {polygon.map((p,i)=><g key={i}><circle cx={p[0]} cy={p[1]} r={1.2} fill="#184e67"/><text x={p[0]+2} y={p[1]-2} fontSize={3} fill="#123e52">{i}</text></g>)}
      {frontage&&<line x1={frontage[0][0]} y1={frontage[0][1]} x2={frontage[1][0]} y2={frontage[1][1]} stroke="#d06c24" strokeWidth={2.2}/>}
     </svg>
-    <p className="microcopy">Blue boundary: draft parcel. Orange line: selected frontage edge. Numbered vertices correspond to coordinate indices. No mirroring or survey approval.</p>
+    <p className="microcopy">Blue boundary: draft parcel. Orange line: selected frontage edge. Numbered vertices correspond to coordinate indices. XY is model space, not a north-up map: enter the true north rotation separately. No mirroring or survey approval.</p>
+    {polygon.length===0&&<p role="alert" className="microcopy">Preview unavailable: enter 3–100 finite coordinate pairs within model limits.</p>}
    </div>
    <div className="wb-panel"><p className="eyebrow">BEFORE YOU CONTINUE</p><h3>Lot input checklist</h3>
     <p className="microcopy">Confirm jogs and boundary shape against source measurements.</p>
