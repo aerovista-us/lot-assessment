@@ -24,6 +24,22 @@ export default function WorkbenchHome() {
       <aside className="wb-panel staff-next-card"><span>WHAT NEEDS ATTENTION</span><strong>Pondy Lot 2 has {intervention.length} intervention-ready candidates.</strong><p>Design 4 and its rotated-garage branch retain useful geometry but still have open outbound evidence.</p><Link className="primary-button" href="/workbench/projects/pondy-lot2/candidates">Open candidate library</Link></aside>
     </section>
 
+    <section className="wb-panel" aria-label="Guided Design 4 journey" style={{marginBlock:20}}>
+      <p className="eyebrow">START HERE · GUIDED DESIGN JOURNEY</p>
+      <h2>Explore Design 4 from candidate to report</h2>
+      <p className="lede">Use the existing Pondy Lot 2 candidate library to choose a Design 4 candidate, create an editable working copy, compare draft room layouts, then generate a private customer report. The new-lot-to-candidate connection is still under development; this is a guided demonstration, not a first-time-lot end-to-end proof.</p>
+      <div className="hero-actions">
+        <Link className="primary-button" href="/workbench/projects/pondy-lot2/candidates">Start guided Design 4 demo →</Link>
+        <Link className="secondary-button" href="/workbench/projects/new-lot">Enter a new lot (export-only draft)</Link>
+      </div>
+      <ol className="microcopy">
+        <li>Open an existing Design 4 candidate from the library.</li>
+        <li>Choose Create Intervention to preserve the source candidate and unlock editing, when offered.</li>
+        <li>Open Build / Edit Design Shapes, select a floor plate and generate room layout alternatives.</li>
+        <li>Review alternatives and explicitly save your preferred draft. Use Create Customer Report to download the current private concept report.</li>
+      </ol>
+      <p className="microcopy">Room layout comparison is only available after its draft feature is accepted and released. Concept scores do not prove circulation, roof, or professional approvals.</p>
+    </section>
     <section className="staff-card-grid">{cards.map((card) => <Link className="staff-op-card" href={card.href} key={card.title}>
       <div><span>{card.state}</span><strong>{card.value}</strong></div><h2>{card.title}</h2><p>{card.copy}</p><b>Open →</b>
     </Link>)}</section>

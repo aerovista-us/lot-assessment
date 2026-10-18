@@ -1,5 +1,6 @@
 "use client";
 import {useState} from "react";
+import Link from "next/link";
 import {lotAreaSqFt,validateLotIntake,type LotIntakeDraft,type LotPoint} from "@/packages/lot-intake";
 
 const defaultDraft:LotIntakeDraft={
@@ -50,7 +51,8 @@ export function NewLotIntakeClient(){
   <label style={{display:"block",marginTop:16}}>Source / measurement confidence<textarea aria-label="Measurement source" rows={2} style={{display:"block",width:"100%"}} value={draft.sourceNote} onChange={e=>update("sourceNote",e.target.value)}/></label>
   <p className="microcopy">Calculated parcel area: {result.errors.length?"Not validated":result.areaSqFt.toLocaleString(undefined,{maximumFractionDigits:1})+" SF"} · Status: DRAFT / UNVERIFIED</p>
   {result.errors.length>0&&<div role="alert"><strong>Validation required:</strong><ul>{result.errors.map(error=><li key={error}>{error}</li>)}</ul></div>}
-  <div className="hero-actions"><button className="primary-button" type="button" disabled={result.errors.length>0} onClick={exportDraft}>Export validated draft JSON</button></div>
+  <div className="hero-actions"><button className="primary-button" type="button" disabled={result.errors.length>0} onClick={exportDraft}>Export validated draft JSON</button><Link className="secondary-button" href="/workbench/projects/pondy-lot2/candidates">Try existing Design 4 demo →</Link></div>
+  <div className="candidate-warning-box" role="note"><strong>Next step is not connected yet</strong><p>This export does not create a candidate or appear in the candidate library. Do not use Import .lotscope.json for this lot-intake JSON: it expects a different candidate-package schema. Continue with the existing Design 4 demo if you want to test the editor/report while the new-lot adapter is being built.</p></div>
   {message&&<p role="status" className="microcopy">{message}</p>}
  </section>;
 }

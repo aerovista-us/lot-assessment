@@ -177,6 +177,17 @@ export function CandidateWorkspaceClient({ candidateId }: { candidateId: string 
       <p className="eyebrow">CANDIDATE WORKSPACE · LIFECYCLE V1</p>
       <h1>{activeCandidate.label}</h1>
       <p className="lede">{activeCandidate.family} · {activeCandidate.status.replaceAll("_", " ")} · {activeCandidate.evidenceState} evidence</p>
+      <nav aria-label="Design journey progress" className="wb-panel" style={{marginBlock:12}}>
+        <p className="eyebrow">YOUR NEXT STEPS · EXISTING CANDIDATE DEMO</p>
+        <ol className="microcopy">
+          <li><strong>Review:</strong> Inspect this candidate and its current evidence.</li>
+          <li><strong>Edit:</strong> {editableWorkingCopy ? "Use the editable working copy below." : "Create Intervention first if offered, or branch as a new design."} </li>
+          <li><strong>Choose layout:</strong> Open Build / Edit Design Shapes, select a FLOOR PLATE, then Generate room layout alternatives. The comparison feature requires release of the pending editor update.</li>
+          <li><strong>Report:</strong> Use Create Customer Report after saving your changes; download and inspect the concept HTML.</li>
+        </ol>
+        <p className="microcopy">No step here creates a new-lot candidate automatically. Draft geometry and professional approval are separate.</p>
+        <div className="hero-actions"><a className="secondary-button" href="#universal-design-editor">Jump to shape and room editor ↓</a></div>
+      </nav>
       <div className="hero-actions">
         <Link className="secondary-button" href="/workbench/projects/pondy-lot2/candidates">Candidate Library</Link>
         {editableWorkingCopy ? <button className="secondary-button" type="button" onClick={checkpoint}>Save checkpoint</button> : null}
