@@ -268,7 +268,7 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
     {layoutOptions.length>0&&!alternativesCurrent&&<p role="status" className="candidate-warning-box">Layout inputs or source design changed. Previous alternatives are stale; generate new ones before saving.</p>}
     {alternativesCurrent&&<section aria-label="Compare draft room layouts" className="wb-panel" data-layout-comparison="draft" style={{marginTop:12}}>
      <h3>Compare {layoutOptions.length} draft layouts</h3>
-     <p className="microcopy">Proximity scores compare shared-wall preferences only—not circulation, usable door access, or code compliance. Select a concept to inspect; nothing changes in the saved design until you choose Save selected layout.</p>
+     <p className="microcopy">Proximity scores are relative, not percentages or quality grades. They compare shared-wall preferences only—not circulation, usable doors, daylight, or code compliance. Select a concept to inspect; the saved design is untouched until Save selected layout.</p>
      <div className="grid" style={{gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:10}}>
       {layoutOptions.map((option,index)=>{
        const rooms=option.document.shapes.filter(s=>s.kind==="ROOM"&&!base.shapes.some(b=>b.id===s.id));
@@ -277,7 +277,7 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
         <strong>Concept {index+1}{index===0?" · highest score":""}</strong>
         <svg viewBox={bb.join(" ")} role="img" aria-label={`Draft floor plan for concept ${index+1}`} style={{display:"block",width:"100%",height:120,background:"#f0f4f7",marginBlock:8}}>
          {shell.length>0&&<polygon points={pts(shell)} fill="#dce7ed" stroke="#31566d" strokeWidth={.6}/>}
-         {rooms.map(room=><polygon key={room.id} points={pts(room.polygon)} fill="#95c3cb" fillOpacity={.65} stroke="#326b84" strokeWidth={.5}><title>{room.label}</title></polygon>)}
+         {rooms.map(room=>{const center=room.polygon.reduce((sum,p)=>[sum[0]+p[0]/room.polygon.length,sum[1]+p[1]/room.polygon.length] as P2,[0,0] as P2);return <g key={room.id}><polygon points={pts(room.polygon)} fill="#95c3cb" fillOpacity={.65} stroke="#326b84" strokeWidth={.5}><title>{room.label}</title></polygon><text x={center[0]} y={center[1]} textAnchor="middle" fontSize={2.4} fill="#123e52" pointerEvents="none">{room.label.length>18?room.label.slice(0,16)+"…":room.label}</text></g>;})}
         </svg>
         <span>Score {option.assessment.score} · {checks.filter(r=>r.satisfied).length}/{checks.length} preferences</span>
        </button>;
