@@ -4,7 +4,7 @@ import type {CandidateRecord} from "@/packages/candidates";
 import {placementPolygon} from "@/packages/roof-geometry";
 import {
  addDesignShape,addOwnerFootprintShape,emptyDesignDocument,removeDesignShape,addDraftDoor,setDraftRoofParameters,
- sourceBuildingOwners,validateDesignDocument,updateDesignShapePolygon,snapDesignPoint,partitionDesignShape,packDraftRooms,rankDraftRoomLayouts,moveDesignWall,type DesignDocument,type DesignShape,type P2
+ sourceBuildingOwners,validateDesignDocument,updateDesignShapePolygon,snapDesignPoint,partitionDesignShape,packDraftRooms,rankDraftRoomLayouts,moveDesignWall,type RankedDraftLayout,type DesignDocument,type DesignShape,type P2
 } from "@/packages/candidates/design-document";
 import {solveUniversalDesign} from "@/packages/candidates/design-solving";
 type Props={candidate:CandidateRecord;document?:DesignDocument;onSave:(doc:DesignDocument)=>void};
@@ -22,6 +22,9 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
  const [partitionOffset,setPartitionOffset]=useState("");
  const [roomLabels,setRoomLabels]=useState("Living, Kitchen, Bedroom");
  const [packAxis,setPackAxis]=useState<"X"|"Y">("X");
+ const [layoutOptions,setLayoutOptions]=useState<RankedDraftLayout[]>([]);
+ const [selectedLayout,setSelectedLayout]=useState(0);
+ const [layoutSource,setLayoutSource]=useState("");
  const [drag,setDrag]=useState<{shapeId:string;index:number;point:P2}|null>(null);
  const [wallDrag,setWallDrag]=useState<{shapeId:string;index:number;start:P2;delta:P2}|null>(null);
  const [wallIndex,setWallIndex]=useState(0);
@@ -34,11 +37,14 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
  const [fasciaDepth,setFasciaDepth]=useState("");
  const [fasciaThickness,setFasciaThickness]=useState("");
  const [ridgeDirection,setRidgeDirection]=useState<"LONG_AXIS"|"SHORT_AXIS">("LONG_AXIS");
- useEffect(()=>{setOwnerId(owners[0]?.id??"");setNote("");},[candidate.id]);
+ useEffect(()=>{setOwnerId(owners[0]?.id??"");setNote("");setLayoutOptions([]);setLayoutSource("");},[candidate.id]);
  const activeOwner=owners.find(o=>o.id===ownerId);
  const roof=kind==="ROOF_ZONE"||kind==="GABLE_ZONE";
  const base=document??emptyDesignDocument(candidate);
  const stale=Boolean(document&&(()=>{try{validateDesignDocument(candidate,document);return false}catch{return true}})());
+ const sourceKey=JSON.stringify([candidate.id,base.sourceSignature,base.revision,base.updatedAt,editingShapeId,roomLabels,packAxis]);
+ const alternativesCurrent=layoutOptions.length>0&&!stale&&layoutSource===sourceKey;
+ const activeLayout=alternativesCurrent?layoutOptions[selectedLayout]:undefined;
  const solution=stale?null:solveUniversalDesign(candidate,base);
  const walls=solution?.floors.filter(f=>f.ownerId===ownerId&&f.story===story).flatMap(f=>f.wallSegments)??[];
  const wall=walls[wallIndex]??walls[0];
@@ -105,9 +111,17 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
    const labels=roomLabels.split(",").map(s=>s.trim()).filter(Boolean);
    const alternatives=rankDraftRoomLayouts(candidate,base,editingShapeId,labels,packAxis);
    if(!alternatives.length)throw Error("No safe layout alternatives found. Adjust constraints or edit manually.");
-   const chosen=alternatives[0];
-   onSave(chosen.document);setEditingShapeId("");setNote(`Evaluated ${alternatives.length} draft alternatives. Chosen concept score ${chosen.assessment.score}; ${chosen.assessment.relationships.filter(r=>r.satisfied).length}/${chosen.assessment.relationships.length} proximity preferences met. Door access, circulation and garage connection remain unverified.`);
+   setLayoutOptions(alternatives);setSelectedLayout(0);setLayoutSource(sourceKey);
+   setNote(`Generated ${alternatives.length} draft alternatives. Compare the plan previews and tradeoffs below, then explicitly save your selection. Nothing has been saved.`);
   }catch(error){setNote(error instanceof Error?error.message:"Unable to pack rooms");}
+ }
+ function saveSelectedLayout(){
+  try{
+   if(!alternativesCurrent||!activeLayout)throw Error("Alternatives are stale. Generate them again before saving.");
+   validateDesignDocument(candidate,activeLayout.document);
+   onSave(activeLayout.document);setLayoutOptions([]);setLayoutSource("");setEditingShapeId("");
+   setNote(`Saved selected draft concept ${selectedLayout+1} (proximity score ${activeLayout.assessment.score}). Door access, circulation and garage connectivity remain unverified.`);
+  }catch(error){setNote(error instanceof Error?error.message:"Cannot save selected layout");}
  }
  function pointerPoint(e:React.PointerEvent<SVGCircleElement|SVGLineElement>):P2|null{
   const svg=e.currentTarget.ownerSVGElement;
@@ -250,7 +264,33 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
     <button className="secondary-button" type="button" onClick={partitionSelected} disabled={stale||!editingShapeId}>Split selected floor shape</button>
     <label className="microcopy">Room names (comma separated)<input value={roomLabels} onChange={e=>setRoomLabels(e.target.value)} /></label>
     <label className="microcopy">Room seed direction<select value={packAxis} onChange={e=>setPackAxis(e.target.value as "X"|"Y")}><option value="X">Across X</option><option value="Y">Across Y</option></select></label>
-    <button className="secondary-button" type="button" onClick={packRooms} disabled={stale||!editingShapeId}>Seed rooms from selected floor plate</button>
+    <button className="secondary-button" type="button" onClick={packRooms} disabled={stale||!editingShapeId}>Generate room layout alternatives</button>
+    {layoutOptions.length>0&&!alternativesCurrent&&<p role="status" className="candidate-warning-box">Layout inputs or source design changed. Previous alternatives are stale; generate new ones before saving.</p>}
+    {alternativesCurrent&&<section aria-label="Compare draft room layouts" className="wb-panel" data-layout-comparison="draft" style={{marginTop:12}}>
+     <h3>Compare {layoutOptions.length} draft layouts</h3>
+     <p className="microcopy">Proximity scores compare shared-wall preferences only—not circulation, usable door access, or code compliance. Select a concept to inspect; nothing changes in the saved design until you choose Save selected layout.</p>
+     <div className="grid" style={{gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:10}}>
+      {layoutOptions.map((option,index)=>{
+       const rooms=option.document.shapes.filter(s=>s.kind==="ROOM"&&!base.shapes.some(b=>b.id===s.id));
+       const checks=option.assessment.relationships;
+       return <button key={index} type="button" className="secondary-button" aria-pressed={selectedLayout===index} onClick={()=>setSelectedLayout(index)} style={{textAlign:"left",border:selectedLayout===index?"2px solid #175a7e":undefined}}>
+        <strong>Concept {index+1}{index===0?" · highest score":""}</strong>
+        <svg viewBox={bb.join(" ")} role="img" aria-label={`Draft floor plan for concept ${index+1}`} style={{display:"block",width:"100%",height:120,background:"#f0f4f7",marginBlock:8}}>
+         {shell.length>0&&<polygon points={pts(shell)} fill="#dce7ed" stroke="#31566d" strokeWidth={.6}/>}
+         {rooms.map(room=><polygon key={room.id} points={pts(room.polygon)} fill="#95c3cb" fillOpacity={.65} stroke="#326b84" strokeWidth={.5}><title>{room.label}</title></polygon>)}
+        </svg>
+        <span>Score {option.assessment.score} · {checks.filter(r=>r.satisfied).length}/{checks.length} preferences</span>
+       </button>;
+      })}
+     </div>
+     {activeLayout&&<div aria-live="polite" style={{marginTop:10}}>
+      <strong>Concept {selectedLayout+1} details</strong>
+      <p className="microcopy">Room order: {activeLayout.order.join(" → ")}</p>
+      {activeLayout.assessment.relationships.length===0?<p className="microcopy">No applicable proximity preferences identified for these room names.</p>:activeLayout.assessment.relationships.map((r,i)=><p key={i} className="microcopy">{r.satisfied?"Met":"Not met"} · {r.priority}: {r.a} / {r.b} — {r.reason}</p>)}
+      {activeLayout.assessment.limitations.map((warning,i)=><p className="microcopy" key={i}>{warning}</p>)}
+     </div>}
+     <div className="hero-actions"><button type="button" className="primary-button" onClick={saveSelectedLayout}>Save selected layout</button><button type="button" className="secondary-button" onClick={()=>{setLayoutOptions([]);setLayoutSource("");setNote("Layout comparison cancelled; saved design unchanged.");}}>Cancel comparison</button></div>
+    </section>}
     <p className="microcopy">Drag any highlighted wall or vertex; invalid moves outside the source owner or through polygon edges are rejected. Partition divides the selected floor polygon along a model X or Y line, validates both halves and clears dependent draft doors. Blue: floor concepts. Amber: roof-zone proposals.</p>
    </div>
   </div>
