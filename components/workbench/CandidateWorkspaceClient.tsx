@@ -207,7 +207,8 @@ export function CandidateWorkspaceClient({ candidateId }: { candidateId: string 
 
     <UniversalDesignEditor candidate={activeCandidate}
       document={currentWorkspaceDesignDocument(workspace.workspace,activeCandidate)}
-      onSave={doc=>{workspace.saveDesignDocument(activeCandidate,doc);setMessage("Design document attached to this candidate revision; Create Customer Report will now include the draft shapes.");}}/>
+      onSave={doc=>{workspace.saveDesignDocument(activeCandidate,doc);setMessage("Design document attached to this candidate revision; Create Customer Report will now include the draft shapes.");}}
+      onCreateReport={createCustomerReport}/>
 
     <section className="candidate-workspace-grid">
       <article className="wb-panel candidate-plan-panel">
