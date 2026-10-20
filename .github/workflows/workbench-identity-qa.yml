@@ -7,6 +7,7 @@ on:
       - 'app/workbench-auth/**'
       - 'app/api/workbench/**'
       - 'lib/aerovista/**'
+      - 'scripts/test-editor-v2-policy.mjs'
       - 'scripts/test-workbench-handoff-failure.mjs'
       - 'scripts/test-candidate-customer-report.mjs'
       - 'packages/candidates/customer-report.ts'
@@ -66,6 +67,8 @@ jobs:
         run: npm run test:universal-design
       - name: Universal floor, roof, wall, door and section solver acceptance
         run: npm run test:universal-design-solving
+      - name: Editor V2 founder-only authorization policy regression
+        run: node scripts/test-editor-v2-policy.mjs
       - name: Production build
         run: npm run build
       - name: Anonymous boundary smoke

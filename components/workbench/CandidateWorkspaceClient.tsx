@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { CandidatePlan } from "@/components/workbench/CandidatePlan";
 import {UniversalDesignEditor} from "@/components/workbench/UniversalDesignEditor";
+import {UniversalDesignEditorV2} from "@/components/workbench/UniversalDesignEditorV2";
 import { createCandidateConceptHtml } from "@/packages/candidates/customer-report";
 import { InterventionEditor } from "@/components/workbench/InterventionEditor";
 import { useCandidateWorkspace } from "@/components/workbench/useCandidateWorkspace";
@@ -24,7 +25,7 @@ function downloadCandidate(candidateId: string, workspace: ReturnType<typeof use
   URL.revokeObjectURL(href);
 }
 
-export function CandidateWorkspaceClient({ candidateId }: { candidateId: string }) {
+export function CandidateWorkspaceClient({ candidateId, allowEditorV2 = false }: { candidateId: string; allowEditorV2?: boolean }) {
   const workspace = useCandidateWorkspace(pondyCandidateRegistry);
   const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
@@ -194,9 +195,15 @@ export function CandidateWorkspaceClient({ candidateId }: { candidateId: string 
       {message && <p className="microcopy lifecycle-message">{message}</p>}
     </section>
 
-    <UniversalDesignEditor candidate={activeCandidate}
-      document={currentWorkspaceDesignDocument(workspace.workspace,activeCandidate)}
-      onSave={doc=>{workspace.saveDesignDocument(activeCandidate,doc);setMessage("Design document attached to this candidate revision; Create Customer Report will now include the draft shapes.");}}/>
+    {allowEditorV2 ? (
+      <UniversalDesignEditorV2 candidate={activeCandidate}
+        document={currentWorkspaceDesignDocument(workspace.workspace,activeCandidate)}
+        onSave={doc=>{workspace.saveDesignDocument(activeCandidate,doc);setMessage("Design document attached to this candidate revision; Create Customer Report will now include the draft shapes.");}}/>
+    ) : (
+      <UniversalDesignEditor candidate={activeCandidate}
+        document={currentWorkspaceDesignDocument(workspace.workspace,activeCandidate)}
+        onSave={doc=>{workspace.saveDesignDocument(activeCandidate,doc);setMessage("Design document attached to this candidate revision; Create Customer Report will now include the draft shapes.");}}/>
+    )}
 
     <section className="candidate-workspace-grid">
       <article className="wb-panel candidate-plan-panel">
