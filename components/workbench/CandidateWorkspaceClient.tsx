@@ -177,7 +177,21 @@ export function CandidateWorkspaceClient({ candidateId }: { candidateId: string 
       <p className="eyebrow">CANDIDATE WORKSPACE · LIFECYCLE V1</p>
       <h1>{activeCandidate.label}</h1>
       <p className="lede">{activeCandidate.family} · {activeCandidate.status.replaceAll("_", " ")} · {activeCandidate.evidenceState} evidence</p>
-      <nav aria-label="Design journey progress" className="wb-panel" style={{marginBlock:12}}>
+      <nav aria-label="Complete design journey" className="wb-panel" style={{marginBlock:12}} id="design-journey">
+        <p className="eyebrow">DESIGN JOURNEY · GUIDED CONCEPT WORKFLOW</p>
+        <h2>Generate → Compare → Refine → Validate → Drawings → Report</h2>
+        <p className="microcopy">These actions operate on your current candidate. The engine only produces supported draft geometry and conditional concept drawings; it cannot automatically complete all floors, circulation, roof junctions or professional sign-offs yet.</p>
+        <div className="hero-actions">
+          <a className="primary-button" href="#universal-design-editor">1. Generate supported floor concepts ↓</a>
+          <Link className="secondary-button" href={`/workbench/projects/pondy-lot2/compare?left=${activeCandidate.id}`}>2. Compare designs ↗</Link>
+          <a className="secondary-button" href="#universal-design-editor">3. Refine selected design ↓</a>
+          <a className="secondary-button" href="#candidate-validation">4. Review validation ↓</a>
+          <a className="secondary-button" href="#candidate-drawings">5. Review available drawings ↓</a>
+          <button type="button" className="primary-button" onClick={createCustomerReport}>6. Create conditional concept report →</button>
+        </div>
+        <p className="microcopy">Missing circulation, structural, roof, print and AHJ evidence stays unresolved. Create Customer Report never means permit-ready or publicly published.</p>
+      </nav>
+      <nav aria-label="Existing candidate instructions" className="wb-panel" style={{marginBlock:12}}>
         <p className="eyebrow">YOUR NEXT STEPS · EXISTING CANDIDATE DEMO</p>
         <ol className="microcopy">
           <li><strong>Review:</strong> Inspect this candidate and its current evidence.</li>
@@ -209,7 +223,7 @@ export function CandidateWorkspaceClient({ candidateId }: { candidateId: string 
       document={currentWorkspaceDesignDocument(workspace.workspace,activeCandidate)}
       onSave={doc=>{workspace.saveDesignDocument(activeCandidate,doc);setMessage("Design document attached to this candidate revision; Create Customer Report will now include the draft shapes.");}}/>
 
-    <section className="candidate-workspace-grid">
+    <section id="candidate-drawings" className="candidate-workspace-grid">
       <article className="wb-panel candidate-plan-panel">
         <div className="section-heading"><div><p className="eyebrow">COMPONENT PLAN</p><h2>Rendered from registry components</h2></div><span className="mode-pill">{activeCandidate.components.length} COMPONENTS</span></div>
         <CandidatePlan candidate={candidate} />
@@ -235,7 +249,7 @@ export function CandidateWorkspaceClient({ candidateId }: { candidateId: string 
       <article className="wb-panel"><p className="eyebrow">ACCESS COMPONENTS</p><h2>Pavement + route</h2><div className="component-list">{paths.map((item) => <div key={item.id}><span>{item.kind}</span><strong>{item.label}</strong><small>{"polygon" in item ? `${item.polygon.length} polygon vertices` : `${item.points.length} control points${item.garageId ? ` · target ${item.garageId}` : ""}`}</small></div>)}</div></article>
     </section>
 
-    <section className="wb-panel candidate-evidence-panel">
+    <section id="candidate-validation" className="wb-panel candidate-evidence-panel">
       <div className="section-heading"><div><p className="eyebrow">CURRENT EVALUATION</p><h2>{evaluation?.summary ?? "No current evaluation"}</h2></div><span className={evaluation?.status === "PASS" ? "repair-pass" : evaluation?.status === "PARTIAL_FAIL" ? "repair-watch" : "repair-fail"}>{evaluation?.status ?? "NONE"}</span></div>
       <div className="gate-grid">{evaluation?.gates.map((gate) => <article key={gate.id}><div><span>{gate.status}</span><strong>{gate.label}</strong></div><p>{gate.summary}</p>{gate.repairClasses?.length ? <small>Repair classes: {gate.repairClasses.join(" · ")}</small> : null}</article>)}</div>
     </section>
