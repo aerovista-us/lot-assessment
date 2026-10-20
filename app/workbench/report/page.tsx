@@ -1,3 +1,4 @@
+import {WorkbenchReportPreview} from "@/components/workbench/WorkbenchReportPreview";
 export default function WorkbenchReportPage() {
   return <main className="shell workbench-shell automation-shell">
     <section className="workbench-brief automation-hero">
@@ -18,8 +19,6 @@ export default function WorkbenchReportPage() {
         <strong>Evidence stays visible</strong><span>Near-passes and historical controls remain available for review instead of disappearing.</span>
       </div>
     </section>
-    <section className="wb-panel" style={{marginTop:16}}>
-      <iframe className="report-frame" src="/api/workbench/pondy-report" title="Pondy Lot 2 user report" />
-    </section>
+    <WorkbenchReportPreview/>
   </main>;
 }
