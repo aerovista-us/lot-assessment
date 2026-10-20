@@ -7,8 +7,8 @@ import {
  sourceBuildingOwners,validateDesignDocument,updateDesignShapePolygon,snapDesignPoint,partitionDesignShape,packDraftRooms,rankDraftRoomLayouts,moveDesignWall,type RankedDraftLayout,type DesignDocument,type DesignShape,type P2
 } from "@/packages/candidates/design-document";
 import {solveUniversalDesign} from "@/packages/candidates/design-solving";
-type Props={candidate:CandidateRecord;document?:DesignDocument;onSave:(doc:DesignDocument)=>void};
-export function UniversalDesignEditor({candidate,document,onSave}:Props){
+type Props={candidate:CandidateRecord;document?:DesignDocument;onSave:(doc:DesignDocument)=>void;onCreateReport?:()=>void};
+export function UniversalDesignEditor({candidate,document,onSave,onCreateReport}:Props){
  const owners=sourceBuildingOwners(candidate);
  const [ownerId,setOwnerId]=useState(owners[0]?.id??"");
  const [kind,setKind]=useState<DesignShape["kind"]>("FLOOR_PLATE");
@@ -40,6 +40,7 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
  useEffect(()=>{setOwnerId(owners[0]?.id??"");setNote("");setLayoutOptions([]);setLayoutSource("");},[candidate.id]);
  const activeOwner=owners.find(o=>o.id===ownerId);
  const roof=kind==="ROOF_ZONE"||kind==="GABLE_ZONE";
+ const homeOwner=activeOwner?.kind==="home";
  const base=document??emptyDesignDocument(candidate);
  const stale=Boolean(document&&(()=>{try{validateDesignDocument(candidate,document);return false}catch{return true}})());
  const sourceKey=JSON.stringify([candidate.id,base.sourceSignature,base.revision,base.updatedAt,editingShapeId,roomLabels,packAxis]);
@@ -87,7 +88,7 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
     const polygon=parsed as P2[];
     next=addDesignShape(candidate,base,{...args,polygon});
    }
-   onSave(next);setNote("Saved source-bound draft shape. Regenerate the report to attach it.");
+   onSave(next);if(fullFootprint&&kind==="FLOOR_PLATE"){setEditingShapeId(next.shapes[next.shapes.length-1].id);setNote("Exact source home footprint saved as a draft floor plate. Enter room names and generate alternatives below, or continue to a concept report.");}else setNote("Saved source-bound draft shape. Generate the report to attach it.");
   }catch(e){setNote(e instanceof Error?e.message:"Cannot save shape.");}
  }
  function drop(id:string){
@@ -217,7 +218,8 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
     {!roof&&<><label className="microcopy" htmlFor="design-story">Floor</label><select id="design-story" value={story} onChange={e=>setStory(e.target.value as typeof story)}><option value="GROUND">Ground</option><option value="UPPER">Upper</option><option value="OTHER">Other level</option></select></>}
     <label className="microcopy" htmlFor="design-label">Label</label>
     <input id="design-label" value={label} onChange={e=>setLabel(e.target.value)} placeholder="e.g. Kitchen concept" />
-    <div className="hero-actions"><button className="primary-button" type="button" disabled={stale||!activeOwner} onClick={()=>save(true)}>Create shape from owner footprint</button></div>
+    <div className="hero-actions"><button className="primary-button" type="button" disabled={stale||!homeOwner||roof} onClick={()=>{setKind("FLOOR_PLATE");try{if(stale||!activeOwner||activeOwner.kind!=="home")throw Error("Select a home first");const next=addOwnerFootprintShape(candidate,base,{ownerId,label:activeOwner.label+" · exact floor plate",kind:"FLOOR_PLATE",story});onSave(next);setEditingShapeId(next.shapes[next.shapes.length-1].id);setNote("Source home outline preserved. Select room names and Generate room layout alternatives below.");}catch(e){setNote(e instanceof Error?e.message:"Unable to create floor plate");}}}>Start floor plan from exact home footprint</button></div>
+    <p className="microcopy">This uses the selected home’s actual polygon, including rotation or irregular corners; no rectangle is substituted. Select a home in Building owner above. Draft rooms must remain inside this plate.</p>
     <p className="microcopy">For a smaller shape, enter source world-coordinate polygon vertices as model XY pairs; the engine checks containment inside the selected owner.</p>
     <label className="microcopy" htmlFor="design-points">Custom vertices (model feet, no mirror)</label>
     <textarea id="design-points" rows={3} value={vertices} onChange={e=>setVertices(e.target.value)}/>
@@ -247,7 +249,9 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
         onPointerCancel={()=>setDrag(null)} />)}
       </g>;
      })}
+     {shell.length>0&&<polygon points={pts(shell)} fill="none" stroke="#153b55" strokeWidth={1.1} strokeDasharray="2 1" pointerEvents="none"><title>Original source building footprint — unchanged boundary</title></polygon>}
     </svg>
+    <p className="microcopy">Dashed dark outline = the original, unchanged building footprint. Draft floors and rooms must remain inside it.</p>
     <label className="microcopy" htmlFor="design-edit-shape">Drag vertices on source XY grid</label>
     <select id="design-edit-shape" value={editingShapeId} onChange={e=>{setEditingShapeId(e.target.value);setDrag(null);}}>
      <option value="">Choose a draft shape to edit</option>
@@ -264,7 +268,8 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
     <button className="secondary-button" type="button" onClick={partitionSelected} disabled={stale||!editingShapeId}>Split selected floor shape</button>
     <label className="microcopy">Room names (comma separated)<input value={roomLabels} onChange={e=>setRoomLabels(e.target.value)} /></label>
     <label className="microcopy">Room seed direction<select value={packAxis} onChange={e=>setPackAxis(e.target.value as "X"|"Y")}><option value="X">Across X</option><option value="Y">Across Y</option></select></label>
-    <button className="secondary-button" type="button" onClick={packRooms} disabled={stale||!editingShapeId}>Generate room layout alternatives</button>
+    <button className="secondary-button" type="button" onClick={packRooms} disabled={stale||!editingShapeId||base.shapes.find(s=>s.id===editingShapeId)?.kind!=="FLOOR_PLATE"}>Generate room layout alternatives</button>
+    <p className="microcopy">Next: review alternative rooms, choose Save selected layout, then use Create Customer Report below. A report can also be generated with a floor plate only, and will mark rooms as unverified.</p>
     {layoutOptions.length>0&&!alternativesCurrent&&<p role="status" className="candidate-warning-box">Layout inputs or source design changed. Previous alternatives are stale; generate new ones before saving.</p>}
     {alternativesCurrent&&<section aria-label="Compare draft room layouts" className="wb-panel" data-layout-comparison="draft" style={{marginTop:12}}>
      <h3>Compare {layoutOptions.length} draft layouts</h3>
@@ -294,6 +299,7 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
     <p className="microcopy">Drag any highlighted wall or vertex; invalid moves outside the source owner or through polygon edges are rejected. Partition divides the selected floor polygon along a model X or Y line, validates both halves and clears dependent draft doors. Blue: floor concepts. Amber: roof-zone proposals.</p>
    </div>
   </div>
+  <section className="wb-panel" aria-label="Continue to customer report" style={{marginBlock:20}}><p className="eyebrow">NEXT STEP · REPORT</p><h3>Continue with this candidate</h3><p className="microcopy">Your selected draft geometry is attached to this candidate revision when saved. The private report will show supported drawings and explicitly identify unverified rooms, access, roof and approvals.</p><div className="hero-actions"><button type="button" className="primary-button" disabled={stale||!onCreateReport} onClick={()=>onCreateReport?.()}>Create Customer Report →</button></div></section>
   <div className="candidate-detail-grid" style={{marginBlock:20}}>
    <article className="wb-panel">
     <p className="eyebrow">FLOOR SOLVER · WALLS, ROOM RELATIONSHIPS AND DOORS</p>
