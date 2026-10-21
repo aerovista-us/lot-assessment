@@ -219,12 +219,12 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
   <div className="candidate-detail-grid">
    <div>
     <label className="microcopy" htmlFor="design-owner">Building owner</label>
-    <select id="design-owner" value={ownerId} onChange={e=>setOwnerId(e.target.value)}>{owners.map(o=><option key={o.id} value={o.id}>{o.label} · {o.kind}</option>)}</select>
+    <select id="design-owner" value={ownerId} onChange={e=>{setOwnerId(e.target.value);setEditingShapeId("");setLayoutOptions([]);}}>{owners.map(o=><option key={o.id} value={o.id}>{o.label} · {o.kind}</option>)}</select>
     <label className="microcopy" htmlFor="design-kind">New shape type</label>
     <select id="design-kind" value={kind} onChange={e=>setKind(e.target.value as DesignShape["kind"])}>
      {(["FLOOR_PLATE","ROOM","GARAGE_AREA","CIRCULATION","STAIR_ZONE","ROOF_ZONE","GABLE_ZONE"] as const).map(t=><option key={t} value={t}>{t.replaceAll("_"," ")}</option>)}
     </select>
-    {!roof&&<><label className="microcopy" htmlFor="design-story">Floor</label><select id="design-story" value={story} onChange={e=>setStory(e.target.value as typeof story)}><option value="GROUND">Ground</option><option value="UPPER">Upper</option><option value="OTHER">Other level</option></select></>}
+    {!roof&&<><label className="microcopy" htmlFor="design-story">Floor</label><select id="design-story" value={story} onChange={e=>{setStory(e.target.value as typeof story);setEditingShapeId("");setLayoutOptions([]);}}><option value="GROUND">Ground</option><option value="UPPER">Upper</option><option value="OTHER">Other level</option></select></>}
     <label className="microcopy" htmlFor="design-label">Label</label>
     <input id="design-label" value={label} onChange={e=>setLabel(e.target.value)} placeholder="e.g. Kitchen concept" />
     <div className="hero-actions"><button className="primary-button" type="button" disabled={stale||!activeOwner} onClick={()=>save(true)}>Create shape from owner footprint</button></div>
