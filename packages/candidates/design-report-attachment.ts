@@ -20,7 +20,13 @@ export function renderDesignDocumentAttachment(candidate:CandidateRecord,doc:Des
  const figs=groups.map(story=>{
   const items=doc.shapes.filter(s=>story==='ROOF'?s.story===null:s.story===story);
   if(!items.length)return '';
-  const layer=items.map(s=>'<polygon data-design-shape="'+escape(s.id)+'" data-design-owner="'+escape(s.ownerId)+'" data-design-status="DRAFT_UNVERIFIED" points="'+points(s.polygon)+'" fill="'+(s.story===null?'#d8a46b':'#8dbdca')+'" fill-opacity=".32" stroke="'+(s.story===null?'#9a6631':'#2d667c')+'" stroke-dasharray="1.6 1.2" stroke-width=".7"><title>'+escape(s.label)+' · '+escape(s.kind)+' · DRAFT_UNVERIFIED; not an actual room or approved roof</title></polygon>').join('');
+  const sorted=[...items].sort((a,b)=>(a.kind==='FLOOR_PLATE'?0:a.kind==='ROOM'?2:1)-(b.kind==='FLOOR_PLATE'?0:b.kind==='ROOM'?2:1));
+  const layer=sorted.map(s=>{
+   const center=s.polygon.reduce((acc,p)=>[acc[0]+p[0]/s.polygon.length,acc[1]+p[1]/s.polygon.length] as P2,[0,0] as P2);
+   const isRoom=s.kind==='ROOM';
+   return '<g><polygon data-design-shape="'+escape(s.id)+'" data-design-owner="'+escape(s.ownerId)+'" data-design-status="DRAFT_UNVERIFIED" points="'+points(s.polygon)+'" fill="'+(s.story===null?'#d8a46b':isRoom?'#8abfb5':'#8dbdca')+'" fill-opacity="'+(isRoom?'.55':'.2')+'" stroke="'+(s.story===null?'#9a6631':'#2d667c')+'" stroke-dasharray="1.6 1.2" stroke-width=".7"><title>'+escape(s.label)+' · '+escape(s.kind)+' · DRAFT_UNVERIFIED</title></polygon>'+
+    (isRoom?'<text x="'+fmt(center[0])+'" y="'+fmt(center[1])+'" text-anchor="middle" font-size="2.6" fill="#163b4a" pointer-events="none">'+escape(s.label.slice(0,22))+'</text>':'')+'</g>';
+  }).join('');
   const table='<table><thead><tr><th>Shape</th><th>Building owner</th><th>State</th></tr></thead><tbody>'+
   items.map(s=>'<tr><td>'+escape(s.label)+' ('+escape(s.kind)+')</td><td>'+escape(ownerMap.get(s.ownerId)?.label??s.ownerId)+'</td><td>DRAFT ONLY</td></tr>').join('')+'</tbody></table>';
   return '<figure class="design-attached-figure" data-design-story="'+story+'"><figcaption>'+story+' · Candidate-bound editable shape drafts</figcaption><svg role="img" aria-label="'+escape(story)+' candidate-bound source-verified XY and draft drawing shapes" viewBox="'+view+'">'+base+layer+'</svg>'+table+'</figure>';
@@ -28,6 +34,7 @@ export function renderDesignDocumentAttachment(candidate:CandidateRecord,doc:Des
  return '<section class="card" id="attached-design" data-design-document="'+escape(doc.candidateId)+'" data-design-revision="'+doc.revision+'">'+
   '<h2>Attached universal Design Workspace geometry</h2>'+
   '<p class="source-boundary"><b>DRAFT SHAPES ONLY.</b> Floor regions and roof-zone concepts come from the shared multi-design engine, bound to this exact candidate revision. They are not room-plan closure, solved roof geometry, elevations, structure or a permit. If the source footprint changes, the attachment is rejected until reconciled.</p>'+
+  '<p>Room polygons and labels are saved to this candidate revision and shown as source-contained DRAFT geometry. Adjacency does not prove door connections, travel paths, stairs or egress.</p>'+
   '<p>Source revision '+escape(doc.sourceRevision)+' · Design document revision '+doc.revision+' · '+doc.shapes.length+' editable shapes</p>'+
   '<div class="design-attached-grid">'+figs+'</div></section>'+renderUniversalSolvePreview(candidate,doc);
 }

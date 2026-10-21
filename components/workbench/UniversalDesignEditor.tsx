@@ -42,7 +42,7 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
  const roof=kind==="ROOF_ZONE"||kind==="GABLE_ZONE";
  const base=document??emptyDesignDocument(candidate);
  const stale=Boolean(document&&(()=>{try{validateDesignDocument(candidate,document);return false}catch{return true}})());
- const sourceKey=JSON.stringify([candidate.id,base.sourceSignature,base.revision,base.updatedAt,editingShapeId,roomLabels,packAxis]);
+ const sourceKey=JSON.stringify([candidate.id,base.sourceSignature,base.revision,base.updatedAt,ownerId,story,editingShapeId,roomLabels,packAxis]);
  const alternativesCurrent=layoutOptions.length>0&&!stale&&layoutSource===sourceKey;
  const activeLayout=alternativesCurrent?layoutOptions[selectedLayout]:undefined;
  const solution=stale?null:solveUniversalDesign(candidate,base);
@@ -107,13 +107,38 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
  function packRooms(){
   try{
    if(stale)throw Error("Design source changed; packing unavailable");
-   if(!editingShapeId)throw Error("Select a FLOOR PLATE");
-   const labels=roomLabels.split(",").map(s=>s.trim()).filter(Boolean);
-   const alternatives=rankDraftRoomLayouts(candidate,base,editingShapeId,labels,packAxis);
-   if(!alternatives.length)throw Error("No safe layout alternatives found. Adjust constraints or edit manually.");
+   if(!activeOwner||activeOwner.kind!=="home")throw Error("Select a home building owner to generate a floor plan");
+   const labels=roomLabels.split(",").map(x=>x.trim()).filter(Boolean);
+   const selected=base.shapes.find(x=>x.id===editingShapeId);
+   if(selected&&(selected.ownerId!==ownerId||selected.story!==story||selected.kind!=="FLOOR_PLATE"))throw Error("Selected shape is not a floor plate for this home and story");
+   const existing=base.shapes.filter(x=>x.ownerId===ownerId&&x.story===story&&x.kind==="FLOOR_PLATE");
+   // Reject distinct same-story plates: one source story must not be silently discarded.
+   // Exact duplicate plates created by the old editor can be reconciled in the
+   // selected proposal, without changing the saved design until explicit Save.
+   const plate=selected??existing[0];
+   if(existing.length>1&&existing.some(x=>JSON.stringify(x.polygon)!==JSON.stringify(plate?.polygon)))
+    throw Error("This home/story contains different floor plates. Choose and reconcile the correct footprint before generating rooms.");
+   let candidateDoc=base;
+   if(existing.length>1&&plate){
+    const duplicates=new Set(existing.filter(x=>x.id!==plate.id).map(x=>x.id));
+    const duplicateDependents=base.shapes.some(x=>duplicates.has(x.ownerId))||
+     (base.doors??[]).some(x=>duplicates.has(x.fromRoomId)||duplicates.has(x.toRoomId))||
+     (base.roofParameters??[]).some(x=>duplicates.has(x.shapeId));
+    if(duplicateDependents)throw Error("Duplicate plates have attached geometry. Reconcile those dependencies manually before generating rooms.");
+    candidateDoc={...base,shapes:base.shapes.filter(x=>!duplicates.has(x.id)),
+     revision:base.revision+1,updatedAt:new Date().toISOString()};
+    validateDesignDocument(candidate,candidateDoc);
+   }
+   let resolvedPlate=plate;
+   if(!resolvedPlate){
+    candidateDoc=addOwnerFootprintShape(candidate,base,{ownerId,label:activeOwner.label+" · source floor plate",kind:"FLOOR_PLATE",story});
+    resolvedPlate=candidateDoc.shapes[candidateDoc.shapes.length-1];
+   }
+   const alternatives=rankDraftRoomLayouts(candidate,candidateDoc,resolvedPlate.id,labels,packAxis);
+   if(!alternatives.length)throw Error("No safe draft room layouts found; refine geometry or labels.");
    setLayoutOptions(alternatives);setSelectedLayout(0);setLayoutSource(sourceKey);
-   setNote(`Generated ${alternatives.length} draft alternatives. Compare the plan previews and tradeoffs below, then explicitly save your selection. Nothing has been saved.`);
-  }catch(error){setNote(error instanceof Error?error.message:"Unable to pack rooms");}
+   setNote(`Generated ${alternatives.length} unsaved room concepts for ${activeOwner.label} / ${story} from its exact footprint. Compare and Save selected layout. This is a room-geometry draft, not verified circulation, stairs or architectural acceptance.`);
+  }catch(error){setNote(error instanceof Error?error.message:"Unable to generate draft floor plan");}
  }
  function saveSelectedLayout(){
   try{
@@ -209,12 +234,12 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
   <div className="candidate-detail-grid">
    <div>
     <label className="microcopy" htmlFor="design-owner">Building owner</label>
-    <select id="design-owner" value={ownerId} onChange={e=>setOwnerId(e.target.value)}>{owners.map(o=><option key={o.id} value={o.id}>{o.label} · {o.kind}</option>)}</select>
+    <select id="design-owner" value={ownerId} onChange={e=>{setOwnerId(e.target.value);setEditingShapeId("");setLayoutOptions([]);}}>{owners.map(o=><option key={o.id} value={o.id}>{o.label} · {o.kind}</option>)}</select>
     <label className="microcopy" htmlFor="design-kind">New shape type</label>
     <select id="design-kind" value={kind} onChange={e=>setKind(e.target.value as DesignShape["kind"])}>
      {(["FLOOR_PLATE","ROOM","GARAGE_AREA","CIRCULATION","STAIR_ZONE","ROOF_ZONE","GABLE_ZONE"] as const).map(t=><option key={t} value={t}>{t.replaceAll("_"," ")}</option>)}
     </select>
-    {!roof&&<><label className="microcopy" htmlFor="design-story">Floor</label><select id="design-story" value={story} onChange={e=>setStory(e.target.value as typeof story)}><option value="GROUND">Ground</option><option value="UPPER">Upper</option><option value="OTHER">Other level</option></select></>}
+    {!roof&&<><label className="microcopy" htmlFor="design-story">Floor</label><select id="design-story" value={story} onChange={e=>{setStory(e.target.value as typeof story);setEditingShapeId("");setLayoutOptions([]);}}><option value="GROUND">Ground</option><option value="UPPER">Upper</option><option value="OTHER">Other level</option></select></>}
     <label className="microcopy" htmlFor="design-label">Label</label>
     <input id="design-label" value={label} onChange={e=>setLabel(e.target.value)} placeholder="e.g. Kitchen concept" />
     <div className="hero-actions"><button className="primary-button" type="button" disabled={stale||!activeOwner} onClick={()=>save(true)}>Create shape from owner footprint</button></div>
@@ -264,7 +289,8 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
     <button className="secondary-button" type="button" onClick={partitionSelected} disabled={stale||!editingShapeId}>Split selected floor shape</button>
     <label className="microcopy">Room names (comma separated)<input value={roomLabels} onChange={e=>setRoomLabels(e.target.value)} /></label>
     <label className="microcopy">Room seed direction<select value={packAxis} onChange={e=>setPackAxis(e.target.value as "X"|"Y")}><option value="X">Across X</option><option value="Y">Across Y</option></select></label>
-    <button className="secondary-button" type="button" onClick={packRooms} disabled={stale||!editingShapeId}>Generate room layout alternatives</button>
+    <p className="microcopy">If no floor plate exists, the generator derives it from the selected home’s original polygon. Room proposals are draft geometry; select and save one before regenerating the report.</p>
+    <button className="secondary-button" type="button" onClick={packRooms} disabled={stale||activeOwner?.kind!=="home"}>Generate room layout alternatives</button>
     {layoutOptions.length>0&&!alternativesCurrent&&<p role="status" className="candidate-warning-box">Layout inputs or source design changed. Previous alternatives are stale; generate new ones before saving.</p>}
     {alternativesCurrent&&<section aria-label="Compare draft room layouts" className="wb-panel" data-layout-comparison="draft" style={{marginTop:12}}>
      <h3>Compare {layoutOptions.length} draft layouts</h3>
