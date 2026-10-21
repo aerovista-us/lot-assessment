@@ -42,7 +42,7 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
  const roof=kind==="ROOF_ZONE"||kind==="GABLE_ZONE";
  const base=document??emptyDesignDocument(candidate);
  const stale=Boolean(document&&(()=>{try{validateDesignDocument(candidate,document);return false}catch{return true}})());
- const sourceKey=JSON.stringify([candidate.id,base.sourceSignature,base.revision,base.updatedAt,editingShapeId,roomLabels,packAxis]);
+ const sourceKey=JSON.stringify([candidate.id,base.sourceSignature,base.revision,base.updatedAt,ownerId,story,editingShapeId,roomLabels,packAxis]);
  const alternativesCurrent=layoutOptions.length>0&&!stale&&layoutSource===sourceKey;
  const activeLayout=alternativesCurrent?layoutOptions[selectedLayout]:undefined;
  const solution=stale?null:solveUniversalDesign(candidate,base);
@@ -107,13 +107,23 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
  function packRooms(){
   try{
    if(stale)throw Error("Design source changed; packing unavailable");
-   if(!editingShapeId)throw Error("Select a FLOOR PLATE");
-   const labels=roomLabels.split(",").map(s=>s.trim()).filter(Boolean);
-   const alternatives=rankDraftRoomLayouts(candidate,base,editingShapeId,labels,packAxis);
-   if(!alternatives.length)throw Error("No safe layout alternatives found. Adjust constraints or edit manually.");
+   if(!activeOwner||activeOwner.kind!=="home")throw Error("Select a home building owner to generate a floor plan");
+   const labels=roomLabels.split(",").map(x=>x.trim()).filter(Boolean);
+   const selected=base.shapes.find(x=>x.id===editingShapeId);
+   if(selected&&(selected.ownerId!==ownerId||selected.story!==story||selected.kind!=="FLOOR_PLATE"))throw Error("Selected shape is not a floor plate for this home and story");
+   const existing=base.shapes.filter(x=>x.ownerId===ownerId&&x.story===story&&x.kind==="FLOOR_PLATE");
+   if(existing.length>1)throw Error("Multiple floor plates exist for this home and story. Reconcile duplicate plates before generating rooms.");
+   let candidateDoc=base;
+   let plate=selected??existing[0];
+   if(!plate){
+    candidateDoc=addOwnerFootprintShape(candidate,base,{ownerId,label:activeOwner.label+" · source floor plate",kind:"FLOOR_PLATE",story});
+    plate=candidateDoc.shapes[candidateDoc.shapes.length-1];
+   }
+   const alternatives=rankDraftRoomLayouts(candidate,candidateDoc,plate.id,labels,packAxis);
+   if(!alternatives.length)throw Error("No safe draft room layouts found; refine geometry or labels.");
    setLayoutOptions(alternatives);setSelectedLayout(0);setLayoutSource(sourceKey);
-   setNote(`Generated ${alternatives.length} draft alternatives. Compare the plan previews and tradeoffs below, then explicitly save your selection. Nothing has been saved.`);
-  }catch(error){setNote(error instanceof Error?error.message:"Unable to pack rooms");}
+   setNote(`Generated ${alternatives.length} unsaved room concepts for ${activeOwner.label} / ${story} from its exact footprint. Compare and Save selected layout. This is a room-geometry draft, not verified circulation, stairs or architectural acceptance.`);
+  }catch(error){setNote(error instanceof Error?error.message:"Unable to generate draft floor plan");}
  }
  function saveSelectedLayout(){
   try{
@@ -264,7 +274,8 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
     <button className="secondary-button" type="button" onClick={partitionSelected} disabled={stale||!editingShapeId}>Split selected floor shape</button>
     <label className="microcopy">Room names (comma separated)<input value={roomLabels} onChange={e=>setRoomLabels(e.target.value)} /></label>
     <label className="microcopy">Room seed direction<select value={packAxis} onChange={e=>setPackAxis(e.target.value as "X"|"Y")}><option value="X">Across X</option><option value="Y">Across Y</option></select></label>
-    <button className="secondary-button" type="button" onClick={packRooms} disabled={stale||!editingShapeId}>Generate room layout alternatives</button>
+    <p className="microcopy">If no floor plate exists, the generator derives it from the selected home’s original polygon. Room proposals are draft geometry; select and save one before regenerating the report.</p>
+    <button className="secondary-button" type="button" onClick={packRooms} disabled={stale||activeOwner?.kind!=="home"}>Generate room layout alternatives</button>
     {layoutOptions.length>0&&!alternativesCurrent&&<p role="status" className="candidate-warning-box">Layout inputs or source design changed. Previous alternatives are stale; generate new ones before saving.</p>}
     {alternativesCurrent&&<section aria-label="Compare draft room layouts" className="wb-panel" data-layout-comparison="draft" style={{marginTop:12}}>
      <h3>Compare {layoutOptions.length} draft layouts</h3>
