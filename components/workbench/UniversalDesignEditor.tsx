@@ -112,14 +112,29 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
    const selected=base.shapes.find(x=>x.id===editingShapeId);
    if(selected&&(selected.ownerId!==ownerId||selected.story!==story||selected.kind!=="FLOOR_PLATE"))throw Error("Selected shape is not a floor plate for this home and story");
    const existing=base.shapes.filter(x=>x.ownerId===ownerId&&x.story===story&&x.kind==="FLOOR_PLATE");
-   if(existing.length>1)throw Error("Multiple floor plates exist for this home and story. Reconcile duplicate plates before generating rooms.");
+   // Reject distinct same-story plates: one source story must not be silently discarded.
+   // Exact duplicate plates created by the old editor can be reconciled in the
+   // selected proposal, without changing the saved design until explicit Save.
+   const plate=selected??existing[0];
+   if(existing.length>1&&existing.some(x=>JSON.stringify(x.polygon)!==JSON.stringify(plate?.polygon)))
+    throw Error("This home/story contains different floor plates. Choose and reconcile the correct footprint before generating rooms.");
    let candidateDoc=base;
-   let plate=selected??existing[0];
-   if(!plate){
-    candidateDoc=addOwnerFootprintShape(candidate,base,{ownerId,label:activeOwner.label+" · source floor plate",kind:"FLOOR_PLATE",story});
-    plate=candidateDoc.shapes[candidateDoc.shapes.length-1];
+   if(existing.length>1&&plate){
+    const duplicates=new Set(existing.filter(x=>x.id!==plate.id).map(x=>x.id));
+    const duplicateDependents=base.shapes.some(x=>duplicates.has(x.ownerId))||
+     (base.doors??[]).some(x=>duplicates.has(x.fromRoomId)||duplicates.has(x.toRoomId))||
+     (base.roofParameters??[]).some(x=>duplicates.has(x.shapeId));
+    if(duplicateDependents)throw Error("Duplicate plates have attached geometry. Reconcile those dependencies manually before generating rooms.");
+    candidateDoc={...base,shapes:base.shapes.filter(x=>!duplicates.has(x.id)),
+     revision:base.revision+1,updatedAt:new Date().toISOString()};
+    validateDesignDocument(candidate,candidateDoc);
    }
-   const alternatives=rankDraftRoomLayouts(candidate,candidateDoc,plate.id,labels,packAxis);
+   let resolvedPlate=plate;
+   if(!resolvedPlate){
+    candidateDoc=addOwnerFootprintShape(candidate,base,{ownerId,label:activeOwner.label+" · source floor plate",kind:"FLOOR_PLATE",story});
+    resolvedPlate=candidateDoc.shapes[candidateDoc.shapes.length-1];
+   }
+   const alternatives=rankDraftRoomLayouts(candidate,candidateDoc,resolvedPlate.id,labels,packAxis);
    if(!alternatives.length)throw Error("No safe draft room layouts found; refine geometry or labels.");
    setLayoutOptions(alternatives);setSelectedLayout(0);setLayoutSource(sourceKey);
    setNote(`Generated ${alternatives.length} unsaved room concepts for ${activeOwner.label} / ${story} from its exact footprint. Compare and Save selected layout. This is a room-geometry draft, not verified circulation, stairs or architectural acceptance.`);
