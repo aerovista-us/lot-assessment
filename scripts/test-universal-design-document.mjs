@@ -52,6 +52,23 @@ for(const c of cases){
   assert(alternatives.every(a=>a.assessment.limitations.some(x=>x.includes('no openings'))));
   assert(alternatives.every((a,i)=>!i||alternatives[i-1].assessment.score>=a.assessment.score));
   assert(alternatives[0].assessment.relationships.some(x=>x.priority==='MUST'));
+  // Non-leading selection must round-trip unchanged through workspace persistence
+  // and appear in the exact regenerated customer HTML, not just in the editor.
+  const selected=alternatives[1].document;
+  const persisted=saveWorkspaceDesignDocument(emptyCandidateWorkspace(),c,selected);
+  const hydrated=JSON.parse(JSON.stringify(persisted));
+  const restored=currentWorkspaceDesignDocument(hydrated,c);
+  assert(restored,'Selected layout must survive workspace serialization and reload');
+  assert.deepEqual(restored.shapes,selected.shapes,'Reload must preserve the explicitly selected alternative');
+  const selectedRooms=selected.shapes.filter(s=>s.kind==='ROOM');
+  const report=(await createCandidateConceptHtml(c,restored)).html;
+  assert.equal((report.match(/data-design-shape="/g)||[]).length,selected.shapes.length);
+  for(const room of selectedRooms){
+   assert(report.includes('data-design-shape="'+room.id+'"'),'Regenerated report must contain selected room ID');
+   assert(report.includes(room.label),'Regenerated report must contain selected room name');
+  }
+  assert(report.includes('DRAFT_UNVERIFIED'),'Auto-packed rooms cannot acquire professional authority');
+  assert(report.includes('WITHHELD'),'Missing source roof/upper-story authority remains visible');
   assert.throws(()=>rankDraftRoomLayouts(c,doc,plate.id,['Kitchen','Kitchen'],'X'),/unique/);
 
   // Convex and concave plates remain source-bound and cannot fabricate missing area.
