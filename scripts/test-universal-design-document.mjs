@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {pondyCandidateRegistry as registry} from '../projects/pondy-lot2/candidate-registry.ts';
 import {placementPolygon} from '../packages/roof-geometry/index.ts';
-import {emptyDesignDocument,addDesignShape,addOwnerFootprintShape,removeDesignShape,updateDesignShapePolygon,snapDesignPoint,partitionDesignShape,packDraftRooms,packLCorridorSeed,rankDraftRoomLayouts,assessDraftRoomConnectivity,assessAuthoredCirculation,assessSupportedStoryProgram,assessGarageServiceConnection,assessHomeRouteIntegration,assessStairFlightEvidence,assessGaragePassageEvidence,assessDoorTransitionEnvelope,assessVerticalStairAlignment,rankSupportedHomeRoomPrograms,rankWholeHomeCombinations,moveDesignWall,validateDesignDocument,designSourceSignature} from '../packages/candidates/design-document.ts';
+import {emptyDesignDocument,addDesignShape,addOwnerFootprintShape,removeDesignShape,updateDesignShapePolygon,snapDesignPoint,partitionDesignShape,packDraftRooms,packLCorridorSeed,rankDraftRoomLayouts,assessDraftRoomConnectivity,assessAuthoredCirculation,assessSupportedStoryProgram,assessGarageServiceConnection,assessHomeRouteIntegration,assessStairFlightEvidence,assessGaragePassageEvidence,assessContinuousHomeRoute,assessDoorTransitionEnvelope,assessVerticalStairAlignment,rankSupportedHomeRoomPrograms,rankWholeHomeCombinations,moveDesignWall,validateDesignDocument,designSourceSignature} from '../packages/candidates/design-document.ts';
 import {renderDesignDocumentAttachment} from '../packages/candidates/design-report-attachment.ts';
 import {createCandidateConceptHtml} from '../packages/candidates/customer-report.ts';
 import {emptyCandidateWorkspace,saveWorkspaceDesignDocument,currentWorkspaceDesignDocument,createWorkspaceExportPackage,importWorkspacePackage} from '../packages/candidates/workspace.ts';
@@ -106,6 +106,20 @@ for(const c of cases){
   assert.equal(assessDoorTransitionEnvelope(
    [[0,0],[8,0],[8,8],[0,8]],[[8,0],[10,0],[10,8],[8,8]],[8,4],3).status,'UNVERIFIED');
   assert.equal(assessGaragePassageEvidence(c,doc,plate.ownerId,'missing-room','missing-garage',[0,0],3).status,'UNVERIFIED');
+  const missingRouteEvidence=assessContinuousHomeRoute(c,passageCandidate.document,plate.ownerId,{});
+  assert.equal(missingRouteEvidence.status,'UNVERIFIED');
+  assert(missingRouteEvidence.errors.includes('GARAGE_ENTRY_EVIDENCE_MISSING'));
+  assert(missingRouteEvidence.errors.includes('STAIR_FLIGHT_EVIDENCE_MISSING'));
+  const badGarageRoute=assessContinuousHomeRoute(c,passageCandidate.document,plate.ownerId,{
+   garage:{roomId:'nonexistent',garageId:'nonexistent',center:[0,0],widthFt:3,
+    garageWalkway:[[0,0],[4,0],[4,4],[0,4]]},
+   obstacles:[{id:'blocked-hall',story:'GROUND',polygon:passageCandidate.document.shapes.find(x=>x.kind==='CIRCULATION').polygon}]
+  });
+  assert.equal(badGarageRoute.status,'UNVERIFIED');
+  assert(badGarageRoute.errors.includes('GARAGE_DOOR_UNVERIFIED'));
+  assert(badGarageRoute.errors.includes('GARAGE_WALKWAY_OUTSIDE_SOURCE'));
+  assert(badGarageRoute.errors.includes('HALL_OBSTRUCTED:blocked-hall'));
+
 
   // A bedroom accessible only through another room is graph-connected, but
   // cannot masquerade as independent hallway circulation.
