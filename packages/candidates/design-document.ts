@@ -636,8 +636,18 @@ export function assessAuthoredCirculation(d:DesignDocument,ownerId:string,story:
    const lengths=poly.map((p,i)=>Math.hypot(p[0]-poly[(i+1)%6][0],p[1]-poly[(i+1)%6][1]));
    const rightAngles=poly.every((p,i)=>{const q=poly[(i+1)%6],r=poly[(i+2)%6];
     return Math.abs((q[0]-p[0])*(r[0]-q[0])+(q[1]-p[1])*(r[1]-q[1]))<1e-5*lengths[i]*lengths[(i+1)%6];});
-   const widthFt=Math.min(lengths[2],lengths[5]);
-   return {id:corridor.id,widthFt,verified:rightAngles&&widthFt>=clearWidthFt&&Math.abs(lengths[2]-lengths[5])<1e-5};
+   // This six-vertex orthogonal L must have two genuinely full-width arms.
+   // The inner reflex vertex is index 4 and the bend must contain a square
+   // of clear width, not a diagonal/corner-only graph connection.
+   const reflex=poly[4];
+   const legA=Math.hypot(poly[3][0]-reflex[0],poly[3][1]-reflex[1]);
+   const legB=Math.hypot(poly[5][0]-reflex[0],poly[5][1]-reflex[1]);
+   const widthFt=Math.min(legA,legB);
+   const fullTurn=rightAngles&&widthFt>=clearWidthFt&&
+    Math.abs(legA-legB)<1e-5&&
+    Math.abs(lengths[0]-lengths[4]-legA)<1e-5&&
+    Math.abs(lengths[1]-lengths[3]-legB)<1e-5;
+   return {id:corridor.id,widthFt,verified:fullTurn};
   }
   if(poly.length!==4)return {id:corridor.id,widthFt:0,verified:false};
   const edgeLengths=poly.map((p,i)=>Math.hypot(p[0]-poly[(i+1)%4][0],p[1]-poly[(i+1)%4][1]));
