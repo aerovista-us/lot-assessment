@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {pondyCandidateRegistry as registry} from '../projects/pondy-lot2/candidate-registry.ts';
 import {placementPolygon} from '../packages/roof-geometry/index.ts';
-import {emptyDesignDocument,addDesignShape,addOwnerFootprintShape,removeDesignShape,updateDesignShapePolygon,snapDesignPoint,partitionDesignShape,packDraftRooms,rankDraftRoomLayouts,assessDraftRoomConnectivity,moveDesignWall,validateDesignDocument,designSourceSignature} from '../packages/candidates/design-document.ts';
+import {emptyDesignDocument,addDesignShape,addOwnerFootprintShape,removeDesignShape,updateDesignShapePolygon,snapDesignPoint,partitionDesignShape,packDraftRooms,rankDraftRoomLayouts,assessDraftRoomConnectivity,assessAuthoredCirculation,moveDesignWall,validateDesignDocument,designSourceSignature} from '../packages/candidates/design-document.ts';
 import {renderDesignDocumentAttachment} from '../packages/candidates/design-report-attachment.ts';
 import {createCandidateConceptHtml} from '../packages/candidates/customer-report.ts';
 import {emptyCandidateWorkspace,saveWorkspaceDesignDocument,currentWorkspaceDesignDocument,createWorkspaceExportPackage,importWorkspacePackage} from '../packages/candidates/workspace.ts';
@@ -56,6 +56,12 @@ for(const c of cases){
    assert(graph.limitations.some(x=>x.includes('NOT validated')));
   }
   assert.throws(()=>assessDraftRoomConnectivity(alternatives[0].document,plate.ownerId,plate.story,0),/door width/);
+  const noAuthoredRoute=assessAuthoredCirculation(alternatives[0].document,plate.ownerId,plate.story);
+  assert.equal(noAuthoredRoute.status,'UNVERIFIED','Room-to-room adjacency must not become a route PASS');
+  assert.equal(noAuthoredRoute.circulationZones,0);
+  assert.equal(noAuthoredRoute.unreachableRooms.length,5);
+  assert(noAuthoredRoute.limitations.some(x=>x.includes('NOT proven')));
+
   // A 2D candidate must have room separation along BOTH local axes, not
   // merely five differently ordered full-depth stripes.
   const hasTwoDimensionalTopology=alternatives.some(a=>{
