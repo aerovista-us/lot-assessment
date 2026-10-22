@@ -669,6 +669,33 @@ export function rankSupportedHomeRoomPrograms(
   limitations:['Per-story alternatives are not an approved integrated home','No automatic save or replacement of an existing customer selection','Stair travel, garage access and interstory circulation require authored geometry']};
 }
 
+/** Jointly rank draft per-story proposals without claiming complete vertical access.
+ * Does not mutate persistence or infer any missing floor. */
+export function rankWholeHomeCombinations(
+ c:CandidateRecord,d:DesignDocument,ownerId:string,
+ programs:{story:'GROUND'|'UPPER'|'OTHER';rooms:string[]}[],limit=3
+){
+ if(!Number.isInteger(limit)||limit<1||limit>5)throw Error('Choose 1-5 home alternatives');
+ const inventory=rankSupportedHomeRoomPrograms(c,d,ownerId,programs,limit);
+ const missing=inventory.floors.filter(f=>f.state!=='DRAFT_ALTERNATIVES');
+ if(missing.length)return {status:'INCOMPLETE_STORY_PROGRAM' as const,combinations:[],missingStories:missing.map(f=>f.story),
+  vertical:inventory.vertical,sourceRevision:d.revision};
+ const candidates:{stories:{story:'GROUND'|'UPPER'|'OTHER';index:number;document:DesignDocument}[];score:number;limitations:string[]}[]=[];
+ const walk=(i:number,chosen:{story:'GROUND'|'UPPER'|'OTHER';index:number;document:DesignDocument}[],score:number)=>{
+  if(i===inventory.floors.length){
+   const verticalPenalty=programs.length>1&&inventory.vertical.status==='NOT_VALIDATED'?100:0;
+   candidates.push({stories:chosen,score:score-verticalPenalty,limitations:programs.length>1?
+    ['Joint story comparison only; stair flight and landings remain unverified']:['Garage/entry and egress remain unverified']});
+   return;
+  }
+  const floor=inventory.floors[i];
+  floor.alternatives.forEach((a,index)=>walk(i+1,[...chosen,{story:floor.story,index,document:a.document}],score+a.assessment.score));
+ };
+ walk(0,[],0);
+ candidates.sort((a,b)=>b.score-a.score||a.stories.map(x=>x.index).join(':').localeCompare(b.stories.map(x=>x.index).join(':')));
+ return {status:'DRAFT_COMPARISON_ONLY' as const,combinations:candidates.slice(0,limit),missingStories:[],vertical:inventory.vertical,sourceRevision:d.revision};
+}
+
 /** Translate the two endpoints of an authored wall edge; refuse invalid geometry. */
 export function moveDesignWall(
  c:CandidateRecord,d:DesignDocument,shapeId:string,edgeIndex:number,delta:P2,
