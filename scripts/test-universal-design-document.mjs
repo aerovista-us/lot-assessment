@@ -63,6 +63,25 @@ for(const c of cases){
   const selectedRooms=selected.shapes.filter(s=>s.kind==='ROOM');
   const report=(await createCandidateConceptHtml(c,restored)).html;
   assert.equal((report.match(/data-design-shape="/g)||[]).length,selected.shapes.length);
+  // Compare exact exported geometry, not only names or counts. A regenerated
+  // top-ranked alternative can reuse shape IDs and labels but change positions.
+  const svgShapeTags=[...report.matchAll(/<polygon\\b[^>]*data-design-shape="([^"]+)"[^>]*>/g)];
+  assert.equal(svgShapeTags.length,selected.shapes.length,'Report must render every selected draft shape once');
+  const reportPolygons=new Map(svgShapeTags.map(match=>{
+   const points=match[0].match(/\\bpoints="([^"]+)"/);
+   assert(points,'Report shape missing polygon points: '+match[1]);
+   return [match[1],points[1].trim().split(/\\s+/).map(pair=>pair.split(',').map(Number))];
+  }));
+  assert.equal(reportPolygons.size,selected.shapes.length,'Report must not duplicate shape IDs');
+  for(const shape of selected.shapes){
+   const actual=reportPolygons.get(shape.id);
+   assert(actual,'Report omitted selected shape '+shape.id);
+   assert.equal(actual.length,shape.polygon.length,'Report changed vertex count for '+shape.id);
+   for(let vertex=0;vertex<actual.length;vertex++)for(let coord=0;coord<2;coord++)
+    assert(Math.abs(actual[vertex][coord]-shape.polygon[vertex][coord])<0.001,
+     'Report reverted or moved selected polygon '+shape.id+' vertex '+vertex);
+  }
+
   for(const room of selectedRooms){
    assert(report.includes('data-design-shape="'+room.id+'"'),'Regenerated report must contain selected room ID');
    assert(report.includes(room.label),'Regenerated report must contain selected room name');
