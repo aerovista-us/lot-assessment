@@ -612,6 +612,13 @@ export function assessAuthoredCirculation(d:DesignDocument,ownerId:string,story:
  }
  const unreachableRooms=rooms.filter(x=>!reached.has(x.id)).map(x=>x.id);
  const disconnectedCorridors=corridors.filter(x=>!reached.has(x.id)).map(x=>x.id);
+ // A route that goes through a bedroom or bathroom may be graph-connected,
+ // but it is not independent household circulation. Require every room
+ // to have its own opening to a corridor on the anchored circulation island.
+ const corridorIds=new Set(corridors.map(x=>x.id));
+ const roomsWithoutHallDoor=rooms.filter(room=>!accepted.some(door=>
+  (door.from===room.id&&corridorIds.has(door.to)&&reached.has(door.to))||
+  (door.to===room.id&&corridorIds.has(door.from)&&reached.has(door.from)))).map(x=>x.id);
  const hasCorridor=corridors.length>0;
  // Conservative, geometry-backed width test. Unsupported/concave passages
  // remain unverified rather than being approved from a bounding box.
@@ -648,8 +655,8 @@ export function assessAuthoredCirculation(d:DesignDocument,ownerId:string,story:
    corridorCollisions.push(corridors[i].id+':'+corridors[j].id);
  const corridorGeometryVerified=hasCorridor&&corridorWidths.every(x=>x.verified)&&
   corridorCollisions.length===0;
- return {status:rooms.length>0&&corridorGeometryVerified&&unreachableRooms.length===0&&disconnectedCorridors.length===0&&rejected.length===0?'DRAFT_ROUTE_CONNECTED' as const:'UNVERIFIED' as const,
-  rooms:rooms.length,circulationZones:corridors.length,corridorWidths,corridorCollisions,acceptedDoors:accepted,rejectedDoors:rejected,unreachableRooms,disconnectedCorridors,
+ return {status:rooms.length>0&&corridorGeometryVerified&&unreachableRooms.length===0&&roomsWithoutHallDoor.length===0&&disconnectedCorridors.length===0&&rejected.length===0?'DRAFT_ROUTE_CONNECTED' as const:'UNVERIFIED' as const,
+  rooms:rooms.length,circulationZones:corridors.length,corridorWidths,corridorCollisions,acceptedDoors:accepted,rejectedDoors:rejected,unreachableRooms,roomsWithoutHallDoor,disconnectedCorridors,
   limitations:['Door width and common-wall graph are draft-only; actual route clearance, swings, exterior exit, vertical access and code review are NOT proven']};
 }
 
