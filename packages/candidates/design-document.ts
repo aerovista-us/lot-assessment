@@ -566,6 +566,25 @@ export function rankDraftRoomLayouts(c:CandidateRecord,d:DesignDocument,plateId:
  return results.slice(0,limit);
 }
 
+/** Plans every explicitly supported floor without mutating the saved document.
+ * No guessed upper stories; a human still selects and saves a chosen proposal. */
+export function rankSupportedHomeRoomPrograms(
+ c:CandidateRecord,d:DesignDocument,ownerId:string,
+ programs:{story:'GROUND'|'UPPER'|'OTHER';rooms:string[]}[],limit=3
+){
+ validateDesignDocument(c,d);
+ if(new Set(programs.map(x=>x.story)).size!==programs.length)throw Error('Duplicate story program');
+ return {ownerId,sourceRevision:d.revision,floors:programs.map(program=>{
+  const plates=d.shapes.filter(x=>x.ownerId===ownerId&&x.story===program.story&&x.kind==='FLOOR_PLATE');
+  if(plates.length!==1)return {story:program.story,state:'MISSING_OR_AMBIGUOUS_PLATE' as const,alternatives:[] as RankedDraftLayout[]};
+  if(d.shapes.some(x=>x.ownerId===ownerId&&x.story===program.story&&['ROOM','CIRCULATION','STAIR_ZONE'].includes(x.kind)))
+   return {story:program.story,state:'EXISTING_DESIGN_REQUIRES_RECONCILIATION' as const,alternatives:[] as RankedDraftLayout[]};
+  const alternatives=rankDraftRoomLayouts(c,d,plates[0].id,program.rooms,'X',limit);
+  return {story:program.story,state:alternatives.length?'DRAFT_ALTERNATIVES' as const:'NO_VALID_ALTERNATIVES' as const,alternatives};
+ }),vertical:assessVerticalStairAlignment(d,ownerId),
+  limitations:['Per-story alternatives are not an approved integrated home','No automatic save or replacement of an existing customer selection','Stair travel, garage access and interstory circulation require authored geometry']};
+}
+
 /** Translate the two endpoints of an authored wall edge; refuse invalid geometry. */
 export function moveDesignWall(
  c:CandidateRecord,d:DesignDocument,shapeId:string,edgeIndex:number,delta:P2,
