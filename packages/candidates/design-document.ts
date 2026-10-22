@@ -736,6 +736,91 @@ export function assessHomeRouteIntegration(c:CandidateRecord,d:DesignDocument,ow
    'Door swings, furniture obstacles, external egress, and AHJ approval remain unverified']};
 }
 
+/** Explicit clearance evidence, separate from the persisted draft schema.
+ * Measurements are input evidence; missing physical dimensions fail closed. */
+export type StairFlightEvidence={
+ groundLanding:P2[];upperLanding:P2[];floorToFloorFt:number;
+ riserCount:number;treadDepthFt:number;clearWidthFt:number;headroomFt:number;
+};
+export function assessStairFlightEvidence(e:StairFlightEvidence){
+ const errors:string[]=[];
+ for(const [key,value] of Object.entries(e))if(typeof value==='number'&&!Number.isFinite(value))errors.push('NONFINITE_'+key);
+ let landingSizeFt=0;
+ const landing=(poly:P2[],tag:string)=>{
+  if(!Array.isArray(poly)||poly.length!==4){errors.push('INVALID_'+tag);return 0;}
+  try{validPolygon(poly,tag);}catch{errors.push('INVALID_'+tag);return 0;}
+  const edges=poly.map((p,i)=>Math.hypot(p[0]-poly[(i+1)%4][0],p[1]-poly[(i+1)%4][1]));
+  const dot=(poly[1][0]-poly[0][0])*(poly[3][0]-poly[0][0])+
+   (poly[1][1]-poly[0][1])*(poly[3][1]-poly[0][1]);
+  if(Math.abs(dot)>1e-5*edges[0]*edges[3]||Math.abs(edges[0]-edges[2])>1e-5||
+   Math.abs(edges[1]-edges[3])>1e-5)errors.push('NONRECTANGULAR_'+tag);
+  return Math.min(...edges);
+ };
+ const lower=landing(e.groundLanding,'GROUND_LANDING'),upper=landing(e.upperLanding,'UPPER_LANDING');
+ landingSizeFt=Math.min(lower,upper);
+ if(!(e.riserCount>=2&&Number.isInteger(e.riserCount)))errors.push('RISER_COUNT');
+ const riseIn=e.riserCount>0?12*e.floorToFloorFt/e.riserCount:Infinity;
+ if(!Number.isFinite(riseIn)||riseIn>7.75||riseIn<=0)errors.push('RISER_HEIGHT');
+ if(!(e.treadDepthFt>=10/12))errors.push('TREAD_DEPTH');
+ if(!(e.clearWidthFt>=3))errors.push('STAIR_WIDTH');
+ if(!(landingSizeFt>=3))errors.push('LANDING_WIDTH');
+ if(!(e.headroomFt>=6+8/12))errors.push('HEADROOM');
+ return {status:errors.length?'UNVERIFIED' as const:'DIMENSIONAL_DRAFT_ONLY' as const,
+  riseIn,treadDepthIn:e.treadDepthFt*12,landingSizeFt,errors,
+  limitations:['Dimensions are supplied evidence, not derived from a physical stair/section model',
+  'Turns, railings, nosings, openings, structural coordination, egress and AHJ approval not established']};
+}
+
+/** Garage entry evidence cannot become a cross-owner door by using the
+ * same-owner room-door schema. Check proposed opening against actual garage
+ * footprint boundary and require a reachable source room. */
+export function assessGaragePassageEvidence(c:CandidateRecord,d:DesignDocument,ownerId:string,
+ roomId:string,garageId:string,center:P2,widthFt:number){
+ validateDesignDocument(c,d);
+ const room=d.shapes.find(x=>x.id===roomId&&x.ownerId===ownerId&&x.story==='GROUND'&&x.kind==='ROOM');
+ const garage=sourceBuildingOwners(c).find(x=>x.id===garageId&&x.kind==='garage');
+ const errors:string[]=[];
+ if(!room)errors.push('MISSING_GROUND_ROOM');
+ if(!garage)errors.push('MISSING_SOURCE_GARAGE');
+ if(!Array.isArray(center)||center.length!==2||!center.every(Number.isFinite)||!Number.isFinite(widthFt)||widthFt<3)
+  errors.push('INVALID_OPENING');
+ if(room&&garage&&errors.length===0&&!hasUsableDoorInterval(room.polygon,
+  placementPolygon(garage).map(p=>[p[0],p[1]] as P2),center,widthFt))
+  errors.push('OPENING_NOT_ON_SHARED_WALL');
+ const route=assessAuthoredCirculation(d,ownerId,'GROUND');
+ if(route.status!=='DRAFT_ROUTE_CONNECTED')errors.push('HOME_ROUTE_UNVERIFIED');
+ if(room&&route.roomsWithoutHallDoor.includes(room.id))errors.push('ENTRY_ROOM_UNREACHABLE');
+ return {status:errors.length?'UNVERIFIED' as const:'OPENING_GEOMETRY_ONLY' as const,errors,
+  limitations:['Garage door swing, door construction, fire separation, garage circulation and code acceptance not established']};
+}
+
+/** Door landing: a minimum-clearance test at each side, requiring a
+ * measured unobstructed disk inside each space. Conservative and fail-closed
+ * for centers near walls; does not validate door swing. */
+export function assessDoorTransitionEnvelope(a:P2[],b:P2[],center:P2,widthFt:number,clearDepthFt=3){
+ const errors:string[]=[];
+ if(!hasUsableDoorInterval(a,b,center,widthFt))errors.push('DOOR_INTERVAL');
+ if(!Number.isFinite(clearDepthFt)||clearDepthFt<3)errors.push('INSUFFICIENT_DEPTH');
+ const clearance=(poly:P2[])=>{
+  const edge=poly.find((p,i)=>onEdge(center,p,poly[(i+1)%poly.length]));
+  if(!edge)return false;
+  const samples=16;
+  // A semicircular approach of radius clearDepth is conservative; a
+  // usable door may need a more detailed rectangle/swing model later.
+  const centroid:P2=[poly.reduce((n,p)=>n+p[0],0)/poly.length,poly.reduce((n,p)=>n+p[1],0)/poly.length];
+  const bearing=Math.atan2(centroid[1]-center[1],centroid[0]-center[0]);
+  for(let i=0;i<=samples;i++){
+   const angle=bearing-Math.PI/2+i*Math.PI/samples;
+   const probe:P2=[center[0]+clearDepthFt*Math.cos(angle),center[1]+clearDepthFt*Math.sin(angle)];
+   if(!inside(probe,poly))return false;
+  }
+  return true;
+ };
+ if(errors.length===0&&(!clearance(a)||!clearance(b)))errors.push('APPROACH_ENVELOPE');
+ return {status:errors.length?'UNVERIFIED' as const:'DRAFT_APPROACH_GEOMETRY' as const,errors,
+  limitations:['Conservative semicircle clearance only; fixtures, door swing, furniture and wheelchair turning are not proven']};
+}
+
 /** Read-only whole-home story inventory. Never derives a story by cloning
  * another floor; every supported level requires a distinct authored plate. */
 export function assessSupportedStoryProgram(d:DesignDocument,ownerId:string,requiredStories:('GROUND'|'UPPER'|'OTHER')[]){
