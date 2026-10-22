@@ -199,6 +199,25 @@ for(const c of cases){
    assert.equal(assessAuthoredCirculation(route,plate.ownerId,plate.story).status,'DRAFT_ROUTE_CONNECTED');
    assert(Math.abs(generated.reduce((total,x)=>total+area(x.polygon),0)-area(wideL))<.01,'No missing or fabricated L floor area');
    assert.equal(validateDesignDocument(c,route).valid,true);
+   const savedL=saveWorkspaceDesignDocument(emptyCandidateWorkspace(),c,route);
+   const loadedL=currentWorkspaceDesignDocument(JSON.parse(JSON.stringify(savedL)),c);
+   assert(loadedL,'The chosen L-shaped plan must reload');
+   assert.deepEqual(loadedL.shapes,route.shapes,'L corridor and rooms changed on reload');
+   assert.deepEqual(loadedL.doors,route.doors,'L doorway drafts changed on reload');
+   const lReport=(await createCandidateConceptHtml(c,loadedL)).html;
+   const drawing=[...lReport.matchAll(/<polygon\\b[^>]*data-design-shape="([^"]+)"[^>]*>/g)];
+   assert.equal(drawing.length,route.shapes.length,'Report lost L hallway or room polygons');
+   for(const shape of route.shapes){
+    const element=drawing.find(m=>m[1]===shape.id);
+    assert(element,'Report omitted L space '+shape.id);
+    const pts=element[0].match(/\\bpoints="([^"]+)"/);
+    assert(pts);
+    const actual=pts[1].trim().split(/\\s+/).map(v=>v.split(',').map(Number));
+    assert.equal(actual.length,shape.polygon.length);
+    shape.polygon.forEach((point,i)=>point.forEach((v,j)=>assert(Math.abs(actual[i][j]-v)<.001,
+      'Report changed L passage/room geometry '+shape.id)));
+   }
+
   }
   const bent=updateDesignShapePolygon(c,doc,plate.id,lShape);
   const lPacked=packDraftRooms(c,bent,plate.id,['Living','Kitchen'],'X');
