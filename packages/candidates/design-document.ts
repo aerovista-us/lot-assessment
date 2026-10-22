@@ -457,7 +457,9 @@ export function assessAuthoredCirculation(d:DesignDocument,ownerId:string,story:
  for(const door of d.doors??[]){
   if(door.story!==story||!ids.has(door.fromRoomId)||!ids.has(door.toRoomId))continue;
   const from=d.shapes.find(x=>x.id===door.fromRoomId)!,to=d.shapes.find(x=>x.id===door.toRoomId)!;
-  if(!Number.isFinite(door.widthFt)||door.widthFt<3||overlapBoundary(from.polygon,to.polygon)<door.widthFt+1){
+  const centeredOnBoth=from.polygon.some((p,i)=>onEdge(door.center,p,from.polygon[(i+1)%from.polygon.length]))&&
+   to.polygon.some((p,i)=>onEdge(door.center,p,to.polygon[(i+1)%to.polygon.length]));
+  if(!Number.isFinite(door.widthFt)||door.widthFt<3||!centeredOnBoth||overlapBoundary(from.polygon,to.polygon)<door.widthFt+1){
    rejected.push(door.id);continue;
   }
   accepted.push({doorId:door.id,from:from.id,to:to.id});
@@ -474,6 +476,34 @@ export function assessAuthoredCirculation(d:DesignDocument,ownerId:string,story:
  return {status:rooms.length>0&&hasCorridor&&unreachableRooms.length===0&&rejected.length===0?'DRAFT_ROUTE_CONNECTED' as const:'UNVERIFIED' as const,
   rooms:rooms.length,circulationZones:corridors.length,acceptedDoors:accepted,rejectedDoors:rejected,unreachableRooms,
   limitations:['Door width and common-wall graph are draft-only; actual route clearance, swings, exterior exit, vertical access and code review are NOT proven']};
+}
+
+/** Evidence check for a service-to-garage connection. Proximity alone
+ * never establishes a usable passage or garage/fire separation approval. */
+export function assessGarageServiceConnection(c:CandidateRecord,d:DesignDocument,ownerId:string,story:'GROUND'|'UPPER'|'OTHER'){
+ const services=d.shapes.filter(x=>x.ownerId===ownerId&&x.story===story&&x.kind==='ROOM'&&/laundry|utility|mud|entry|service/i.test(x.label));
+ const garages=sourceBuildingOwners(c).filter(x=>x.kind==='garage');
+ const adjacent:{roomId:string;garageId:string;commonWallFt:number}[]=[];
+ for(const room of services)for(const garage of garages){
+  const commonWallFt=overlapBoundary(room.polygon,placementPolygon(garage));
+  if(commonWallFt>EPS)adjacent.push({roomId:room.id,garageId:garage.id,commonWallFt});
+ }
+ return {status:adjacent.length?'ADJACENCY_ONLY' as const:'UNVERIFIED' as const,adjacent,
+  limitations:['Garage ownership, fire separation, actual door location, garage access route and code acceptance are NOT validated']};
+}
+
+/** Stair connectivity is only possible when authored ground/upper stair zones
+ * occupy overlapping source XY coordinates. This does NOT prove a stair flight,
+ * elevation, opening, landing, or headroom. */
+export function assessVerticalStairAlignment(d:DesignDocument,ownerId:string){
+ const lower=d.shapes.filter(x=>x.ownerId===ownerId&&x.story==='GROUND'&&x.kind==='STAIR_ZONE');
+ const upper=d.shapes.filter(x=>x.ownerId===ownerId&&x.story==='UPPER'&&x.kind==='STAIR_ZONE');
+ const overlaps:{groundId:string;upperId:string}[]=[];
+ for(const a of lower)for(const b of upper){
+  if(a.polygon.some(p=>inside(p,b.polygon))||b.polygon.some(p=>inside(p,a.polygon)))overlaps.push({groundId:a.id,upperId:b.id});
+ }
+ return {status:overlaps.length?'XY_ALIGNED_UNVERIFIED' as const:'NOT_VALIDATED' as const,overlaps,
+  limitations:['Stair geometry, floor opening, landing sizes, slope, headroom and structural/code acceptance are NOT verified']};
 }
 
 /** Read-only whole-home story inventory. Never derives a story by cloning
