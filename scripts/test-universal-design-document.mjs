@@ -60,6 +60,14 @@ for(const c of cases){
   assert.equal(noAuthoredRoute.status,'UNVERIFIED','Room-to-room adjacency must not become a route PASS');
   assert.equal(noAuthoredRoute.circulationZones,0);
   assert.equal(noAuthoredRoute.unreachableRooms.length,5);
+  // A thin authored corridor must never be marked traversable.
+  const roomA={id:'test-room-a',ownerId:plate.ownerId,story:plate.story,kind:'ROOM',label:'A',status:'DRAFT_UNVERIFIED',polygon:[[0,0],[8,0],[8,8],[0,8]]};
+  const hall={id:'test-hall',ownerId:plate.ownerId,story:plate.story,kind:'CIRCULATION',label:'Hall',status:'DRAFT_UNVERIFIED',polygon:[[8,0],[10,0],[10,8],[8,8]]};
+  const narrow={...doc,shapes:[roomA,hall],doors:[{id:'test-door',story:plate.story,fromRoomId:roomA.id,toRoomId:hall.id,center:[8,4],widthFt:3,status:'DRAFT_UNVERIFIED'}]};
+  const thinResult=assessAuthoredCirculation(narrow,plate.ownerId,plate.story);
+  assert.equal(thinResult.status,'UNVERIFIED');
+  assert.equal(thinResult.corridorWidths[0].verified,false);
+
   assert(noAuthoredRoute.limitations.some(x=>x.includes('NOT proven')));
   const storyInventory=assessSupportedStoryProgram(alternatives[0].document,plate.ownerId,['GROUND','UPPER']);
   assert.equal(storyInventory.stories.length,2);
