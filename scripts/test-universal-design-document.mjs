@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {pondyCandidateRegistry as registry} from '../projects/pondy-lot2/candidate-registry.ts';
 import {placementPolygon} from '../packages/roof-geometry/index.ts';
-import {emptyDesignDocument,addDesignShape,addOwnerFootprintShape,removeDesignShape,updateDesignShapePolygon,snapDesignPoint,partitionDesignShape,packDraftRooms,rankDraftRoomLayouts,assessDraftRoomConnectivity,assessAuthoredCirculation,assessSupportedStoryProgram,moveDesignWall,validateDesignDocument,designSourceSignature} from '../packages/candidates/design-document.ts';
+import {emptyDesignDocument,addDesignShape,addOwnerFootprintShape,removeDesignShape,updateDesignShapePolygon,snapDesignPoint,partitionDesignShape,packDraftRooms,rankDraftRoomLayouts,assessDraftRoomConnectivity,assessAuthoredCirculation,assessSupportedStoryProgram,assessGarageServiceConnection,assessVerticalStairAlignment,moveDesignWall,validateDesignDocument,designSourceSignature} from '../packages/candidates/design-document.ts';
 import {renderDesignDocumentAttachment} from '../packages/candidates/design-report-attachment.ts';
 import {createCandidateConceptHtml} from '../packages/candidates/customer-report.ts';
 import {emptyCandidateWorkspace,saveWorkspaceDesignDocument,currentWorkspaceDesignDocument,createWorkspaceExportPackage,importWorkspacePackage} from '../packages/candidates/workspace.ts';
@@ -66,6 +66,13 @@ for(const c of cases){
   assert.equal(storyInventory.stories.find(x=>x.story==='UPPER')?.state,'MISSING_OR_AMBIGUOUS_PLATE');
   assert.equal(storyInventory.verticalConnections,'NOT_VALIDATED');
   assert.equal(storyInventory.stories.find(x=>x.story==='GROUND')?.state,'ACCESS_UNVERIFIED');
+  const garageEvidence=assessGarageServiceConnection(c,alternatives[0].document,plate.ownerId,plate.story);
+  assert(['ADJACENCY_ONLY','UNVERIFIED'].includes(garageEvidence.status));
+  assert(garageEvidence.limitations.some(x=>x.includes('NOT validated')));
+  const stairEvidence=assessVerticalStairAlignment(alternatives[0].document,plate.ownerId);
+  assert.equal(stairEvidence.status,'NOT_VALIDATED');
+  assert.equal(stairEvidence.overlaps.length,0);
+
 
 
   // A 2D candidate must have room separation along BOTH local axes, not
