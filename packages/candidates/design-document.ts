@@ -575,7 +575,16 @@ export function assessVerticalStairAlignment(d:DesignDocument,ownerId:string){
  const upper=d.shapes.filter(x=>x.ownerId===ownerId&&x.story==='UPPER'&&x.kind==='STAIR_ZONE');
  const overlaps:{groundId:string;upperId:string}[]=[];
  for(const a of lower)for(const b of upper){
-  if(a.polygon.some(p=>inside(p,b.polygon))||b.polygon.some(p=>inside(p,a.polygon)))overlaps.push({groundId:a.id,upperId:b.id});
+  // An overlapping corner alone is not a stair landing. Require a square
+  // 3 x 3 ft orthogonal clear region within both source-aligned stair zones.
+  const bounds=(poly:P2[])=>({left:Math.min(...poly.map(p=>p[0])),right:Math.max(...poly.map(p=>p[0])),
+   top:Math.min(...poly.map(p=>p[1])),bottom:Math.max(...poly.map(p=>p[1]))});
+  const x=bounds(a.polygon),y=bounds(b.polygon);
+  const left=Math.max(x.left,y.left),right=Math.min(x.right,y.right),top=Math.max(x.top,y.top),bottom=Math.min(x.bottom,y.bottom);
+  if(right-left>=3&&bottom-top>=3&&
+   a.polygon.length===4&&b.polygon.length===4&&
+   [[left,top],[right,top],[right,bottom],[left,bottom]].every(q=>inside(q as P2,a.polygon)&&inside(q as P2,b.polygon)))
+   overlaps.push({groundId:a.id,upperId:b.id});
  }
  return {status:overlaps.length?'XY_ALIGNED_UNVERIFIED' as const:'NOT_VALIDATED' as const,overlaps,
   limitations:['Stair geometry, floor opening, landing sizes, slope, headroom and structural/code acceptance are NOT verified']};
