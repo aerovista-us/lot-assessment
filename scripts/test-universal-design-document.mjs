@@ -59,13 +59,15 @@ for(const c of cases){
 
   for(const candidate of alternatives){
    const graph=assessDraftRoomConnectivity(candidate.document,plate.ownerId,plate.story);
-   assert.equal(graph.roomCount,5);
+   assert.equal(graph.roomCount,5+candidate.document.shapes.filter(x=>x.kind==='CIRCULATION').length);
    assert(graph.edges.every(edge=>edge.sharedWallFt>0));
    assert.equal(graph.connected,graph.components.length===1);
    assert(graph.limitations.some(x=>x.includes('NOT validated')));
   }
   assert.throws(()=>assessDraftRoomConnectivity(alternatives[0].document,plate.ownerId,plate.story,0),/door width/);
-  const noAuthoredRoute=assessAuthoredCirculation(alternatives[0].document,plate.ownerId,plate.story);
+  const plainCandidate=alternatives.find(x=>!x.document.shapes.some(y=>y.kind==='CIRCULATION'));
+  assert(plainCandidate,'Expected a non-corridor comparison choice');
+  const noAuthoredRoute=assessAuthoredCirculation(plainCandidate.document,plate.ownerId,plate.story);
   assert.equal(noAuthoredRoute.status,'UNVERIFIED','Room-to-room adjacency must not become a route PASS');
   assert.equal(noAuthoredRoute.circulationZones,0);
   assert.equal(noAuthoredRoute.unreachableRooms.length,5);
