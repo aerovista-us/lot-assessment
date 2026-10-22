@@ -473,8 +473,23 @@ export function assessAuthoredCirculation(d:DesignDocument,ownerId:string,story:
  }
  const unreachableRooms=rooms.filter(x=>!reached.has(x.id)).map(x=>x.id);
  const hasCorridor=corridors.length>0;
- return {status:rooms.length>0&&hasCorridor&&unreachableRooms.length===0&&rejected.length===0?'DRAFT_ROUTE_CONNECTED' as const:'UNVERIFIED' as const,
-  rooms:rooms.length,circulationZones:corridors.length,acceptedDoors:accepted,rejectedDoors:rejected,unreachableRooms,
+ // Conservative, geometry-backed width test. Unsupported/concave passages
+ // remain unverified rather than being approved from a bounding box.
+ const clearWidthFt=3;
+ const corridorWidths=corridors.map(corridor=>{
+  const poly=corridor.polygon;
+  if(poly.length!==4)return {id:corridor.id,widthFt:0,verified:false};
+  const edgeLengths=poly.map((p,i)=>Math.hypot(p[0]-poly[(i+1)%4][0],p[1]-poly[(i+1)%4][1]));
+  const perpendicular=Math.abs((poly[1][0]-poly[0][0])*(poly[3][0]-poly[0][0])+
+   (poly[1][1]-poly[0][1])*(poly[3][1]-poly[0][1]))<1e-5*edgeLengths[0]*edgeLengths[3];
+  const parallelOpposites=Math.abs(edgeLengths[0]-edgeLengths[2])<1e-5&&
+   Math.abs(edgeLengths[1]-edgeLengths[3])<1e-5;
+  const widthFt=Math.min(...edgeLengths);
+  return {id:corridor.id,widthFt,verified:perpendicular&&parallelOpposites&&widthFt>=clearWidthFt};
+ });
+ const corridorGeometryVerified=hasCorridor&&corridorWidths.every(x=>x.verified);
+ return {status:rooms.length>0&&corridorGeometryVerified&&unreachableRooms.length===0&&rejected.length===0?'DRAFT_ROUTE_CONNECTED' as const:'UNVERIFIED' as const,
+  rooms:rooms.length,circulationZones:corridors.length,corridorWidths,acceptedDoors:accepted,rejectedDoors:rejected,unreachableRooms,
   limitations:['Door width and common-wall graph are draft-only; actual route clearance, swings, exterior exit, vertical access and code review are NOT proven']};
 }
 
