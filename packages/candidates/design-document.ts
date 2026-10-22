@@ -485,7 +485,7 @@ export function assessGarageServiceConnection(c:CandidateRecord,d:DesignDocument
  const garages=sourceBuildingOwners(c).filter(x=>x.kind==='garage');
  const adjacent:{roomId:string;garageId:string;commonWallFt:number}[]=[];
  for(const room of services)for(const garage of garages){
-  const commonWallFt=overlapBoundary(room.polygon,placementPolygon(garage));
+  const commonWallFt=overlapBoundary(room.polygon,placementPolygon(garage).map(p=>[p[0],p[1]] as P2));
   if(commonWallFt>EPS)adjacent.push({roomId:room.id,garageId:garage.id,commonWallFt});
  }
  return {status:adjacent.length?'ADJACENCY_ONLY' as const:'UNVERIFIED' as const,adjacent,
