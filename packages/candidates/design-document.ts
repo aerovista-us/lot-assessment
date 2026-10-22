@@ -639,14 +639,12 @@ export function assessAuthoredCirculation(d:DesignDocument,ownerId:string,story:
    // This six-vertex orthogonal L must have two genuinely full-width arms.
    // The inner reflex vertex is index 4 and the bend must contain a square
    // of clear width, not a diagonal/corner-only graph connection.
-   const reflex=poly[4];
-   const legA=Math.hypot(poly[3][0]-reflex[0],poly[3][1]-reflex[1]);
-   const legB=Math.hypot(poly[5][0]-reflex[0],poly[5][1]-reflex[1]);
-   const widthFt=Math.min(legA,legB);
+   const armWidthA=lengths[2],armWidthB=lengths[5];
+   const widthFt=Math.min(armWidthA,armWidthB);
    const fullTurn=rightAngles&&widthFt>=clearWidthFt&&
-    Math.abs(legA-legB)<1e-5&&
-    Math.abs(lengths[0]-lengths[4]-legA)<1e-5&&
-    Math.abs(lengths[1]-lengths[3]-legB)<1e-5;
+    Math.abs(armWidthA-armWidthB)<1e-5&&
+    Math.abs(lengths[0]-lengths[4]-armWidthA)<1e-5&&
+    Math.abs(lengths[1]-lengths[3]-armWidthB)<1e-5;
    return {id:corridor.id,widthFt,verified:fullTurn};
   }
   if(poly.length!==4)return {id:corridor.id,widthFt:0,verified:false};
