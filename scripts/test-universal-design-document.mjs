@@ -91,7 +91,7 @@ for(const c of cases){
   const throughDoor={id:'through-room-door',story:plate.story,fromRoomId:roomA.id,toRoomId:roomB.id,center:[0,4],widthFt:3,status:'DRAFT_UNVERIFIED'};
   const throughRoom={...centeredDoor,shapes:[roomA,roomB,wideHall],doors:[...centeredDoor.doors,throughDoor]};
   const throughResult=assessAuthoredCirculation(throughRoom,plate.ownerId,plate.story);
-  assert.equal(throughResult.unreachableRooms.length,0,'A generic door graph can still reach the private room');
+  assert.deepEqual(throughResult.unreachableRooms,['test-room-through'],'Private rooms cannot bridge corridor reachability');
   assert.deepEqual(throughResult.roomsWithoutHallDoor,['test-room-through']);
   assert.equal(throughResult.status,'UNVERIFIED','Private-room transit cannot certify independent circulation');
 
