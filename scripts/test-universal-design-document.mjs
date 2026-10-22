@@ -48,6 +48,15 @@ for(const c of cases){
   const alternatives=rankDraftRoomLayouts(c,doc,plate.id,['Laundry','Kitchen','Living','Primary Bedroom','Primary Bath'],'X');
   assert(alternatives.length>=2&&alternatives.length<=3);
   assert(alternatives.every(a=>a.document.shapes.filter(s=>s.kind==='ROOM').length===5));
+  // The new passage candidate must carry actual saved draft corridor and door
+  // polygons; other concepts remain available for explicit user selection.
+  const passageCandidate=alternatives.find(a=>a.document.shapes.some(s=>s.kind==='CIRCULATION'));
+  assert(passageCandidate,'Expected generated passage option');
+  assert.equal(passageCandidate.document.doors?.length,5);
+  const passageAccess=assessAuthoredCirculation(passageCandidate.document,plate.ownerId,plate.story);
+  assert.equal(passageAccess.status,'DRAFT_ROUTE_CONNECTED');
+  assert(passageAccess.corridorWidths.every(x=>x.verified));
+
   for(const candidate of alternatives){
    const graph=assessDraftRoomConnectivity(candidate.document,plate.ownerId,plate.story);
    assert.equal(graph.roomCount,5);
