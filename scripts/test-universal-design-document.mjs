@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {pondyCandidateRegistry as registry} from '../projects/pondy-lot2/candidate-registry.ts';
 import {placementPolygon} from '../packages/roof-geometry/index.ts';
-import {emptyDesignDocument,addDesignShape,addOwnerFootprintShape,removeDesignShape,updateDesignShapePolygon,snapDesignPoint,partitionDesignShape,packDraftRooms,rankDraftRoomLayouts,assessDraftRoomConnectivity,assessAuthoredCirculation,assessSupportedStoryProgram,assessGarageServiceConnection,assessVerticalStairAlignment,rankSupportedHomeRoomPrograms,moveDesignWall,validateDesignDocument,designSourceSignature} from '../packages/candidates/design-document.ts';
+import {emptyDesignDocument,addDesignShape,addOwnerFootprintShape,removeDesignShape,updateDesignShapePolygon,snapDesignPoint,partitionDesignShape,packDraftRooms,rankDraftRoomLayouts,assessDraftRoomConnectivity,assessAuthoredCirculation,assessSupportedStoryProgram,assessGarageServiceConnection,assessVerticalStairAlignment,rankSupportedHomeRoomPrograms,rankWholeHomeCombinations,moveDesignWall,validateDesignDocument,designSourceSignature} from '../packages/candidates/design-document.ts';
 import {renderDesignDocumentAttachment} from '../packages/candidates/design-report-attachment.ts';
 import {createCandidateConceptHtml} from '../packages/candidates/customer-report.ts';
 import {emptyCandidateWorkspace,saveWorkspaceDesignDocument,currentWorkspaceDesignDocument,createWorkspaceExportPackage,importWorkspacePackage} from '../packages/candidates/workspace.ts';
@@ -112,6 +112,19 @@ for(const c of cases){
   assert.equal(homeDrafts.floors[0].state,'DRAFT_ALTERNATIVES');
   assert.equal(homeDrafts.floors[1].state,'MISSING_OR_AMBIGUOUS_PLATE');
   assert.equal(homeDrafts.vertical.status,'NOT_VALIDATED');
+  const combined=rankWholeHomeCombinations(c,doc,plate.ownerId,[
+   {story:'GROUND',rooms:['Laundry','Kitchen','Living','Primary Bedroom','Primary Bath']},
+   {story:'UPPER',rooms:['Bedroom','Office']}
+  ],2);
+  assert.equal(combined.status,'INCOMPLETE_STORY_PROGRAM');
+  assert.deepEqual(combined.missingStories,['UPPER']);
+  const groundComparison=rankWholeHomeCombinations(c,doc,plate.ownerId,[
+   {story:'GROUND',rooms:['Laundry','Kitchen','Living','Primary Bedroom','Primary Bath']}
+  ],2);
+  assert.equal(groundComparison.status,'DRAFT_COMPARISON_ONLY');
+  assert.equal(groundComparison.combinations.length,2);
+  assert.equal(doc.shapes.some(x=>x.kind==='ROOM'),false,'Joint ranking must not auto-save');
+
   assert.equal(doc.shapes.filter(x=>x.kind==='ROOM').length,0,'Program ranking must not save a proposal');
 
 
