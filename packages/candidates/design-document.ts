@@ -605,11 +605,18 @@ export function assessAuthoredCirculation(d:DesignDocument,ownerId:string,story:
  // Anchor the traversal on ONE corridor; independently disconnected corridor
  // islands cannot each seed a passing route.
  const reached=new Set<string>(),queue=corridors.length?[corridors[0].id]:[];
+ const corridorSet=new Set(corridors.map(x=>x.id));
  queue.forEach(id=>reached.add(id));
+ // Hallways must connect through their own circulation edges, not through
+ // private rooms which otherwise bridge disconnected corridor islands.
  while(queue.length){
   const id=queue.shift()!;
-  for(const next of links.get(id)??[])if(!reached.has(next)){reached.add(next);queue.push(next);}
+  for(const next of links.get(id)??[])if(corridorSet.has(next)&&!reached.has(next)){
+   reached.add(next);queue.push(next);
+  }
  }
+ // Rooms are terminal destinations, not pass-through links.
+ for(const room of rooms)if((links.get(room.id)??[]).some(id=>reached.has(id)))reached.add(room.id);
  const unreachableRooms=rooms.filter(x=>!reached.has(x.id)).map(x=>x.id);
  const disconnectedCorridors=corridors.filter(x=>!reached.has(x.id)).map(x=>x.id);
  // A route that goes through a bedroom or bathroom may be graph-connected,
