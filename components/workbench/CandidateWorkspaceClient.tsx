@@ -196,7 +196,7 @@ export function CandidateWorkspaceClient({ candidateId }: { candidateId: string 
         <ol className="microcopy">
           <li><strong>Review:</strong> Inspect this candidate and its current evidence.</li>
           <li><strong>Edit:</strong> {editableWorkingCopy ? "Use the editable working copy below." : "Create Intervention first if offered, or branch as a new design."} </li>
-          <li><strong>Choose layout:</strong> Open Build / Edit Design Shapes, select a FLOOR PLATE, then Generate room layout alternatives. The comparison feature requires release of the pending editor update.</li>
+          <li><strong>Choose layout:</strong> Open Build / Edit Design Shapes, choose a home and floor, then Generate room layout alternatives. Compare the ranked concepts and explicitly save the layout you want to carry forward.</li>
           <li><strong>Report:</strong> Use Create Customer Report after saving your changes; download and inspect the concept HTML.</li>
         </ol>
         <p className="microcopy">No step here creates a new-lot candidate automatically. Draft geometry and professional approval are separate.</p>
