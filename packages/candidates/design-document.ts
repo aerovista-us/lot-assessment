@@ -684,8 +684,17 @@ export function rankWholeHomeCombinations(
  const walk=(i:number,chosen:{story:'GROUND'|'UPPER'|'OTHER';index:number;document:DesignDocument}[],score:number)=>{
   if(i===inventory.floors.length){
    const verticalPenalty=programs.length>1&&inventory.vertical.status==='NOT_VALIDATED'?100:0;
-   candidates.push({stories:chosen,score:score-verticalPenalty,limitations:programs.length>1?
-    ['Joint story comparison only; stair flight and landings remain unverified']:['Garage/entry and egress remain unverified']});
+   const wet=chosen.flatMap(x=>x.document.shapes.filter(s=>s.kind==='ROOM'&&s.story===x.story&&
+    /bath|kitchen|laundry|utility/i.test(s.label)).map(room=>({
+    story:x.story,center:[room.polygon.reduce((sum,p)=>sum+p[0],0)/room.polygon.length,
+    room.polygon.reduce((sum,p)=>sum+p[1],0)/room.polygon.length] as P2
+   })));
+   const ground=wet.filter(x=>x.story==='GROUND'),upper=wet.filter(x=>x.story==='UPPER');
+   const wetCorePenalty=ground.length&&upper.length?
+    upper.reduce((sum,room)=>sum+Math.min(...ground.map(other=>Math.hypot(
+     room.center[0]-other.center[0],room.center[1]-other.center[1]))),0):0;
+   candidates.push({stories:chosen,score:score-verticalPenalty-wetCorePenalty,limitations:programs.length>1?
+    ['Cross-floor wet-core distance is a draft preference only; plumbing shafts, stairs and structure remain unverified']:['Garage/entry and egress remain unverified']});
    return;
   }
   const floor=inventory.floors[i];
