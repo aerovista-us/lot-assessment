@@ -566,6 +566,10 @@ export function assessDraftRoomConnectivity(d:DesignDocument,ownerId:string,stor
  * Crossings or interior vertices/midpoints constitute an obstruction. */
 function polygonInteriorOverlap(a:P2[],b:P2[]){
  const strictInside=(p:P2[],q:P2)=>!p.some((v,i)=>onEdge(q,v,p[(i+1)%p.length]))&&inside(q,p);
+ // Identical polygons can have every vertex and edge on the boundary, so
+ // strict vertex tests alone cannot detect duplicate allocated floor area.
+ const centroid=(p:P2[]):P2=>[p.reduce((sum,q)=>sum+q[0],0)/p.length,p.reduce((sum,q)=>sum+q[1],0)/p.length];
+ if(strictInside(a,centroid(b))||strictInside(b,centroid(a)))return true;
  for(let i=0;i<a.length;i++)for(let j=0;j<b.length;j++){
   const p=a[i],q=a[(i+1)%a.length],r=b[j],t=b[(j+1)%b.length];
   if(cross(p,q,r)*cross(p,q,t)<-EPS&&cross(r,t,p)*cross(r,t,q)<-EPS)return true;
