@@ -78,6 +78,20 @@ for(const c of cases){
   const thinResult=assessAuthoredCirculation(narrow,plate.ownerId,plate.story);
   assert.equal(thinResult.status,'UNVERIFIED');
   assert.equal(thinResult.corridorWidths[0].verified,false);
+  const wideHall={...hall,polygon:[[8,0],[12,0],[12,8],[8,8]]};
+  const cornerDoor={...narrow,shapes:[roomA,wideHall],doors:[{...narrow.doors[0],center:[8,.3]}]};
+  const cornerEvidence=assessAuthoredCirculation(cornerDoor,plate.ownerId,plate.story);
+  assert.equal(cornerEvidence.status,'UNVERIFIED','A 3-ft door must fit fully on the shared wall, not just have its center on it');
+  assert.deepEqual(cornerEvidence.rejectedDoors,['test-door']);
+  const centeredDoor={...cornerDoor,doors:[{...cornerDoor.doors[0],center:[8,4]}]};
+  assert.equal(assessAuthoredCirculation(centeredDoor,plate.ownerId,plate.story).status,'DRAFT_ROUTE_CONNECTED');
+  const groundStair={...roomA,kind:'STAIR_ZONE',id:'lower-stair',polygon:[[0,0],[6,0],[6,6],[0,6]]};
+  const upperStair={...groundStair,story:'UPPER',id:'upper-stair',polygon:[[5,5],[11,5],[11,11],[5,11]]};
+  const stairsWithCorner={...doc,shapes:[groundStair,upperStair]};
+  assert.equal(assessVerticalStairAlignment(stairsWithCorner,plate.ownerId).status,'NOT_VALIDATED','Overlapping stair corners are not landings');
+  const stairsWithLanding={...stairsWithCorner,shapes:[groundStair,{...upperStair,polygon:[[2,2],[8,2],[8,8],[2,8]]}]};
+  assert.equal(assessVerticalStairAlignment(stairsWithLanding,plate.ownerId).status,'XY_ALIGNED_UNVERIFIED');
+
 
   assert(noAuthoredRoute.limitations.some(x=>x.includes('NOT proven')));
   const storyInventory=assessSupportedStoryProgram(alternatives[0].document,plate.ownerId,['GROUND','UPPER']);
