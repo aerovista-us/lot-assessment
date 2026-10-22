@@ -187,6 +187,15 @@ for(const c of cases){
   const lPacked=packDraftRooms(c,bent,plate.id,['Living','Kitchen'],'X');
   assert.equal(lPacked.shapes.filter(s=>s.kind==='ROOM').length,2);
   assert.equal(validateDesignDocument(c,lPacked).valid,true);
+  const lCandidates=rankDraftRoomLayouts(c,bent,plate.id,['Laundry','Kitchen','Living','Primary Bedroom','Primary Bath'],'X');
+  assert(lCandidates.length>0,'Concave source plate must yield a truthful valid draft or explicit failure');
+  for(const candidate of lCandidates){
+   assert.equal(validateDesignDocument(c,candidate.document).valid,true);
+   const generated=candidate.document.shapes.filter(x=>x.kind==='ROOM'||x.kind==='CIRCULATION');
+   assert(Math.abs(generated.reduce((sum,x)=>sum+area(x.polygon),0)-area(lShape))<.01,
+    'Concave room/circulation shapes must conserve source footprint area');
+  }
+
   assert.equal(split.revision,doc.revision+1);
   assert.equal(validateDesignDocument(c,split).valid,true);
   assert.throws(()=>partitionDesignShape(c,doc,plate.id,'X',-1e9),/nonzero areas/);
