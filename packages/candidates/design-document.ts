@@ -634,6 +634,14 @@ export function assessAuthoredCirculation(d:DesignDocument,ownerId:string,story:
  for(const corridor of corridors)for(const room of rooms){
   if(polygonInteriorOverlap(corridor.polygon,room.polygon))corridorCollisions.push(corridor.id+':'+room.id);
  }
+ // Checking only room-vs-hall leaves room-vs-room overlaps invisible,
+ // and overlapping hall islands can still appear as allocated free space.
+ for(let i=0;i<rooms.length;i++)for(let j=i+1;j<rooms.length;j++)
+  if(polygonInteriorOverlap(rooms[i].polygon,rooms[j].polygon))
+   corridorCollisions.push(rooms[i].id+':'+rooms[j].id);
+ for(let i=0;i<corridors.length;i++)for(let j=i+1;j<corridors.length;j++)
+  if(polygonInteriorOverlap(corridors[i].polygon,corridors[j].polygon))
+   corridorCollisions.push(corridors[i].id+':'+corridors[j].id);
  const corridorGeometryVerified=hasCorridor&&corridorWidths.every(x=>x.verified)&&
   corridorCollisions.length===0;
  return {status:rooms.length>0&&corridorGeometryVerified&&unreachableRooms.length===0&&disconnectedCorridors.length===0&&rejected.length===0?'DRAFT_ROUTE_CONNECTED' as const:'UNVERIFIED' as const,
