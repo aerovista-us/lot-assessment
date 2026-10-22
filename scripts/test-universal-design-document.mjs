@@ -48,6 +48,14 @@ for(const c of cases){
   const alternatives=rankDraftRoomLayouts(c,doc,plate.id,['Laundry','Kitchen','Living','Primary Bedroom','Primary Bath'],'X');
   assert(alternatives.length>=2&&alternatives.length<=3);
   assert(alternatives.every(a=>a.document.shapes.filter(s=>s.kind==='ROOM').length===5));
+  // A 2D candidate must have room separation along BOTH local axes, not
+  // merely five differently ordered full-depth stripes.
+  const hasTwoDimensionalTopology=alternatives.some(a=>{
+   const rooms=a.document.shapes.filter(s=>s.kind==='ROOM');
+   const bounds=rooms.map(room=>({minX:Math.min(...room.polygon.map(p=>p[0])),maxX:Math.max(...room.polygon.map(p=>p[0])),minY:Math.min(...room.polygon.map(p=>p[1])),maxY:Math.max(...room.polygon.map(p=>p[1]))}));
+   return bounds.some((a,i)=>bounds.some((b,j)=>i!==j&&a.maxX<=b.minX+1e-5&&a.maxY<=b.minY+1e-5));
+  });
+  assert(hasTwoDimensionalTopology,'Ranking must expose a genuinely two-axis room arrangement');
   assert(alternatives.every(a=>a.assessment.sourceRevision===doc.revision));
   assert(alternatives.every(a=>a.assessment.limitations.some(x=>x.includes('no openings'))));
   assert(alternatives.every((a,i)=>!i||alternatives[i-1].assessment.score>=a.assessment.score));
