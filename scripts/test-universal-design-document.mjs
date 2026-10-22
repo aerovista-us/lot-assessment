@@ -85,6 +85,12 @@ for(const c of cases){
   assert.deepEqual(cornerEvidence.rejectedDoors,['test-door']);
   const centeredDoor={...cornerDoor,doors:[{...cornerDoor.doors[0],center:[8,4]}]};
   assert.equal(assessAuthoredCirculation(centeredDoor,plate.ownerId,plate.story).status,'DRAFT_ROUTE_CONNECTED');
+  const intrudingRoom={...roomA,polygon:[[0,0],[9,0],[9,8],[0,8]]};
+  const obstructed={...centeredDoor,shapes:[intrudingRoom,wideHall]};
+  const obstruction=assessAuthoredCirculation(obstructed,plate.ownerId,plate.story);
+  assert.equal(obstruction.status,'UNVERIFIED','Room intrusion cannot be accepted as open hallway');
+  assert.deepEqual(obstruction.corridorCollisions,['test-hall:test-room-a']);
+
   const corridorIsland={...hall,id:'test-hall-island',polygon:[[20,0],[24,0],[24,8],[20,8]]};
   const islandDraft={...centeredDoor,shapes:[roomA,wideHall,corridorIsland]};
   const islandResult=assessAuthoredCirculation(islandDraft,plate.ownerId,plate.story);
