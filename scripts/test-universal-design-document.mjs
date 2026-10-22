@@ -85,6 +85,12 @@ for(const c of cases){
   assert.deepEqual(cornerEvidence.rejectedDoors,['test-door']);
   const centeredDoor={...cornerDoor,doors:[{...cornerDoor.doors[0],center:[8,4]}]};
   assert.equal(assessAuthoredCirculation(centeredDoor,plate.ownerId,plate.story).status,'DRAFT_ROUTE_CONNECTED');
+  const corridorIsland={...hall,id:'test-hall-island',polygon:[[20,0],[24,0],[24,8],[20,8]]};
+  const islandDraft={...centeredDoor,shapes:[roomA,wideHall,corridorIsland]};
+  const islandResult=assessAuthoredCirculation(islandDraft,plate.ownerId,plate.story);
+  assert.equal(islandResult.status,'UNVERIFIED','Disconnected hallway islands must never pass');
+  assert.deepEqual(islandResult.disconnectedCorridors,['test-hall-island']);
+
   const groundStair={...roomA,kind:'STAIR_ZONE',id:'lower-stair',polygon:[[0,0],[6,0],[6,6],[0,6]]};
   const upperStair={...groundStair,story:'UPPER',id:'upper-stair',polygon:[[5,5],[11,5],[11,11],[5,11]]};
   const stairsWithCorner={...doc,shapes:[groundStair,upperStair]};
