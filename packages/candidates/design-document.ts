@@ -582,13 +582,16 @@ export function assessAuthoredCirculation(d:DesignDocument,ownerId:string,story:
   accepted.push({doorId:door.id,from:from.id,to:to.id});
   links.get(from.id)?.push(to.id);links.get(to.id)?.push(from.id);
  }
- const reached=new Set<string>(),queue=corridors.map(x=>x.id);
+ // Anchor the traversal on ONE corridor; independently disconnected corridor
+ // islands cannot each seed a passing route.
+ const reached=new Set<string>(),queue=corridors.length?[corridors[0].id]:[];
  queue.forEach(id=>reached.add(id));
  while(queue.length){
   const id=queue.shift()!;
   for(const next of links.get(id)??[])if(!reached.has(next)){reached.add(next);queue.push(next);}
  }
  const unreachableRooms=rooms.filter(x=>!reached.has(x.id)).map(x=>x.id);
+ const disconnectedCorridors=corridors.filter(x=>!reached.has(x.id)).map(x=>x.id);
  const hasCorridor=corridors.length>0;
  // Conservative, geometry-backed width test. Unsupported/concave passages
  // remain unverified rather than being approved from a bounding box.
@@ -612,8 +615,8 @@ export function assessAuthoredCirculation(d:DesignDocument,ownerId:string,story:
   return {id:corridor.id,widthFt,verified:perpendicular&&parallelOpposites&&widthFt>=clearWidthFt};
  });
  const corridorGeometryVerified=hasCorridor&&corridorWidths.every(x=>x.verified);
- return {status:rooms.length>0&&corridorGeometryVerified&&unreachableRooms.length===0&&rejected.length===0?'DRAFT_ROUTE_CONNECTED' as const:'UNVERIFIED' as const,
-  rooms:rooms.length,circulationZones:corridors.length,corridorWidths,acceptedDoors:accepted,rejectedDoors:rejected,unreachableRooms,
+ return {status:rooms.length>0&&corridorGeometryVerified&&unreachableRooms.length===0&&disconnectedCorridors.length===0&&rejected.length===0?'DRAFT_ROUTE_CONNECTED' as const:'UNVERIFIED' as const,
+  rooms:rooms.length,circulationZones:corridors.length,corridorWidths,acceptedDoors:accepted,rejectedDoors:rejected,unreachableRooms,disconnectedCorridors,
   limitations:['Door width and common-wall graph are draft-only; actual route clearance, swings, exterior exit, vertical access and code review are NOT proven']};
 }
 
