@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {pondyCandidateRegistry as registry} from '../projects/pondy-lot2/candidate-registry.ts';
 import {placementPolygon} from '../packages/roof-geometry/index.ts';
-import {emptyDesignDocument,addDesignShape,addOwnerFootprintShape,removeDesignShape,updateDesignShapePolygon,snapDesignPoint,partitionDesignShape,packDraftRooms,rankDraftRoomLayouts,assessDraftRoomConnectivity,assessAuthoredCirculation,assessSupportedStoryProgram,assessGarageServiceConnection,assessVerticalStairAlignment,rankSupportedHomeRoomPrograms,rankWholeHomeCombinations,moveDesignWall,validateDesignDocument,designSourceSignature} from '../packages/candidates/design-document.ts';
+import {emptyDesignDocument,addDesignShape,addOwnerFootprintShape,removeDesignShape,updateDesignShapePolygon,snapDesignPoint,partitionDesignShape,packDraftRooms,packLCorridorSeed,rankDraftRoomLayouts,assessDraftRoomConnectivity,assessAuthoredCirculation,assessSupportedStoryProgram,assessGarageServiceConnection,assessVerticalStairAlignment,rankSupportedHomeRoomPrograms,rankWholeHomeCombinations,moveDesignWall,validateDesignDocument,designSourceSignature} from '../packages/candidates/design-document.ts';
 import {renderDesignDocumentAttachment} from '../packages/candidates/design-report-attachment.ts';
 import {createCandidateConceptHtml} from '../packages/candidates/customer-report.ts';
 import {emptyCandidateWorkspace,saveWorkspaceDesignDocument,currentWorkspaceDesignDocument,createWorkspaceExportPackage,importWorkspacePackage} from '../packages/candidates/workspace.ts';
@@ -183,6 +183,23 @@ for(const c of cases){
   const lShape=[corners[0],corners[1],blend(corners[1],corners[2],.6),
     blend(blend(corners[0],corners[1],.6),blend(corners[3],corners[2],.6),.6),
     blend(corners[0],corners[3],.6),corners[3]];
+  // Wide L regression: route turns within source, retains the missing corner,
+  // and all five rooms have door intervals to a non-overlapping passage.
+  const wideL=[corners[0],corners[1],corners[2],blend(corners[3],corners[2],.45),
+    blend(blend(corners[0],corners[1],.45),blend(corners[3],corners[2],.45),.75),
+    blend(corners[0],corners[3],.75)];
+  const edgeW=Math.hypot(corners[1][0]-corners[0][0],corners[1][1]-corners[0][1]);
+  const edgeH=Math.hypot(corners[3][0]-corners[0][0],corners[3][1]-corners[0][1]);
+  if(edgeW>=30&&edgeH>=24){
+   const lDocument=updateDesignShapePolygon(c,doc,plate.id,wideL);
+   const route=packLCorridorSeed(c,lDocument,plate.id,['Laundry','Kitchen','Living','Primary Bedroom','Primary Bath']);
+   const generated=route.shapes.filter(x=>x.kind==='ROOM'||x.kind==='CIRCULATION');
+   assert.equal(generated.length,6,'L layout must include five rooms plus turning hall');
+   assert.equal(route.doors?.length,5);
+   assert.equal(assessAuthoredCirculation(route,plate.ownerId,plate.story).status,'DRAFT_ROUTE_CONNECTED');
+   assert(Math.abs(generated.reduce((total,x)=>total+area(x.polygon),0)-area(wideL))<.01,'No missing or fabricated L floor area');
+   assert.equal(validateDesignDocument(c,route).valid,true);
+  }
   const bent=updateDesignShapePolygon(c,doc,plate.id,lShape);
   const lPacked=packDraftRooms(c,bent,plate.id,['Living','Kitchen'],'X');
   assert.equal(lPacked.shapes.filter(s=>s.kind==='ROOM').length,2);
