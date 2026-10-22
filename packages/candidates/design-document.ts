@@ -396,6 +396,32 @@ function overlapBoundary(a:P2[],b:P2[]):number{
   shared+=Math.max(0,Math.min(len,Math.max(t(q),t(r)))-Math.max(0,Math.min(t(q),t(r))));
  }return shared;
 }
+/** Geometry-only access graph. An edge means a common wall could fit a
+ * proposed opening; it does not prove a door, route, exit, or code clearance. */
+export function assessDraftRoomConnectivity(d:DesignDocument,ownerId:string,story:'GROUND'|'UPPER'|'OTHER',doorWidthFt=3){
+ if(!Number.isFinite(doorWidthFt)||doorWidthFt<=0)throw Error('Invalid proposed door width');
+ const rooms=d.shapes.filter(x=>x.ownerId===ownerId&&x.story===story&&['ROOM','CIRCULATION'].includes(x.kind));
+ const edges:{from:string;to:string;sharedWallFt:number;doorCapable:boolean}[]=[];
+ for(let i=0;i<rooms.length;i++)for(let j=i+1;j<rooms.length;j++){
+  const sharedWallFt=overlapBoundary(rooms[i].polygon,rooms[j].polygon);
+  if(sharedWallFt>EPS)edges.push({from:rooms[i].id,to:rooms[j].id,sharedWallFt,doorCapable:sharedWallFt>=doorWidthFt+1});
+ }
+ const neighbors=new Map(rooms.map(x=>[x.id,[] as string[]]));
+ for(const e of edges.filter(x=>x.doorCapable)){
+  neighbors.get(e.from)?.push(e.to);neighbors.get(e.to)?.push(e.from);
+ }
+ const visited=new Set<string>(),components:string[][]=[];
+ for(const room of rooms){
+  if(visited.has(room.id))continue;
+  const stack=[room.id],component:string[]=[];visited.add(room.id);
+  while(stack.length){const id=stack.pop()!;component.push(id);for(const next of neighbors.get(id)??[])if(!visited.has(next)){visited.add(next);stack.push(next);}}
+  components.push(component);
+ }
+ return {roomCount:rooms.length,edges,components,connected:components.length<=1,
+  doorCapableEdges:edges.filter(x=>x.doorCapable).length,
+  limitations:['Common wall length only; door placement, circulation widths, accessible paths, exterior access and egress NOT validated']};
+}
+
 export function rankDraftRoomLayouts(c:CandidateRecord,d:DesignDocument,plateId:string,labels:string[],axis:'X'|'Y',limit=3):RankedDraftLayout[]{
  if(!Number.isInteger(limit)||limit<1||limit>5)throw Error('Choose 1–5 concept alternatives');
  if(new Set(labels.map(x=>x.trim().toLowerCase())).size!==labels.length)throw Error('Room labels must be unique for relationships');
@@ -428,10 +454,12 @@ export function rankDraftRoomLayouts(c:CandidateRecord,d:DesignDocument,plateId:
    const satisfied=rule.priority==='SEPARATE'?!touching:touching;
    return {...rule,satisfied};
   });
-  const score=relationships.reduce((n,r)=>n+(r.satisfied?1:0)*(r.priority==='MUST'?35:r.priority==='PREFER'?15:8),0)-relationships.reduce((n,r)=>n+(!r.satisfied&&r.priority==='MUST'?40:0),0);
+  const connectivity=assessDraftRoomConnectivity(document,added[0]?.ownerId??'',added[0]?.story??'GROUND');
+  const relationshipScore=relationships.reduce((n,r)=>n+(r.satisfied?1:0)*(r.priority==='MUST'?35:r.priority==='PREFER'?15:8),0)-relationships.reduce((n,r)=>n+(!r.satisfied&&r.priority==='MUST'?40:0),0);
+  const score=relationshipScore+(connectivity.connected?12:-25*(connectivity.components.length-1))+connectivity.doorCapableEdges*2;
   const assessment:DraftLayoutAssessment={schema:'lotscope-layout-assessment-v1',score,sourceRevision:d.revision,
    relationships,explanations:relationships.filter(r=>r.satisfied).map(r=>r.reason),
-   limitations:['Concept-level shared-wall assessment only; no openings, walkable circulation, garage passage, plumbing or code compliance established','Human architectural review required before reporting a relationship as functional']};
+   limitations:[...connectivity.limitations,...(!connectivity.connected?['Room adjacency graph is disconnected; do not present as walkable']:[]),'No authored doors, guaranteed circulation, garage passage, plumbing or code compliance established','Human architectural review required before reporting a relationship as functional']};
   results.push({document,assessment,order});
  }
  results.sort((a,b)=>b.assessment.score-a.assessment.score||a.order.join('|').localeCompare(b.order.join('|')));
