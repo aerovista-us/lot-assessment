@@ -851,7 +851,7 @@ export function assessContinuousHomeRoute(c:CandidateRecord,d:DesignDocument,own
    validPolygon(e.garage.garageWalkway,'garage-walkway');
    if(!sourceGarage||!contained(e.garage.garageWalkway,placementPolygon(sourceGarage).map(p=>[p[0],p[1]] as P2)))
     errors.push('GARAGE_WALKWAY_OUTSIDE_SOURCE');
-   if(!e.garage.garageWalkway.some(p=>inside(p,placementPolygon(sourceGarage!).map(q=>[q[0],q[1]] as P2))))
+   if(sourceGarage&&!e.garage.garageWalkway.some(p=>inside(p,placementPolygon(sourceGarage).map(q=>[q[0],q[1]] as P2))))
     errors.push('GARAGE_WALKWAY_DISCONNECTED');
   }catch{errors.push('GARAGE_WALKWAY_INVALID');}
   if(obstacles.some(o=>o.story==='GROUND'&&polygonInteriorOverlap(o.polygon,e.garage!.garageWalkway)))
