@@ -172,3 +172,243 @@ export function setDraftRoofParameters(
   roofParameters:[...without,{...input}]};
  validateDesignDocument(c,next);return next;
 }
+
+/** Revisioned polygon edit. Existing door and roof parameters remain draft data;
+ * consumers must re-solve and may not reuse prior model-preview authority. */
+export function updateDesignShapePolygon(
+ c:CandidateRecord,d:DesignDocument,shapeId:string,polygon:P2[],
+ now=new Date().toISOString()
+):DesignDocument{
+ validateDesignDocument(c,d);
+ const target=d.shapes.find(s=>s.id===shapeId);
+ if(!target)throw Error('Unknown design shape');
+ const next:DesignDocument={...d,revision:d.revision+1,updatedAt:now,
+  shapes:d.shapes.map(s=>s.id===shapeId?{...s,polygon:polygon.map(p=>[p[0],p[1]] as P2)}:s)};
+ validateDesignDocument(c,next);
+ return next;
+}
+/** Deterministic designer grid; never silently alters source owner geometry. */
+export function snapDesignPoint(point:P2,gridFt:number):P2{
+ if(!Number.isFinite(gridFt)||gridFt<=0||gridFt>10||point.some(n=>!Number.isFinite(n)))
+  throw Error('Invalid design snap grid or point');
+ return [Math.round(point[0]/gridFt)*gridFt,Math.round(point[1]/gridFt)*gridFt];
+}
+
+/** Split an authored floor shape by an axis-aligned partition in model feet.
+ * This is geometry only; not an approved structure, door or circulation plan.
+ * All doors touching the original room are invalidated rather than retargeted. */
+export function partitionDesignShape(
+ c:CandidateRecord,d:DesignDocument,shapeId:string,axis:'X'|'Y',coordinateFt:number,
+ labels?:[string,string],now=new Date().toISOString()
+):DesignDocument{
+ validateDesignDocument(c,d);
+ const original=d.shapes.find(s=>s.id===shapeId);
+ if(!original||!['ROOM','CIRCULATION','FLOOR_PLATE'].includes(original.kind))
+  throw Error('Only floor shapes may be partitioned');
+ if(!Number.isFinite(coordinateFt)||!['X','Y'].includes(axis))throw Error('Invalid partition line');
+ const index=axis==='X'?0:1;
+ const clip=(less:boolean):P2[]=>{
+  const kept:P2[]=[];
+  const poly=original.polygon;
+  const inside=(p:P2)=>less?p[index]<=coordinateFt+EPS:p[index]>=coordinateFt-EPS;
+  for(let i=0;i<poly.length;i++){
+   const a=poly[i],b=poly[(i+1)%poly.length],inA=inside(a),inB=inside(b);
+   if(inA)kept.push([...a] as P2);
+   if(inA!==inB){
+    const t=(coordinateFt-a[index])/(b[index]-a[index]);
+    kept.push([a[0]+t*(b[0]-a[0]),a[1]+t*(b[1]-a[1])] as P2);
+   }
+  }
+  const distinct:P2[]=[];
+  for(const p of kept)if(!distinct.length||Math.hypot(p[0]-distinct[distinct.length-1][0],p[1]-distinct[distinct.length-1][1])>EPS)distinct.push(p);
+  if(distinct.length>1&&Math.hypot(distinct[0][0]-distinct[distinct.length-1][0],distinct[0][1]-distinct[distinct.length-1][1])<EPS)distinct.pop();
+  return distinct;
+ };
+ const left=clip(true),right=clip(false);
+ if(left.length<3||right.length<3||Math.abs(signedPolygonArea(left))<.01||Math.abs(signedPolygonArea(right))<.01)
+  throw Error('Partition must divide the interior into two nonzero areas');
+ // Single-cut polygons only. Multiple disjoint islands may not be silently stitched.
+ validPolygon(left,shapeId);validPolygon(right,shapeId);
+ const area=Math.abs(signedPolygonArea(original.polygon));
+ if(Math.abs(Math.abs(signedPolygonArea(left))+Math.abs(signedPolygonArea(right))-area)>1e-4)
+  throw Error('Partition produced disjoint or inaccurate geometry');
+ let seq=1;while(d.shapes.some(s=>s.id==='shape-'+seq))seq++;
+ const childId='shape-'+seq;
+ const next:DesignDocument={...d,revision:d.revision+1,updatedAt:now,
+  shapes:d.shapes.flatMap(s=>s.id===shapeId?[
+   {...s,label:labels?.[0]?.trim()||s.label+' A',polygon:left},
+   {...s,id:childId,label:labels?.[1]?.trim()||s.label+' B',polygon:right}
+  ]:[s]),
+  doors:(d.doors??[]).filter(x=>x.fromRoomId!==shapeId&&x.toRoomId!==shapeId)};
+ validateDesignDocument(c,next);
+ return next;
+}
+
+/** A geometry-safe, purpose-aware *draft* seed, not a complete home plan.
+ * Local axes follow the floor plate's first edge, so rotation does not change
+ * layout. Concave slices are only admitted when clipping preserves exact area,
+ * connectivity, containment and practical room depth; otherwise fail visibly.
+ * No auto-generated doors, approval, or invented garage connections. */
+export function packDraftRooms(
+ c:CandidateRecord,d:DesignDocument,plateId:string,labels:string[],axis:'X'|'Y',
+ now=new Date().toISOString(),preferredOrder?:string[]
+):DesignDocument{
+ validateDesignDocument(c,d);
+ const plate=d.shapes.find(s=>s.id===plateId);
+ if(!plate||plate.kind!=='FLOOR_PLATE'||plate.story===null)throw Error('Choose a floor plate');
+ if(!['X','Y'].includes(axis)||labels.length<2||labels.length>8||labels.some(l=>!l.trim()))
+  throw Error('Specify 2 to 8 named rooms and a packing direction');
+ if(d.shapes.some(s=>s.ownerId===plate.ownerId&&s.story===plate.story&&['ROOM','CIRCULATION','STAIR_ZONE'].includes(s.kind)))
+  throw Error('Existing rooms/stairs require designer reconciliation before auto packing');
+ const original=plate.polygon;
+ const start=original[0],edge=original[1];
+ const length=Math.hypot(edge[0]-start[0],edge[1]-start[1]);
+ if(length<EPS)throw Error('Floor plate has degenerate first edge');
+ const u:P2=[(edge[0]-start[0])/length,(edge[1]-start[1])/length];
+ const v:P2=[-u[1],u[0]];
+ const local=(p:P2):P2=>{const dx=p[0]-start[0],dy=p[1]-start[1];return [dx*u[0]+dy*u[1],dx*v[0]+dy*v[1]]};
+ const world=(p:P2):P2=>[start[0]+p[0]*u[0]+p[1]*v[0],start[1]+p[0]*u[1]+p[1]*v[1]];
+ const poly=original.map(local),idx=axis==='X'?0:1;
+ const min=Math.min(...poly.map(p=>p[idx])),max=Math.max(...poly.map(p=>p[idx]));
+ const extent=max-min;
+ if(extent<8)throw Error('Floor plate has insufficient depth for automatic rooms');
+ // A balanced social zone needs more space than laundry or a bathroom.
+ const classify=(name:string)=>{
+  const n=name.toLowerCase();
+  if(/living|great room|family room/.test(n))return {kind:'PUBLIC',weight:1.7};
+  if(/kitchen|dining/.test(n))return {kind:'PUBLIC',weight:1.25};
+  if(/mud|utility|laundry|mechanical|pantry/.test(n))return {kind:'SERVICE',weight:.65};
+  if(/primary|master/.test(n)&&/bath/.test(n))return {kind:'ENSUITE',weight:.8};
+  if(/primary|master/.test(n))return {kind:'PRIMARY',weight:1.5};
+  if(/bath|powder|wc/.test(n))return {kind:'BATH',weight:.7};
+  if(/bed|guest|office|study/.test(n))return {kind:'PRIVATE',weight:1.2};
+  return {kind:'OTHER',weight:1};
+ };
+ const spec=labels.map((label,i)=>({label:label.trim(),...classify(label),i}));
+ const rank:Record<string,number>={SERVICE:0,PUBLIC:1,OTHER:2,BATH:3,PRIVATE:4,PRIMARY:5,ENSUITE:6};
+ // Group service next to daily living, private suite next to its bathroom.
+ const ordered=preferredOrder ? preferredOrder.map(label=>{const item=spec.find(x=>x.label===label);if(!item)throw Error('Unknown room in packing order');return item;}) : [...spec].sort((a,b)=>rank[a.kind]-rank[b.kind]||a.i-b.i);
+ if(ordered.length!==spec.length||new Set(ordered.map(s=>s.i)).size!==spec.length)throw Error('Packing order must include each room once');
+ // Prefer service nearest the source garage center (when one exists).
+ const garage=sourceBuildingOwners(c).filter(o=>o.kind==='garage');
+ if(garage.length&&!preferredOrder){
+  const garageCenters=garage.map(g=>{const q=placementPolygon(g);return local([q.reduce((n,p)=>n+p[0],0)/q.length,q.reduce((n,p)=>n+p[1],0)/q.length])});
+  const dist=(edge:number)=>Math.min(...garageCenters.map(g=>Math.abs(g[idx]-edge)));
+  if(dist(max)<dist(min))ordered.reverse();
+ }
+ // Deterministic half-plane clipping in building-local coordinates.
+ const clip=(input:P2[],threshold:number,keepUpper:boolean):P2[]=>{
+  const out:P2[]=[];
+  const allowed=(p:P2)=>keepUpper?p[idx]>=threshold-EPS:p[idx]<=threshold+EPS;
+  for(let i=0;i<input.length;i++){
+   const a=input[i],b=input[(i+1)%input.length],ia=allowed(a),ib=allowed(b);
+   if(ia)out.push(a);
+   if(ia!==ib){const t=(threshold-a[idx])/(b[idx]-a[idx]);out.push([a[0]+t*(b[0]-a[0]),a[1]+t*(b[1]-a[1])]);}
+  }
+  const dedup:P2[]=[];
+  for(const p of out)if(!dedup.length||Math.hypot(p[0]-dedup[dedup.length-1][0],p[1]-dedup[dedup.length-1][1])>EPS)dedup.push(p);
+  if(dedup.length>1&&Math.hypot(dedup[0][0]-dedup[dedup.length-1][0],dedup[0][1]-dedup[dedup.length-1][1])<=EPS)dedup.pop();
+  return dedup;
+ };
+ const total=ordered.reduce((n,s)=>n+s.weight,0);
+ let cumulative=0;
+ const pieces=ordered.map(s=>{
+  const lo=min+extent*cumulative/total;cumulative+=s.weight;
+  const hi=min+extent*cumulative/total;
+  if(hi-lo<4)throw Error('Insufficient space for a practical '+s.label+' zone (under 4 ft)');
+  const piece=clip(clip(poly,lo,true),hi,false).map(world);
+  if(piece.length<3)throw Error('Irregular footprint splits '+s.label+' into disconnected regions; manual layout required');
+  validPolygon(piece,s.label);
+  if(!contained(piece,original))throw Error('Concave footprint makes '+s.label+' disconnected or outside the floor plate');
+  if(Math.abs(signedPolygonArea(piece))<16)throw Error('Unusable '+s.label+' draft area');
+  return {spec:s,polygon:piece};
+ });
+ const parentArea=Math.abs(signedPolygonArea(original));
+ const childrenArea=pieces.reduce((n,p)=>n+Math.abs(signedPolygonArea(p.polygon)),0);
+ if(Math.abs(parentArea-childrenArea)>Math.max(.001,parentArea*1e-6))
+  throw Error('Irregular plate packing cannot preserve area; refine the footprint or pack manually');
+ let seq=1;const existing=new Set(d.shapes.map(s=>s.id));
+ const added=pieces.map(({spec:room,polygon}):DesignShape=>{
+  while(existing.has('shape-'+seq))seq++;
+  const id='shape-'+seq++;existing.add(id);
+  return {id,ownerId:plate.ownerId,kind:'ROOM',story:plate.story,label:room.label,polygon,status:'DRAFT_UNVERIFIED'};
+ });
+ const next:DesignDocument={...d,revision:d.revision+1,updatedAt:now,shapes:[...d.shapes,...added]};
+ validateDesignDocument(c,next);return next;
+}
+
+/** Deterministic ranked concepts; evidence never implies a door or usable circulation. */
+export type DraftLayoutAssessment={
+ schema:'lotscope-layout-assessment-v1';score:number;sourceRevision:number;
+ relationships:{a:string;b:string;priority:'MUST'|'PREFER'|'SEPARATE';satisfied:boolean;reason:string}[];
+ explanations:string[];limitations:string[];
+};
+export type RankedDraftLayout={document:DesignDocument;assessment:DraftLayoutAssessment;order:string[]};
+function overlapBoundary(a:P2[],b:P2[]):number{
+ let shared=0;
+ for(let i=0;i<a.length;i++)for(let j=0;j<b.length;j++){
+  const x=a[i],y=a[(i+1)%a.length],q=b[j],r=b[(j+1)%b.length];
+  const dx=y[0]-x[0],dy=y[1]-x[1],len=Math.hypot(dx,dy);
+  if(len<EPS||Math.abs(cross(x,y,q))/len>1e-5||Math.abs(cross(x,y,r))/len>1e-5)continue;
+  const t=(p:P2)=>((p[0]-x[0])*dx+(p[1]-x[1])*dy)/len;
+  shared+=Math.max(0,Math.min(len,Math.max(t(q),t(r)))-Math.max(0,Math.min(t(q),t(r))));
+ }return shared;
+}
+export function rankDraftRoomLayouts(c:CandidateRecord,d:DesignDocument,plateId:string,labels:string[],axis:'X'|'Y',limit=3):RankedDraftLayout[]{
+ if(!Number.isInteger(limit)||limit<1||limit>5)throw Error('Choose 1–5 concept alternatives');
+ if(new Set(labels.map(x=>x.trim().toLowerCase())).size!==labels.length)throw Error('Room labels must be unique for relationships');
+ const role=(name:string)=>{const n=name.toLowerCase();return /primary|master/.test(n)&&/bath/.test(n)?'ENSUITE':/primary|master/.test(n)?'PRIMARY':/bath|powder/.test(n)?'BATH':/laundry|mud|utility/.test(n)?'SERVICE':/kitchen/.test(n)?'KITCHEN':/living|family|great room/.test(n)?'LIVING':/dining/.test(n)?'DINING':/bed|guest/.test(n)?'BED':'OTHER'};
+ const roles=labels.map(label=>({label,role:role(label)}));
+ const rules:{a:string;b:string;priority:'MUST'|'PREFER'|'SEPARATE';reason:string}[]=[];
+ const pair=(a:string,b:string,priority:'MUST'|'PREFER'|'SEPARATE',reason:string)=>{
+  for(const x of roles.filter(x=>x.role===a))for(const y of roles.filter(y=>y.role===b))if(x.label!==y.label)rules.push({a:x.label,b:y.label,priority,reason});
+ };
+ pair('PRIMARY','ENSUITE','MUST','Primary suite and ensuite should share a usable boundary; a connecting door still needs verification');
+ pair('KITCHEN','LIVING','PREFER','Kitchen and living should support an open social zone');
+ pair('KITCHEN','DINING','PREFER','Dining should be convenient to the kitchen');
+ pair('SERVICE','KITCHEN','PREFER','Service-to-kitchen proximity supports groceries and household chores');
+ pair('PRIMARY','LIVING','SEPARATE','A privacy buffer from the public living zone is useful');
+ const seed=labels.map(x=>x.trim());
+ const byRole=(r:string)=>roles.filter(x=>x.role===r).map(x=>x.label);
+ const prioritized=[...byRole('SERVICE'),...byRole('KITCHEN'),...byRole('LIVING'),...byRole('DINING'),...byRole('OTHER'),...byRole('BED'),...byRole('BATH'),...byRole('PRIMARY'),...byRole('ENSUITE')];
+ const orders:string[][]=[prioritized,[...prioritized].reverse(),seed,[...seed].reverse()];
+ for(let i=0;i<prioritized.length-1;i++){const o=[...prioritized];[o[i],o[i+1]]=[o[i+1],o[i]];orders.push(o);}
+ const seen=new Set<string>();const results:RankedDraftLayout[]=[];
+ for(const order of orders){
+  const key=order.join('\0');if(seen.has(key))continue;seen.add(key);
+  let document:DesignDocument;
+  try{document=packDraftRooms(c,d,plateId,labels,axis,d.updatedAt,order);}catch{continue;}
+  const added=document.shapes.filter(s=>s.kind==='ROOM'&&!d.shapes.some(t=>t.id===s.id));
+  const byName=new Map(added.map(x=>[x.label,x]));
+  const relationships=rules.map(rule=>{
+   const a=byName.get(rule.a),b=byName.get(rule.b);
+   const touching=!!a&&!!b&&overlapBoundary(a.polygon,b.polygon)>=2;
+   const satisfied=rule.priority==='SEPARATE'?!touching:touching;
+   return {...rule,satisfied};
+  });
+  const score=relationships.reduce((n,r)=>n+(r.satisfied?1:0)*(r.priority==='MUST'?35:r.priority==='PREFER'?15:8),0)-relationships.reduce((n,r)=>n+(!r.satisfied&&r.priority==='MUST'?40:0),0);
+  const assessment:DraftLayoutAssessment={schema:'lotscope-layout-assessment-v1',score,sourceRevision:d.revision,
+   relationships,explanations:relationships.filter(r=>r.satisfied).map(r=>r.reason),
+   limitations:['Concept-level shared-wall assessment only; no openings, walkable circulation, garage passage, plumbing or code compliance established','Human architectural review required before reporting a relationship as functional']};
+  results.push({document,assessment,order});
+ }
+ results.sort((a,b)=>b.assessment.score-a.assessment.score||a.order.join('|').localeCompare(b.order.join('|')));
+ return results.slice(0,limit);
+}
+
+/** Translate the two endpoints of an authored wall edge; refuse invalid geometry. */
+export function moveDesignWall(
+ c:CandidateRecord,d:DesignDocument,shapeId:string,edgeIndex:number,delta:P2,
+ now=new Date().toISOString()
+):DesignDocument{
+ validateDesignDocument(c,d);
+ const shape=d.shapes.find(s=>s.id===shapeId);
+ if(!shape||!Number.isInteger(edgeIndex)||edgeIndex<0||edgeIndex>=shape.polygon.length)
+  throw Error('Invalid wall edge selection');
+ if(!Array.isArray(delta)||delta.length!==2||!delta.every(Number.isFinite))
+  throw Error('Invalid wall movement');
+ const adjacent=(edgeIndex+1)%shape.polygon.length;
+ const polygon=shape.polygon.map((p,i):P2=>
+  i===edgeIndex||i===adjacent?[p[0]+delta[0],p[1]+delta[1]]:[...p] as P2);
+ return updateDesignShapePolygon(c,d,shapeId,polygon,now);
+}
