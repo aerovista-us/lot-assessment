@@ -63,8 +63,8 @@ export function useCandidateWorkspace(base: CandidateRegistry) {
   const registry = useMemo(() => mergeCandidateRegistry(base, workspace), [base, workspace]);
 
   const commit = useCallback((next: CandidateWorkspaceState) => {
+    if (!persistWorkspace(next)) throw new Error("Could not save the candidate workspace to this browser. Check storage permissions or available space and export a backup before closing the page.");
     setWorkspace(next);
-    persistWorkspace(next);
   }, []);
   const saveCandidate = useCallback((candidate: CandidateRecord) => {
     const next = upsertWorkspaceCandidate(readWorkspace(), candidate);

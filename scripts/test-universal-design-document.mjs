@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {pondyCandidateRegistry as registry} from '../projects/pondy-lot2/candidate-registry.ts';
 import {placementPolygon} from '../packages/roof-geometry/index.ts';
-import {emptyDesignDocument,addDesignShape,addOwnerFootprintShape,removeDesignShape,updateDesignShapePolygon,snapDesignPoint,partitionDesignShape,packDraftRooms,moveDesignWall,validateDesignDocument,designSourceSignature} from '../packages/candidates/design-document.ts';
+import {emptyDesignDocument,addDesignShape,addOwnerFootprintShape,removeDesignShape,updateDesignShapePolygon,snapDesignPoint,partitionDesignShape,packDraftRooms,rankDraftRoomLayouts,moveDesignWall,validateDesignDocument,designSourceSignature} from '../packages/candidates/design-document.ts';
 import {renderDesignDocumentAttachment} from '../packages/candidates/design-report-attachment.ts';
 import {createCandidateConceptHtml} from '../packages/candidates/customer-report.ts';
 import {emptyCandidateWorkspace,saveWorkspaceDesignDocument,currentWorkspaceDesignDocument,createWorkspaceExportPackage,importWorkspacePackage} from '../packages/candidates/workspace.ts';
@@ -38,6 +38,49 @@ for(const c of cases){
   assert.equal(packed.shapes.length,5);
   assert.equal(packed.shapes.filter(s=>s.kind==='ROOM').length,2);
   assert.equal(validateDesignDocument(c,packed).valid,true);
+  const practical=packDraftRooms(c,doc,plate.id,['Primary Bath','Laundry','Living','Primary Bedroom','Kitchen'],'X');
+  const zones=practical.shapes.filter(s=>s.kind==='ROOM');
+  assert.deepEqual(zones.map(z=>z.label),['Laundry','Living','Kitchen','Primary Bedroom','Primary Bath']);
+  const area=p=>Math.abs(p.reduce((acc,v,i)=>acc+v[0]*p[(i+1)%p.length][1]-p[(i+1)%p.length][0]*v[1],0)/2);
+  assert(area(zones[1].polygon)>area(zones[0].polygon),'Living zone should have more area than laundry');
+  assert.equal(Math.round(zones.reduce((n,z)=>n+area(z.polygon),0)*100),Math.round(area(plate.polygon)*100));
+  assert(zones.every(z=>z.status==='DRAFT_UNVERIFIED'));
+  const alternatives=rankDraftRoomLayouts(c,doc,plate.id,['Laundry','Kitchen','Living','Primary Bedroom','Primary Bath'],'X');
+  assert(alternatives.length>=2&&alternatives.length<=3);
+  assert(alternatives.every(a=>a.document.shapes.filter(s=>s.kind==='ROOM').length===5));
+  assert(alternatives.every(a=>a.assessment.sourceRevision===doc.revision));
+  assert(alternatives.every(a=>a.assessment.limitations.some(x=>x.includes('no openings'))));
+  assert(alternatives.every((a,i)=>!i||alternatives[i-1].assessment.score>=a.assessment.score));
+  assert(alternatives[0].assessment.relationships.some(x=>x.priority==='MUST'));
+  // Non-leading selection must round-trip unchanged through workspace persistence
+  // and appear in the exact regenerated customer HTML, not just in the editor.
+  const selected=alternatives[1].document;
+  const persisted=saveWorkspaceDesignDocument(emptyCandidateWorkspace(),c,selected);
+  const hydrated=JSON.parse(JSON.stringify(persisted));
+  const restored=currentWorkspaceDesignDocument(hydrated,c);
+  assert(restored,'Selected layout must survive workspace serialization and reload');
+  assert.deepEqual(restored.shapes,selected.shapes,'Reload must preserve the explicitly selected alternative');
+  const selectedRooms=selected.shapes.filter(s=>s.kind==='ROOM');
+  const report=(await createCandidateConceptHtml(c,restored)).html;
+  assert.equal((report.match(/data-design-shape="/g)||[]).length,selected.shapes.length);
+  for(const room of selectedRooms){
+   assert(report.includes('data-design-shape="'+room.id+'"'),'Regenerated report must contain selected room ID');
+   assert(report.includes(room.label),'Regenerated report must contain selected room name');
+  }
+  assert(report.includes('DRAFT_UNVERIFIED'),'Auto-packed rooms cannot acquire professional authority');
+  assert(report.includes('WITHHELD'),'Missing source roof/upper-story authority remains visible');
+  assert.throws(()=>rankDraftRoomLayouts(c,doc,plate.id,['Kitchen','Kitchen'],'X'),/unique/);
+
+  // Convex and concave plates remain source-bound and cannot fabricate missing area.
+  const corners=plate.polygon;
+  const blend=(a,b,t)=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t];
+  const lShape=[corners[0],corners[1],blend(corners[1],corners[2],.6),
+    blend(blend(corners[0],corners[1],.6),blend(corners[3],corners[2],.6),.6),
+    blend(corners[0],corners[3],.6),corners[3]];
+  const bent=updateDesignShapePolygon(c,doc,plate.id,lShape);
+  const lPacked=packDraftRooms(c,bent,plate.id,['Living','Kitchen'],'X');
+  assert.equal(lPacked.shapes.filter(s=>s.kind==='ROOM').length,2);
+  assert.equal(validateDesignDocument(c,lPacked).valid,true);
   assert.equal(split.revision,doc.revision+1);
   assert.equal(validateDesignDocument(c,split).valid,true);
   assert.throws(()=>partitionDesignShape(c,doc,plate.id,'X',-1e9),/nonzero areas/);

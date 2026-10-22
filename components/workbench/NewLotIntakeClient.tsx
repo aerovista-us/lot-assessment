@@ -1,5 +1,6 @@
 "use client";
 import {useState} from "react";
+import Link from "next/link";
 import {lotAreaSqFt,validateLotIntake,type LotIntakeDraft,type LotPoint} from "@/packages/lot-intake";
 
 const defaultDraft:LotIntakeDraft={
@@ -19,6 +20,10 @@ export function NewLotIntakeClient(){
  const [message,setMessage]=useState("");
  let result:{areaSqFt:number;errors:string[]};
  try{result=validateLotIntake({...draft,polygon:parsePolygon(polygonText)});}catch(e){result={areaSqFt:0,errors:[e instanceof Error?e.message:"Invalid parcel polygon"]};}
+ const polygon:LotPoint[] = (()=>{try{const points=parsePolygon(polygonText);return points.length>=3&&points.length<=100&&points.every(p=>p.every(n=>Number.isFinite(n)&&Math.abs(n)<=1e6))?points:[];}catch{return [];}})();
+ const xx=polygon.map(p=>p[0]),yy=polygon.map(p=>p[1]);
+ const frame=polygon.length?[Math.min(...xx)-5,Math.min(...yy)-5,Math.max(20,Math.max(...xx)-Math.min(...xx)+10),Math.max(20,Math.max(...yy)-Math.min(...yy)+10)]:[0,0,100,100];
+ const frontage=polygon.length>2&&Number.isInteger(draft.accessEdgeIndex)&&draft.accessEdgeIndex>=0&&draft.accessEdgeIndex<polygon.length?[polygon[draft.accessEdgeIndex],polygon[(draft.accessEdgeIndex+1)%polygon.length]]:null;
  const update=<K extends keyof LotIntakeDraft,>(key:K,value:LotIntakeDraft[K])=>setDraft(prev=>({...prev,[key]:value}));
  const updateSetback=(key:keyof LotIntakeDraft["setbacksFt"],value:number)=>setDraft(prev=>({...prev,setbacksFt:{...prev.setbacksFt,[key]:value}}));
  function exportDraft(){
@@ -36,6 +41,24 @@ export function NewLotIntakeClient(){
   <p className="eyebrow">NEW LOT · LOCAL DRAFT INTAKE</p>
   <h2>Define a parcel without changing Pondy Lot 2</h2>
   <p>Enter XY vertices in feet, in boundary order. Keep the true orientation; do not mirror the lot to fit a report. This form validates a draft and exports JSON. It does not yet persist a server project, generate candidates, or establish zoning/permit acceptance.</p>
+  <div className="candidate-detail-grid" style={{marginBlock:16}}>
+   <div className="wb-panel"><p className="eyebrow">PARCEL SHAPE PREVIEW · MODEL FEET</p>
+    <svg viewBox={frame.join(" ")} role="img" aria-label="Parcel vertices and selected frontage edge in source coordinates" style={{width:"100%",height:280,background:"#f0f4f7"}}>
+     {polygon.length>=3&&<polygon points={polygon.map(p=>p.join(",")).join(" ")} fill="#c9e0e4" fillOpacity={.7} stroke="#28556e" strokeWidth={.9}/>}
+     {polygon.map((p,i)=><g key={i}><circle cx={p[0]} cy={p[1]} r={1.2} fill="#184e67"/><text x={p[0]+2} y={p[1]-2} fontSize={3} fill="#123e52">{i}</text></g>)}
+     {frontage&&<line x1={frontage[0][0]} y1={frontage[0][1]} x2={frontage[1][0]} y2={frontage[1][1]} stroke="#d06c24" strokeWidth={2.2}/>}
+    </svg>
+    <p className="microcopy">Blue boundary: draft parcel. Orange line: selected frontage edge. Numbered vertices correspond to coordinate indices. XY is model space, not a north-up map: enter the true north rotation separately. No mirroring or survey approval.</p>
+    {polygon.length===0&&<p role="alert" className="microcopy">Preview unavailable: enter 3–100 finite coordinate pairs within model limits.</p>}
+   </div>
+   <div className="wb-panel"><p className="eyebrow">BEFORE YOU CONTINUE</p><h3>Lot input checklist</h3>
+    <p className="microcopy">Confirm jogs and boundary shape against source measurements.</p>
+    <p className="microcopy">Confirm orange edge faces the access road.</p>
+    <p className="microcopy">Check north rotation, setbacks, units and living-area goals.</p>
+    <p className="microcopy">Validate and export. New-lot candidate generation is not connected yet.</p>
+    <p role="status" className="microcopy"><strong>{result.errors.length===0?"Geometry intake valid as draft":"Input needs correction"}</strong> · {result.errors.length} issue(s). This does not establish buildability or zoning approval.</p>
+   </div>
+  </div>
   <div className="lot-workspace-grid">
    <label>Lot name<input aria-label="Lot name" value={draft.name} onChange={e=>update("name",e.target.value)}/></label>
    <label>Frontage road<input aria-label="Frontage road" value={draft.frontageLabel} onChange={e=>update("frontageLabel",e.target.value)}/></label>
@@ -50,7 +73,8 @@ export function NewLotIntakeClient(){
   <label style={{display:"block",marginTop:16}}>Source / measurement confidence<textarea aria-label="Measurement source" rows={2} style={{display:"block",width:"100%"}} value={draft.sourceNote} onChange={e=>update("sourceNote",e.target.value)}/></label>
   <p className="microcopy">Calculated parcel area: {result.errors.length?"Not validated":result.areaSqFt.toLocaleString(undefined,{maximumFractionDigits:1})+" SF"} · Status: DRAFT / UNVERIFIED</p>
   {result.errors.length>0&&<div role="alert"><strong>Validation required:</strong><ul>{result.errors.map(error=><li key={error}>{error}</li>)}</ul></div>}
-  <div className="hero-actions"><button className="primary-button" type="button" disabled={result.errors.length>0} onClick={exportDraft}>Export validated draft JSON</button></div>
+  <div className="hero-actions"><button className="primary-button" type="button" disabled={result.errors.length>0} onClick={exportDraft}>Export validated draft JSON</button><Link className="secondary-button" href="/workbench/projects/pondy-lot2/candidates">Try existing Design 4 demo →</Link></div>
+  <div className="candidate-warning-box" role="note"><strong>Next step is not connected yet</strong><p>This export does not create a candidate or appear in the candidate library. Do not use Import .lotscope.json for this lot-intake JSON: it expects a different candidate-package schema. Continue with the existing Design 4 demo if you want to test the editor/report while the new-lot adapter is being built.</p></div>
   {message&&<p role="status" className="microcopy">{message}</p>}
  </section>;
 }
