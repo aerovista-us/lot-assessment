@@ -712,6 +712,30 @@ export function assessVerticalStairAlignment(d:DesignDocument,ownerId:string){
   limitations:['Stair geometry, floor opening, landing sizes, slope, headroom and structural/code acceptance are NOT verified']};
 }
 
+/** Explicit integration gate: geometry may establish room circulation, but
+ * garage and vertical access are separate evidence domains. Never infer
+ * cross-owner garage doors or built stair flights from a common wall or XY.
+ */
+export function assessHomeRouteIntegration(c:CandidateRecord,d:DesignDocument,ownerId:string,stories:('GROUND'|'UPPER'|'OTHER')[]){
+ validateDesignDocument(c,d);
+ const unique=[...new Set(stories)];
+ const floors=unique.map(story=>({story,route:assessAuthoredCirculation(d,ownerId,story)}));
+ const garage=unique.includes('GROUND')?assessGarageServiceConnection(c,d,ownerId,'GROUND'):null;
+ const vertical=assessVerticalStairAlignment(d,ownerId);
+ const garagePresent=sourceBuildingOwners(c).some(x=>x.kind==='garage');
+ const requiresStairs=unique.includes('GROUND')&&unique.includes('UPPER');
+ const blockers=[
+  ...floors.filter(x=>x.route.status!=='DRAFT_ROUTE_CONNECTED').map(x=>'UNVERIFIED_FLOOR_ROUTE:'+x.story),
+  ...(garagePresent?['GARAGE_PASSAGE_UNVERIFIED']:[]),
+  ...(requiresStairs?['STAIR_FLIGHT_AND_LANDINGS_UNVERIFIED']:[])
+ ];
+ return {status:blockers.length?'UNVERIFIED' as const:'DRAFT_FLOOR_ROUTES_ONLY' as const,
+  floors,garage,vertical,blockers,
+  limitations:['No garage-to-home opening is represented by a same-owner room door',
+   'No vertical stair flight, landing clearance, rise/run, or headroom is proven',
+   'Door swings, furniture obstacles, external egress, and AHJ approval remain unverified']};
+}
+
 /** Read-only whole-home story inventory. Never derives a story by cloning
  * another floor; every supported level requires a distinct authored plate. */
 export function assessSupportedStoryProgram(d:DesignDocument,ownerId:string,requiredStories:('GROUND'|'UPPER'|'OTHER')[]){
