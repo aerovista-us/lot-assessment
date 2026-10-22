@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {pondyCandidateRegistry as registry} from '../projects/pondy-lot2/candidate-registry.ts';
 import {placementPolygon} from '../packages/roof-geometry/index.ts';
-import {emptyDesignDocument,addDesignShape,addOwnerFootprintShape,removeDesignShape,updateDesignShapePolygon,snapDesignPoint,partitionDesignShape,packDraftRooms,rankDraftRoomLayouts,assessDraftRoomConnectivity,assessAuthoredCirculation,assessSupportedStoryProgram,assessGarageServiceConnection,assessVerticalStairAlignment,moveDesignWall,validateDesignDocument,designSourceSignature} from '../packages/candidates/design-document.ts';
+import {emptyDesignDocument,addDesignShape,addOwnerFootprintShape,removeDesignShape,updateDesignShapePolygon,snapDesignPoint,partitionDesignShape,packDraftRooms,rankDraftRoomLayouts,assessDraftRoomConnectivity,assessAuthoredCirculation,assessSupportedStoryProgram,assessGarageServiceConnection,assessVerticalStairAlignment,rankSupportedHomeRoomPrograms,moveDesignWall,validateDesignDocument,designSourceSignature} from '../packages/candidates/design-document.ts';
 import {renderDesignDocumentAttachment} from '../packages/candidates/design-report-attachment.ts';
 import {createCandidateConceptHtml} from '../packages/candidates/customer-report.ts';
 import {emptyCandidateWorkspace,saveWorkspaceDesignDocument,currentWorkspaceDesignDocument,createWorkspaceExportPackage,importWorkspacePackage} from '../packages/candidates/workspace.ts';
@@ -72,6 +72,15 @@ for(const c of cases){
   const stairEvidence=assessVerticalStairAlignment(alternatives[0].document,plate.ownerId);
   assert.equal(stairEvidence.status,'NOT_VALIDATED');
   assert.equal(stairEvidence.overlaps.length,0);
+  const homeDrafts=rankSupportedHomeRoomPrograms(c,doc,plate.ownerId,[
+   {story:'GROUND',rooms:['Laundry','Kitchen','Living','Primary Bedroom','Primary Bath']},
+   {story:'UPPER',rooms:['Bedroom','Office']}
+  ],2);
+  assert.equal(homeDrafts.floors[0].state,'DRAFT_ALTERNATIVES');
+  assert.equal(homeDrafts.floors[1].state,'MISSING_OR_AMBIGUOUS_PLATE');
+  assert.equal(homeDrafts.vertical.status,'NOT_VALIDATED');
+  assert.equal(doc.shapes.filter(x=>x.kind==='ROOM').length,0,'Program ranking must not save a proposal');
+
 
 
 
