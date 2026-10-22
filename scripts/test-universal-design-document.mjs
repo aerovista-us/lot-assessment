@@ -153,6 +153,22 @@ for(const c of cases){
   const selectedRooms=selected.shapes.filter(s=>s.kind==='ROOM');
   const report=(await createCandidateConceptHtml(c,restored)).html;
   assert.equal((report.match(/data-design-shape="/g)||[]).length,selected.shapes.length);
+  const svgTags=[...report.matchAll(/<polygon\\b[^>]*data-design-shape="([^"]+)"[^>]*>/g)];
+  assert.equal(svgTags.length,selected.shapes.length,'Report must contain each saved shape once');
+  const shapeCoords=new Map(svgTags.map(match=>{
+   const points=match[0].match(/\\bpoints="([^"]+)"/);
+   assert(points,'Report polygon without points '+match[1]);
+   return [match[1],points[1].trim().split(/\\s+/).map(pair=>pair.split(',').map(Number))];
+  }));
+  assert.equal(shapeCoords.size,selected.shapes.length,'Report must not duplicate shape IDs');
+  for(const shape of selected.shapes){
+   const actual=shapeCoords.get(shape.id);
+   assert(actual,'Report omitted selected shape '+shape.id);
+   assert.equal(actual.length,shape.polygon.length,'Report changed polygon vertex count '+shape.id);
+   for(let i=0;i<actual.length;i++)for(let axis=0;axis<2;axis++)
+    assert(Math.abs(actual[i][axis]-shape.polygon[i][axis])<.001,'Report altered chosen room coordinates '+shape.id);
+  }
+
   for(const room of selectedRooms){
    assert(report.includes('data-design-shape="'+room.id+'"'),'Regenerated report must contain selected room ID');
    assert(report.includes(room.label),'Regenerated report must contain selected room name');
