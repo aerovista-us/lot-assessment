@@ -90,6 +90,15 @@ for(const c of cases){
   const obstruction=assessAuthoredCirculation(obstructed,plate.ownerId,plate.story);
   assert.equal(obstruction.status,'UNVERIFIED','Room intrusion cannot be accepted as open hallway');
   assert.deepEqual(obstruction.corridorCollisions,['test-hall:test-room-a']);
+  const overlappingRoom={...roomA,id:'test-room-b',polygon:[[4,0],[8,0],[8,8],[4,8]]};
+  const roomCollision=assessAuthoredCirculation({...centeredDoor,shapes:[roomA,overlappingRoom,wideHall]},plate.ownerId,plate.story);
+  assert.equal(roomCollision.status,'UNVERIFIED','Two rooms cannot claim the same interior floor area');
+  assert(roomCollision.corridorCollisions.includes('test-room-a:test-room-b'));
+  const duplicateHall={...wideHall,id:'duplicate-hall'};
+  const hallCollision=assessAuthoredCirculation({...centeredDoor,shapes:[roomA,wideHall,duplicateHall]},plate.ownerId,plate.story);
+  assert.equal(hallCollision.status,'UNVERIFIED','Overlapping corridors cannot be double counted');
+  assert(hallCollision.corridorCollisions.includes('test-hall:duplicate-hall'));
+
 
   const corridorIsland={...hall,id:'test-hall-island',polygon:[[20,0],[24,0],[24,8],[20,8]]};
   const islandDraft={...centeredDoor,shapes:[roomA,wideHall,corridorIsland]};
