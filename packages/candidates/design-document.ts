@@ -401,6 +401,47 @@ function packTwoDimensionalSeed(c:CandidateRecord,d:DesignDocument,plateId:strin
  return next;
 }
 
+/** Draft rectangular passage seed, preserving the same explicit choose/save flow.
+ * Generated openings and hall are conceptual only, never code-approved. */
+function packCorridorSeed(c:CandidateRecord,d:DesignDocument,plateId:string,order:string[]):DesignDocument{
+ validateDesignDocument(c,d);
+ const plate=d.shapes.find(x=>x.id===plateId);
+ if(!plate||plate.kind!=='FLOOR_PLATE'||plate.story===null||plate.polygon.length!==4||order.length<3)throw Error('Corridor seed needs a rectangular plate');
+ if(d.shapes.some(x=>x.ownerId===plate.ownerId&&x.story===plate.story&&['ROOM','CIRCULATION','STAIR_ZONE'].includes(x.kind)))throw Error('Authored floor requires reconciliation');
+ const p=plate.polygon,edge:P2=[p[1][0]-p[0][0],p[1][1]-p[0][1]],width=Math.hypot(...edge);
+ const other:P2=[p[3][0]-p[0][0],p[3][1]-p[0][1]],depth=Math.hypot(...other);
+ if(width<22||depth<22||Math.abs(edge[0]*other[0]+edge[1]*other[1])>1e-5*width*depth||
+ Math.hypot(p[2][0]-p[1][0]-other[0],p[2][1]-p[1][1]-other[1])>1e-5)throw Error('Corridor seed requires orthogonal rectangle');
+ const ux:P2=[edge[0]/width,edge[1]/width],uy:P2=[other[0]/depth,other[1]/depth];
+ const point=(x:number,y:number):P2=>[p[0][0]+x*ux[0]+y*uy[0],p[0][1]+x*ux[1]+y*uy[1]];
+ const rectangle=(a:number,b:number,c:number,e:number):P2[]=>[point(a,b),point(c,b),point(c,e),point(a,e)];
+ const hallWidth=3.5,hallBottom=(depth-hallWidth)/2,hallTop=hallBottom+hallWidth,cut=Math.ceil(order.length/2);
+ const rows=[order.slice(0,cut),order.slice(cut)],shapes:DesignShape[]=[],doors:DoorOpeningDraft[]=[];
+ const used=new Set(d.shapes.map(x=>x.id));let idN=1,doorN=1;
+ const nextId=()=>{while(used.has('shape-'+idN))idN++;const id='shape-'+idN++;used.add(id);return id;};
+ const hallId=nextId();shapes.push({id:hallId,ownerId:plate.ownerId,story:plate.story,kind:'CIRCULATION',label:'Central Hall (draft)',polygon:rectangle(0,hallBottom,width,hallTop),status:'DRAFT_UNVERIFIED'});
+ for(let row=0;row<2;row++){
+  const items=rows[row],weights=items.map(label=>/living|primary|master/i.test(label)?1.5:/bath|utility|laundry/i.test(label)?.8:1),total=weights.reduce((a,b)=>a+b,0);
+  let x=0;
+  for(let i=0;i<items.length;i++){
+   const right=i===items.length-1?width:x+width*weights[i]/total;
+   if(right-x<5||((row===0?hallBottom:depth-hallTop)*(right-x))<40)throw Error('Unusable corridor-adjacent room');
+   const y0=row===0?0:hallTop,y1=row===0?hallBottom:depth;
+   const id=nextId();
+   shapes.push({id,ownerId:plate.ownerId,story:plate.story,kind:'ROOM',label:items[i],polygon:rectangle(x,y0,right,y1),status:'DRAFT_UNVERIFIED'});
+   const center=point((x+right)/2,row===0?hallBottom:hallTop);
+   const doorId='auto-door-'+doorN++;
+   if((d.doors??[]).some(z=>z.id===doorId))throw Error('Door identity conflict');
+   doors.push({id:doorId,fromRoomId:id,toRoomId:hallId,story:plate.story,center,widthFt:3,status:'DRAFT_UNVERIFIED'});
+   x=right;
+  }
+ }
+ const next:DesignDocument={...d,revision:d.revision+1,shapes:[...d.shapes,...shapes],doors:[...(d.doors??[]),...doors]};
+ validateDesignDocument(c,next);
+ if(assessAuthoredCirculation(next,plate.ownerId,plate.story).status!=='DRAFT_ROUTE_CONNECTED')throw Error('Draft hall access is not connected');
+ return next;
+}
+
 /** Deterministic ranked concepts; evidence never implies a door or usable circulation. */
 export type DraftLayoutAssessment={
  schema:'lotscope-layout-assessment-v1';score:number;sourceRevision:number;
@@ -560,7 +601,7 @@ export function rankDraftRoomLayouts(c:CandidateRecord,d:DesignDocument,plateId:
  for(const order of orders){
   const key=order.join('\0');if(seen.has(key))continue;seen.add(key);
   let document:DesignDocument;
-  try{document=results.length%2===0?packTwoDimensionalSeed(c,d,plateId,order,results.length):packDraftRooms(c,d,plateId,labels,axis,d.updatedAt,order);}catch{try{document=packDraftRooms(c,d,plateId,labels,axis,d.updatedAt,order);}catch{continue;}}
+  try{document=results.length===0?packCorridorSeed(c,d,plateId,order):results.length%2===0?packTwoDimensionalSeed(c,d,plateId,order,results.length):packDraftRooms(c,d,plateId,labels,axis,d.updatedAt,order);}catch{try{document=packDraftRooms(c,d,plateId,labels,axis,d.updatedAt,order);}catch{continue;}}
   const added=document.shapes.filter(s=>s.kind==='ROOM'&&!d.shapes.some(t=>t.id===s.id));
   const byName=new Map(added.map(x=>[x.label,x]));
   const relationships=rules.map(rule=>{
