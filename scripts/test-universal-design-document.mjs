@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {pondyCandidateRegistry as registry} from '../projects/pondy-lot2/candidate-registry.ts';
 import {placementPolygon} from '../packages/roof-geometry/index.ts';
-import {emptyDesignDocument,addDesignShape,addOwnerFootprintShape,removeDesignShape,updateDesignShapePolygon,snapDesignPoint,partitionDesignShape,packDraftRooms,packLCorridorSeed,rankDraftRoomLayouts,assessDraftRoomConnectivity,assessAuthoredCirculation,assessSupportedStoryProgram,assessGarageServiceConnection,assessVerticalStairAlignment,rankSupportedHomeRoomPrograms,rankWholeHomeCombinations,moveDesignWall,validateDesignDocument,designSourceSignature} from '../packages/candidates/design-document.ts';
+import {emptyDesignDocument,addDesignShape,addOwnerFootprintShape,removeDesignShape,updateDesignShapePolygon,snapDesignPoint,partitionDesignShape,packDraftRooms,packLCorridorSeed,rankDraftRoomLayouts,assessDraftRoomConnectivity,assessAuthoredCirculation,assessSupportedStoryProgram,assessGarageServiceConnection,assessHomeRouteIntegration,assessVerticalStairAlignment,rankSupportedHomeRoomPrograms,rankWholeHomeCombinations,moveDesignWall,validateDesignDocument,designSourceSignature} from '../packages/candidates/design-document.ts';
 import {renderDesignDocumentAttachment} from '../packages/candidates/design-report-attachment.ts';
 import {createCandidateConceptHtml} from '../packages/candidates/customer-report.ts';
 import {emptyCandidateWorkspace,saveWorkspaceDesignDocument,currentWorkspaceDesignDocument,createWorkspaceExportPackage,importWorkspacePackage} from '../packages/candidates/workspace.ts';
@@ -56,6 +56,12 @@ for(const c of cases){
   const passageAccess=assessAuthoredCirculation(passageCandidate.document,plate.ownerId,plate.story);
   assert.equal(passageAccess.status,'DRAFT_ROUTE_CONNECTED');
   assert(passageAccess.corridorWidths.every(x=>x.verified));
+  const homeIntegration=assessHomeRouteIntegration(c,passageCandidate.document,plate.ownerId,['GROUND','UPPER']);
+  assert.equal(homeIntegration.status,'UNVERIFIED');
+  assert(homeIntegration.blockers.includes('STAIR_FLIGHT_AND_LANDINGS_UNVERIFIED'));
+  assert(homeIntegration.blockers.includes('UNVERIFIED_FLOOR_ROUTE:UPPER'));
+  assert(homeIntegration.limitations.some(x=>x.includes('No vertical stair flight')));
+
 
   for(const candidate of alternatives){
    const graph=assessDraftRoomConnectivity(candidate.document,plate.ownerId,plate.story);
