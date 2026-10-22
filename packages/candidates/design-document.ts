@@ -340,40 +340,62 @@ export function packDraftRooms(
 /** Two-row rectangular seed topology. This is a geometric candidate generator, NOT a
  * walkable floor-plan or door/egress solver. Irregular footprints remain on the
  * existing fail-closed clipping path until connected 2D subdivision is proven. */
+/** Source-bound two-dimensional grid subdivision. For concave plates the
+ * clipping result is accepted ONLY if each cell is a single valid polygon
+ * and the union accounts for the exact plate area; no phantom infill. */
 function packTwoDimensionalSeed(c:CandidateRecord,d:DesignDocument,plateId:string,order:string[],variant:number):DesignDocument{
  validateDesignDocument(c,d);
  const plate=d.shapes.find(x=>x.id===plateId);
  if(!plate||plate.kind!=='FLOOR_PLATE'||plate.story===null||order.length<3)throw Error('Unsupported 2D room seed');
  if(d.shapes.some(x=>x.ownerId===plate.ownerId&&x.story===plate.story&&['ROOM','CIRCULATION','STAIR_ZONE'].includes(x.kind)))throw Error('Existing authored rooms require reconciliation');
- const p=plate.polygon;
- if(p.length!==4)throw Error('2D seed requires rectangular plate');
- const origin=p[0],ex:[number,number]=[p[1][0]-p[0][0],p[1][1]-p[0][1]],ey:[number,number]=[p[3][0]-p[0][0],p[3][1]-p[0][1]];
- const width=Math.hypot(...ex),depth=Math.hypot(...ey);
- if(width<12||depth<12||Math.abs(ex[0]*ey[0]+ex[1]*ey[1])>1e-5*width*depth||
-  Math.hypot(p[2][0]-p[1][0]-ey[0],p[2][1]-p[1][1]-ey[1])>1e-5)
-  throw Error('2D seed requires orthogonal rectangular plate');
- const ux:[number,number]=[ex[0]/width,ex[1]/width],uy:[number,number]=[ey[0]/depth,ey[1]/depth];
- const world=(x:number,y:number):P2=>[origin[0]+ux[0]*x+uy[0]*y,origin[1]+ux[1]*x+uy[1]*y];
+ const p=plate.polygon,origin=p[0],ex:[number,number]=[p[1][0]-p[0][0],p[1][1]-p[0][1]];
+ const widthAxis=Math.hypot(...ex);if(widthAxis<EPS)throw Error('Degenerate footprint edge');
+ const ux:P2=[ex[0]/widthAxis,ex[1]/widthAxis],uy:P2=[-ux[1],ux[0]];
+ const local=(q:P2):P2=>[(q[0]-origin[0])*ux[0]+(q[1]-origin[1])*ux[1],(q[0]-origin[0])*uy[0]+(q[1]-origin[1])*uy[1]];
+ const world=(q:P2):P2=>[origin[0]+q[0]*ux[0]+q[1]*uy[0],origin[1]+q[0]*ux[1]+q[1]*uy[1]];
+ const poly=p.map(local),xs=poly.map(q=>q[0]),ys=poly.map(q=>q[1]);
+ const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys),width=maxX-minX,depth=maxY-minY;
+ if(width<12||depth<12)throw Error('2D seed footprint too narrow');
+ const clip=(points:P2[],dimension:0|1,cut:number,upper:boolean):P2[]=>{
+  const output:P2[]=[];
+  for(let i=0;i<points.length;i++){
+   const a=points[i],b=points[(i+1)%points.length],ina=upper?a[dimension]>=cut-EPS:a[dimension]<=cut+EPS,inb=upper?b[dimension]>=cut-EPS:b[dimension]<=cut+EPS;
+   if(ina)output.push(a);
+   if(ina!==inb){const t=(cut-a[dimension])/(b[dimension]-a[dimension]);output.push([a[0]+t*(b[0]-a[0]),a[1]+t*(b[1]-a[1])]);}
+  }
+  const clean:P2[]=[];
+  for(const q of output)if(!clean.length||Math.hypot(q[0]-clean[clean.length-1][0],q[1]-clean[clean.length-1][1])>1e-6)clean.push(q);
+  if(clean.length>1&&Math.hypot(clean[0][0]-clean[clean.length-1][0],clean[0][1]-clean[clean.length-1][1])<1e-6)clean.pop();
+  return clean;
+ };
  const cut=Math.max(1,Math.min(order.length-1,variant%2===0?Math.ceil(order.length/2):Math.floor(order.length/2)));
- const rows=[order.slice(0,cut),order.slice(cut)];
- const rowDepths=[depth*(variant%3===0?.48:variant%3===1?.56:.42),0];rowDepths[1]=depth-rowDepths[0];
+ const rows=[order.slice(0,cut),order.slice(cut)],rowCut=minY+depth*(variant%3===0?.48:variant%3===1?.56:.42);
  const weight=(name:string)=>/living|great|family|primary|master/i.test(name)?1.5:/bath|laundry|utility|mud|pantry/i.test(name)?.8:1.1;
- const added:DesignShape[]=[];const used=new Set(d.shapes.map(x=>x.id));let seq=1,y0=0;
+ const added:DesignShape[]=[],used=new Set(d.shapes.map(x=>x.id));let seq=1,area=0;
  for(let r=0;r<2;r++){
-  const row=rows[r],total=row.reduce((n,label)=>n+weight(label),0),height=rowDepths[r];
-  if(height<6)throw Error('2D seed row too shallow');
-  let x0=0;
-  for(const label of row){
-   const span=width*weight(label)/total,x1=x0+span;
-   if(span<5||span*height<40)throw Error('2D seed creates an unusable room');
-   const polygon=[world(x0,y0),world(x1,y0),world(x1,y0+height),world(x0,y0+height)];
+  const row=rows[r],total=row.reduce((n,label)=>n+weight(label),0);
+  const strip=clip(poly,1,rowCut,r===1);
+  if(strip.length<3)throw Error('Empty 2D row in source polygon');
+  let x0=minX;
+  for(let i=0;i<row.length;i++){
+   const label=row[i],x1=i===row.length-1?maxX:x0+width*weight(label)/total;
+   let cell=clip(strip,0,x0,true);cell=clip(cell,0,x1,false);
+   if(cell.length<3)throw Error('Unsupported disconnected room region');
+   const polygon=cell.map(world);
+   validPolygon(polygon,label);
+   const cellArea=Math.abs(signedPolygonArea(polygon));
+   const dx=Math.max(...cell.map(q=>q[0]))-Math.min(...cell.map(q=>q[0]));
+   const dy=Math.max(...cell.map(q=>q[1]))-Math.min(...cell.map(q=>q[1]));
+   if(Math.min(dx,dy)<5||cellArea<40||!contained(polygon,p))throw Error('2D seed invalid room geometry');
    while(used.has('shape-'+seq))seq++;
    const id='shape-'+seq++;used.add(id);
    added.push({id,ownerId:plate.ownerId,story:plate.story,kind:'ROOM',label,polygon,status:'DRAFT_UNVERIFIED'});
-   x0=x1;
+   area+=cellArea;x0=x1;
   }
-  y0+=height;
  }
+ // Concave slices may form disconnected islands: never silently discard them.
+ if(Math.abs(area-Math.abs(signedPolygonArea(p)))>Math.max(.01,Math.abs(signedPolygonArea(p))*.0001))
+  throw Error('2D seed cannot account for complete footprint');
  const next:DesignDocument={...d,revision:d.revision+1,updatedAt:d.updatedAt,shapes:[...d.shapes,...added]};
  validateDesignDocument(c,next);
  return next;
