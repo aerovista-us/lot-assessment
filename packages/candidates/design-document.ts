@@ -459,6 +459,26 @@ function overlapBoundary(a:P2[],b:P2[]):number{
   shared+=Math.max(0,Math.min(len,Math.max(t(q),t(r)))-Math.max(0,Math.min(t(q),t(r))));
  }return shared;
 }
+/** Check an entire doorway interval on a shared straight wall, including
+ * end clearances, rather than merely touching the wall at its center. */
+function hasUsableDoorInterval(a:P2[],b:P2[],center:P2,widthFt:number,endClearanceFt=.5){
+ if(!Number.isFinite(widthFt)||widthFt<=0)return false;
+ const half=widthFt/2+endClearanceFt;
+ for(let i=0;i<a.length;i++){
+  const p=a[i],q=a[(i+1)%a.length],dx=q[0]-p[0],dy=q[1]-p[1],len=Math.hypot(dx,dy);
+  if(len<widthFt+2*endClearanceFt||Math.abs(cross(p,q,center))/len>1e-5)continue;
+  const c=((center[0]-p[0])*dx+(center[1]-p[1])*dy)/len;
+  if(c<half-1e-5||c>len-half+1e-5)continue;
+  for(let j=0;j<b.length;j++){
+   const r=b[j],t=b[(j+1)%b.length];
+   if(Math.abs(cross(p,q,r))/len>1e-5||Math.abs(cross(p,q,t))/len>1e-5)continue;
+   const lo=Math.min(((r[0]-p[0])*dx+(r[1]-p[1])*dy)/len,((t[0]-p[0])*dx+(t[1]-p[1])*dy)/len);
+   const hi=Math.max(((r[0]-p[0])*dx+(r[1]-p[1])*dy)/len,((t[0]-p[0])*dx+(t[1]-p[1])*dy)/len);
+   if(c-half>=lo-1e-5&&c+half<=hi+1e-5)return true;
+  }
+ }
+ return false;
+}
 /** Geometry-only access graph. An edge means a common wall could fit a
  * proposed opening; it does not prove a door, route, exit, or code clearance. */
 export function assessDraftRoomConnectivity(d:DesignDocument,ownerId:string,story:'GROUND'|'UPPER'|'OTHER',doorWidthFt=3){
@@ -498,9 +518,8 @@ export function assessAuthoredCirculation(d:DesignDocument,ownerId:string,story:
  for(const door of d.doors??[]){
   if(door.story!==story||!ids.has(door.fromRoomId)||!ids.has(door.toRoomId))continue;
   const from=d.shapes.find(x=>x.id===door.fromRoomId)!,to=d.shapes.find(x=>x.id===door.toRoomId)!;
-  const centeredOnBoth=from.polygon.some((p,i)=>onEdge(door.center,p,from.polygon[(i+1)%from.polygon.length]))&&
-   to.polygon.some((p,i)=>onEdge(door.center,p,to.polygon[(i+1)%to.polygon.length]));
-  if(!Number.isFinite(door.widthFt)||door.widthFt<3||!centeredOnBoth||overlapBoundary(from.polygon,to.polygon)<door.widthFt+1){
+  const intervalFits=hasUsableDoorInterval(from.polygon,to.polygon,door.center,door.widthFt);
+  if(!Number.isFinite(door.widthFt)||door.widthFt<3||!intervalFits){
    rejected.push(door.id);continue;
   }
   accepted.push({doorId:door.id,from:from.id,to:to.id});
