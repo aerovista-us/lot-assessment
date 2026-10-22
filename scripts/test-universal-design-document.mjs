@@ -85,6 +85,16 @@ for(const c of cases){
   assert.deepEqual(cornerEvidence.rejectedDoors,['test-door']);
   const centeredDoor={...cornerDoor,doors:[{...cornerDoor.doors[0],center:[8,4]}]};
   assert.equal(assessAuthoredCirculation(centeredDoor,plate.ownerId,plate.story).status,'DRAFT_ROUTE_CONNECTED');
+  // A bedroom accessible only through another room is graph-connected, but
+  // cannot masquerade as independent hallway circulation.
+  const roomB={...roomA,id:'test-room-through',label:'Private Bedroom',polygon:[[-8,0],[0,0],[0,8],[-8,8]]};
+  const throughDoor={id:'through-room-door',story:plate.story,fromRoomId:roomA.id,toRoomId:roomB.id,center:[0,4],widthFt:3,status:'DRAFT_UNVERIFIED'};
+  const throughRoom={...centeredDoor,shapes:[roomA,roomB,wideHall],doors:[...centeredDoor.doors,throughDoor]};
+  const throughResult=assessAuthoredCirculation(throughRoom,plate.ownerId,plate.story);
+  assert.equal(throughResult.unreachableRooms.length,0,'A generic door graph can still reach the private room');
+  assert.deepEqual(throughResult.roomsWithoutHallDoor,['test-room-through']);
+  assert.equal(throughResult.status,'UNVERIFIED','Private-room transit cannot certify independent circulation');
+
   const intrudingRoom={...roomA,polygon:[[0,0],[9,0],[9,8],[0,8]]};
   const obstructed={...centeredDoor,shapes:[intrudingRoom,wideHall]};
   const obstruction=assessAuthoredCirculation(obstructed,plate.ownerId,plate.story);
