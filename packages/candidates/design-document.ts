@@ -337,6 +337,48 @@ export function packDraftRooms(
  validateDesignDocument(c,next);return next;
 }
 
+/** Two-row rectangular seed topology. This is a geometric candidate generator, NOT a
+ * walkable floor-plan or door/egress solver. Irregular footprints remain on the
+ * existing fail-closed clipping path until connected 2D subdivision is proven. */
+function packTwoDimensionalSeed(c:CandidateRecord,d:DesignDocument,plateId:string,order:string[],variant:number):DesignDocument{
+ validateDesignDocument(c,d);
+ const plate=d.shapes.find(x=>x.id===plateId);
+ if(!plate||plate.kind!=='FLOOR_PLATE'||plate.story===null||order.length<3)throw Error('Unsupported 2D room seed');
+ if(d.shapes.some(x=>x.ownerId===plate.ownerId&&x.story===plate.story&&['ROOM','CIRCULATION','STAIR_ZONE'].includes(x.kind)))throw Error('Existing authored rooms require reconciliation');
+ const p=plate.polygon;
+ if(p.length!==4)throw Error('2D seed requires rectangular plate');
+ const origin=p[0],ex:[number,number]=[p[1][0]-p[0][0],p[1][1]-p[0][1]],ey:[number,number]=[p[3][0]-p[0][0],p[3][1]-p[0][1]];
+ const width=Math.hypot(...ex),depth=Math.hypot(...ey);
+ if(width<12||depth<12||Math.abs(ex[0]*ey[0]+ex[1]*ey[1])>1e-5*width*depth||
+  Math.hypot(p[2][0]-p[1][0]-ey[0],p[2][1]-p[1][1]-ey[1])>1e-5)
+  throw Error('2D seed requires orthogonal rectangular plate');
+ const ux:[number,number]=[ex[0]/width,ex[1]/width],uy:[number,number]=[ey[0]/depth,ey[1]/depth];
+ const world=(x:number,y:number):P2=>[origin[0]+ux[0]*x+uy[0]*y,origin[1]+ux[1]*x+uy[1]*y];
+ const cut=Math.max(1,Math.min(order.length-1,variant%2===0?Math.ceil(order.length/2):Math.floor(order.length/2)));
+ const rows=[order.slice(0,cut),order.slice(cut)];
+ const rowDepths=[depth*(variant%3===0?.48:variant%3===1?.56:.42),0];rowDepths[1]=depth-rowDepths[0];
+ const weight=(name:string)=>/living|great|family|primary|master/i.test(name)?1.5:/bath|laundry|utility|mud|pantry/i.test(name)?.8:1.1;
+ const added:DesignShape[]=[];const used=new Set(d.shapes.map(x=>x.id));let seq=1,y0=0;
+ for(let r=0;r<2;r++){
+  const row=rows[r],total=row.reduce((n,label)=>n+weight(label),0),height=rowDepths[r];
+  if(height<6)throw Error('2D seed row too shallow');
+  let x0=0;
+  for(const label of row){
+   const span=width*weight(label)/total,x1=x0+span;
+   if(span<5||span*height<40)throw Error('2D seed creates an unusable room');
+   const polygon=[world(x0,y0),world(x1,y0),world(x1,y0+height),world(x0,y0+height)];
+   while(used.has('shape-'+seq))seq++;
+   const id='shape-'+seq++;used.add(id);
+   added.push({id,ownerId:plate.ownerId,story:plate.story,kind:'ROOM',label,polygon,status:'DRAFT_UNVERIFIED'});
+   x0=x1;
+  }
+  y0+=height;
+ }
+ const next:DesignDocument={...d,revision:d.revision+1,updatedAt:d.updatedAt,shapes:[...d.shapes,...added]};
+ validateDesignDocument(c,next);
+ return next;
+}
+
 /** Deterministic ranked concepts; evidence never implies a door or usable circulation. */
 export type DraftLayoutAssessment={
  schema:'lotscope-layout-assessment-v1';score:number;sourceRevision:number;
@@ -377,7 +419,7 @@ export function rankDraftRoomLayouts(c:CandidateRecord,d:DesignDocument,plateId:
  for(const order of orders){
   const key=order.join('\0');if(seen.has(key))continue;seen.add(key);
   let document:DesignDocument;
-  try{document=packDraftRooms(c,d,plateId,labels,axis,d.updatedAt,order);}catch{continue;}
+  try{document=results.length%2===0?packTwoDimensionalSeed(c,d,plateId,order,results.length):packDraftRooms(c,d,plateId,labels,axis,d.updatedAt,order);}catch{try{document=packDraftRooms(c,d,plateId,labels,axis,d.updatedAt,order);}catch{continue;}}
   const added=document.shapes.filter(s=>s.kind==='ROOM'&&!d.shapes.some(t=>t.id===s.id));
   const byName=new Map(added.map(x=>[x.label,x]));
   const relationships=rules.map(rule=>{
