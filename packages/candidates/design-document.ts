@@ -562,21 +562,21 @@ export function assessDraftRoomConnectivity(d:DesignDocument,ownerId:string,stor
   limitations:['Common wall length only; door placement, circulation widths, accessible paths, exterior access and egress NOT validated']};
 }
 
-/** Strict interior collision test for convex spaces. Touching a wall is
- * allowed; overlapping interiors invalidate draft passage clearance. */
-function convexInteriorOverlap(a:P2[],b:P2[]){
- const convex=(p:P2[])=>{
-  const turns=p.map((v,i)=>cross(v,p[(i+1)%p.length],p[(i+2)%p.length]));
-  return turns.every(t=>t>=-1e-6)||turns.every(t=>t<=1e-6);
- };
- if(!convex(a)||!convex(b))return null;
- for(const poly of [a,b])for(let i=0;i<poly.length;i++){
-  const p=poly[i],q=poly[(i+1)%poly.length],axis:P2=[q[1]-p[1],p[0]-q[0]];
-  const project=(pts:P2[])=>pts.map(v=>v[0]*axis[0]+v[1]*axis[1]);
-  const aa=project(a),bb=project(b);
-  if(Math.min(...aa)>=Math.max(...bb)-1e-6||Math.min(...bb)>=Math.max(...aa)-1e-6)return false;
+/** Strict interior polygon collision: boundary contact alone is permitted.
+ * Crossings or interior vertices/midpoints constitute an obstruction. */
+function polygonInteriorOverlap(a:P2[],b:P2[]){
+ const strictInside=(p:P2[],q:P2)=>!p.some((v,i)=>onEdge(q,v,p[(i+1)%p.length]))&&inside(q,p);
+ for(let i=0;i<a.length;i++)for(let j=0;j<b.length;j++){
+  const p=a[i],q=a[(i+1)%a.length],r=b[j],t=b[(j+1)%b.length];
+  if(cross(p,q,r)*cross(p,q,t)<-EPS&&cross(r,t,p)*cross(r,t,q)<-EPS)return true;
  }
- return true;
+ for(const [first,other] of [[a,b],[b,a]]){
+  for(let i=0;i<first.length;i++){
+   const x=first[i],y=first[(i+1)%first.length];
+   if(strictInside(other,x)||strictInside(other,[(x[0]+y[0])/2,(x[1]+y[1])/2]))return true;
+  }
+ }
+ return false;
 }
 /** Explicit circulation evidence only. Unlike adjacency, this check uses authored
  * door records and an authored circulation zone. It still cannot certify
@@ -631,16 +631,13 @@ export function assessAuthoredCirculation(d:DesignDocument,ownerId:string,story:
   return {id:corridor.id,widthFt,verified:perpendicular&&parallelOpposites&&widthFt>=clearWidthFt};
  });
  const corridorCollisions:string[]=[];
- let unsupportedClearance=false;
  for(const corridor of corridors)for(const room of rooms){
-  const overlap=convexInteriorOverlap(corridor.polygon,room.polygon);
-  if(overlap===true)corridorCollisions.push(corridor.id+':'+room.id);
-  if(overlap===null)unsupportedClearance=true;
+  if(polygonInteriorOverlap(corridor.polygon,room.polygon))corridorCollisions.push(corridor.id+':'+room.id);
  }
  const corridorGeometryVerified=hasCorridor&&corridorWidths.every(x=>x.verified)&&
-  corridorCollisions.length===0&&!unsupportedClearance;
+  corridorCollisions.length===0;
  return {status:rooms.length>0&&corridorGeometryVerified&&unreachableRooms.length===0&&disconnectedCorridors.length===0&&rejected.length===0?'DRAFT_ROUTE_CONNECTED' as const:'UNVERIFIED' as const,
-  rooms:rooms.length,circulationZones:corridors.length,corridorWidths,corridorCollisions,unsupportedClearance,acceptedDoors:accepted,rejectedDoors:rejected,unreachableRooms,disconnectedCorridors,
+  rooms:rooms.length,circulationZones:corridors.length,corridorWidths,corridorCollisions,acceptedDoors:accepted,rejectedDoors:rejected,unreachableRooms,disconnectedCorridors,
   limitations:['Door width and common-wall graph are draft-only; actual route clearance, swings, exterior exit, vertical access and code review are NOT proven']};
 }
 
