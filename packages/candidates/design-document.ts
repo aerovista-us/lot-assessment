@@ -422,6 +422,38 @@ export function assessDraftRoomConnectivity(d:DesignDocument,ownerId:string,stor
   limitations:['Common wall length only; door placement, circulation widths, accessible paths, exterior access and egress NOT validated']};
 }
 
+/** Explicit circulation evidence only. Unlike adjacency, this check uses authored
+ * door records and an authored circulation zone. It still cannot certify
+ * door swing, unobstructed route width, exterior exits or building code. */
+export function assessAuthoredCirculation(d:DesignDocument,ownerId:string,story:'GROUND'|'UPPER'|'OTHER'){
+ const rooms=d.shapes.filter(x=>x.ownerId===ownerId&&x.story===story&&x.kind==='ROOM');
+ const corridors=d.shapes.filter(x=>x.ownerId===ownerId&&x.story===story&&x.kind==='CIRCULATION');
+ const ids=new Set([...rooms,...corridors].map(x=>x.id));
+ const links=new Map([...ids].map(id=>[id,[] as string[]]));
+ const accepted:{doorId:string;from:string;to:string}[]=[];
+ const rejected:string[]=[];
+ for(const door of d.doors??[]){
+  if(door.story!==story||!ids.has(door.fromRoomId)||!ids.has(door.toRoomId))continue;
+  const from=d.shapes.find(x=>x.id===door.fromRoomId)!,to=d.shapes.find(x=>x.id===door.toRoomId)!;
+  if(!Number.isFinite(door.widthFt)||door.widthFt<3||overlapBoundary(from.polygon,to.polygon)<door.widthFt+1){
+   rejected.push(door.id);continue;
+  }
+  accepted.push({doorId:door.id,from:from.id,to:to.id});
+  links.get(from.id)?.push(to.id);links.get(to.id)?.push(from.id);
+ }
+ const reached=new Set<string>(),queue=corridors.map(x=>x.id);
+ queue.forEach(id=>reached.add(id));
+ while(queue.length){
+  const id=queue.shift()!;
+  for(const next of links.get(id)??[])if(!reached.has(next)){reached.add(next);queue.push(next);}
+ }
+ const unreachableRooms=rooms.filter(x=>!reached.has(x.id)).map(x=>x.id);
+ const hasCorridor=corridors.length>0;
+ return {status:hasCorridor&&unreachableRooms.length===0&&rejected.length===0?'DRAFT_ROUTE_CONNECTED' as const:'UNVERIFIED' as const,
+  rooms:rooms.length,circulationZones:corridors.length,acceptedDoors:accepted,rejectedDoors:rejected,unreachableRooms,
+  limitations:['Door width and common-wall graph are draft-only; actual route clearance, swings, exterior exit, vertical access and code review are NOT proven']};
+}
+
 export function rankDraftRoomLayouts(c:CandidateRecord,d:DesignDocument,plateId:string,labels:string[],axis:'X'|'Y',limit=3):RankedDraftLayout[]{
  if(!Number.isInteger(limit)||limit<1||limit>5)throw Error('Choose 1–5 concept alternatives');
  if(new Set(labels.map(x=>x.trim().toLowerCase())).size!==labels.length)throw Error('Room labels must be unique for relationships');
