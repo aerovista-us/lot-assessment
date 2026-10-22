@@ -451,6 +451,7 @@ export function packLCorridorSeed(c:CandidateRecord,d:DesignDocument,plateId:str
   throw Error('L corridor needs a six-corner plate and five-room program');
  if(d.shapes.some(x=>x.ownerId===plate.ownerId&&x.story===plate.story&&['ROOM','CIRCULATION','STAIR_ZONE'].includes(x.kind)))
   throw Error('Existing layout requires explicit reconciliation');
+ const story=plate.story;
  const p=plate.polygon,origin=p[0],e:P2=[p[1][0]-p[0][0],p[1][1]-p[0][1]],w=Math.hypot(...e);
  if(w<EPS)throw Error('L orientation unavailable');
  const u:P2=[e[0]/w,e[1]/w],v:P2=[-u[1],u[0]];
@@ -478,22 +479,22 @@ export function packLCorridorSeed(c:CandidateRecord,d:DesignDocument,plateId:str
  if(!contained(hall,p))throw Error('L hall exits building outline');
  const used=new Set(d.shapes.map(x=>x.id)),nextId=()=>{let i=1;while(used.has('shape-'+i))i++;const id='shape-'+i;used.add(id);return id;};
  const hallId=nextId();
- const shapes:DesignShape[]=[{id:hallId,ownerId:plate.ownerId,story:plate.story,kind:'CIRCULATION',label:'Turning Hall (draft)',polygon:hall,status:'DRAFT_UNVERIFIED'}];
+ const shapes:DesignShape[]=[{id:hallId,ownerId:plate.ownerId,story,kind:'CIRCULATION',label:'Turning Hall (draft)',polygon:hall,status:'DRAFT_UNVERIFIED'}];
  const center=[point(topCut/2,yLow),point((topCut+xHigh)/2,yLow),point(notchX/2,yHigh),
   point(xLow,(yHigh+height)/2),point(xHigh,height/2)];
  const doors:DoorOpeningDraft[]=[];
  bounds.forEach((b,i)=>{
   const polygon=rect(b[0],b[1],b[2],b[3]),id=nextId();
   if(!contained(polygon,p))throw Error('L room outside source');
-  shapes.push({id,ownerId:plate.ownerId,story:plate.story,kind:'ROOM',label:order[i],polygon,status:'DRAFT_UNVERIFIED'});
-  doors.push({id:'auto-l-door-'+(i+1),story:plate.story,fromRoomId:id,toRoomId:hallId,center:center[i],widthFt:3,status:'DRAFT_UNVERIFIED'});
+  shapes.push({id,ownerId:plate.ownerId,story,kind:'ROOM',label:order[i],polygon,status:'DRAFT_UNVERIFIED'});
+  doors.push({id:'auto-l-door-'+(i+1),story,fromRoomId:id,toRoomId:hallId,center:center[i],widthFt:3,status:'DRAFT_UNVERIFIED'});
  });
  const originalArea=Math.abs(signedPolygonArea(p));
  const covered=shapes.reduce((n,shape)=>n+Math.abs(signedPolygonArea(shape.polygon)),0);
  if(Math.abs(originalArea-covered)>Math.max(.01,originalArea*.0001))throw Error('L room/corridor coverage mismatch');
  const next:DesignDocument={...d,revision:d.revision+1,shapes:[...d.shapes,...shapes],doors:[...(d.doors??[]),...doors]};
  validateDesignDocument(c,next);
- if(assessAuthoredCirculation(next,plate.ownerId,plate.story).status!=='DRAFT_ROUTE_CONNECTED')
+ if(assessAuthoredCirculation(next,plate.ownerId,story).status!=='DRAFT_ROUTE_CONNECTED')
  throw Error('L corridor missing valid room doors or passage');
  return next;
 }
