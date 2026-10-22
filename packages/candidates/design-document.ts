@@ -449,9 +449,25 @@ export function assessAuthoredCirculation(d:DesignDocument,ownerId:string,story:
  }
  const unreachableRooms=rooms.filter(x=>!reached.has(x.id)).map(x=>x.id);
  const hasCorridor=corridors.length>0;
- return {status:hasCorridor&&unreachableRooms.length===0&&rejected.length===0?'DRAFT_ROUTE_CONNECTED' as const:'UNVERIFIED' as const,
+ return {status:rooms.length>0&&hasCorridor&&unreachableRooms.length===0&&rejected.length===0?'DRAFT_ROUTE_CONNECTED' as const:'UNVERIFIED' as const,
   rooms:rooms.length,circulationZones:corridors.length,acceptedDoors:accepted,rejectedDoors:rejected,unreachableRooms,
   limitations:['Door width and common-wall graph are draft-only; actual route clearance, swings, exterior exit, vertical access and code review are NOT proven']};
+}
+
+/** Read-only whole-home story inventory. Never derives a story by cloning
+ * another floor; every supported level requires a distinct authored plate. */
+export function assessSupportedStoryProgram(d:DesignDocument,ownerId:string,requiredStories:('GROUND'|'UPPER'|'OTHER')[]){
+ const stories=[...new Set(requiredStories)];
+ return {ownerId,stories:stories.map(story=>{
+  const plates=d.shapes.filter(x=>x.ownerId===ownerId&&x.story===story&&x.kind==='FLOOR_PLATE');
+  const rooms=d.shapes.filter(x=>x.ownerId===ownerId&&x.story===story&&x.kind==='ROOM');
+  const stairs=d.shapes.filter(x=>x.ownerId===ownerId&&x.story===story&&x.kind==='STAIR_ZONE');
+  const access=assessAuthoredCirculation(d,ownerId,story);
+  return {story,plates:plates.length,rooms:rooms.length,stairs:stairs.length,
+   state:plates.length!==1?'MISSING_OR_AMBIGUOUS_PLATE' as const:rooms.length===0?'ROOM_PROGRAM_MISSING' as const:access.status==='UNVERIFIED'?'ACCESS_UNVERIFIED' as const:'DRAFT_REVIEW' as const,
+   access};
+ }),verticalConnections:'NOT_VALIDATED' as const,
+  limitations:['No upper floor is invented from ground-floor geometry','Stair openings, landings and interstory route connectivity require explicit source evidence']};
 }
 
 export function rankDraftRoomLayouts(c:CandidateRecord,d:DesignDocument,plateId:string,labels:string[],axis:'X'|'Y',limit=3):RankedDraftLayout[]{
