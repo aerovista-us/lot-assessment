@@ -562,6 +562,22 @@ export function assessDraftRoomConnectivity(d:DesignDocument,ownerId:string,stor
   limitations:['Common wall length only; door placement, circulation widths, accessible paths, exterior access and egress NOT validated']};
 }
 
+/** Strict interior collision test for convex spaces. Touching a wall is
+ * allowed; overlapping interiors invalidate draft passage clearance. */
+function convexInteriorOverlap(a:P2[],b:P2[]){
+ const convex=(p:P2[])=>{
+  const turns=p.map((v,i)=>cross(v,p[(i+1)%p.length],p[(i+2)%p.length]));
+  return turns.every(t=>t>=-1e-6)||turns.every(t=>t<=1e-6);
+ };
+ if(!convex(a)||!convex(b))return null;
+ for(const poly of [a,b])for(let i=0;i<poly.length;i++){
+  const p=poly[i],q=poly[(i+1)%poly.length],axis:P2=[q[1]-p[1],p[0]-q[0]];
+  const project=(pts:P2[])=>pts.map(v=>v[0]*axis[0]+v[1]*axis[1]);
+  const aa=project(a),bb=project(b);
+  if(Math.min(...aa)>=Math.max(...bb)-1e-6||Math.min(...bb)>=Math.max(...aa)-1e-6)return false;
+ }
+ return true;
+}
 /** Explicit circulation evidence only. Unlike adjacency, this check uses authored
  * door records and an authored circulation zone. It still cannot certify
  * door swing, unobstructed route width, exterior exits or building code. */
@@ -614,9 +630,17 @@ export function assessAuthoredCirculation(d:DesignDocument,ownerId:string,story:
   const widthFt=Math.min(...edgeLengths);
   return {id:corridor.id,widthFt,verified:perpendicular&&parallelOpposites&&widthFt>=clearWidthFt};
  });
- const corridorGeometryVerified=hasCorridor&&corridorWidths.every(x=>x.verified);
+ const corridorCollisions:string[]=[];
+ let unsupportedClearance=false;
+ for(const corridor of corridors)for(const room of rooms){
+  const overlap=convexInteriorOverlap(corridor.polygon,room.polygon);
+  if(overlap===true)corridorCollisions.push(corridor.id+':'+room.id);
+  if(overlap===null)unsupportedClearance=true;
+ }
+ const corridorGeometryVerified=hasCorridor&&corridorWidths.every(x=>x.verified)&&
+  corridorCollisions.length===0&&!unsupportedClearance;
  return {status:rooms.length>0&&corridorGeometryVerified&&unreachableRooms.length===0&&disconnectedCorridors.length===0&&rejected.length===0?'DRAFT_ROUTE_CONNECTED' as const:'UNVERIFIED' as const,
-  rooms:rooms.length,circulationZones:corridors.length,corridorWidths,acceptedDoors:accepted,rejectedDoors:rejected,unreachableRooms,disconnectedCorridors,
+  rooms:rooms.length,circulationZones:corridors.length,corridorWidths,corridorCollisions,unsupportedClearance,acceptedDoors:accepted,rejectedDoors:rejected,unreachableRooms,disconnectedCorridors,
   limitations:['Door width and common-wall graph are draft-only; actual route clearance, swings, exterior exit, vertical access and code review are NOT proven']};
 }
 
