@@ -442,6 +442,62 @@ function packCorridorSeed(c:CandidateRecord,d:DesignDocument,plateId:string,orde
  return next;
 }
 
+/** Strict orthogonal L-plate proposal. Keeps the missing corner empty and
+ * reserves an actual turning corridor. Other concave topologies fail closed. */
+function packLCorridorSeed(c:CandidateRecord,d:DesignDocument,plateId:string,order:string[]):DesignDocument{
+ validateDesignDocument(c,d);
+ const plate=d.shapes.find(x=>x.id===plateId);
+ if(!plate||plate.kind!=='FLOOR_PLATE'||plate.story===null||plate.polygon.length!==6||order.length!==5)
+  throw Error('L corridor needs a six-corner plate and five-room program');
+ if(d.shapes.some(x=>x.ownerId===plate.ownerId&&x.story===plate.story&&['ROOM','CIRCULATION','STAIR_ZONE'].includes(x.kind)))
+  throw Error('Existing layout requires explicit reconciliation');
+ const p=plate.polygon,origin=p[0],e:P2=[p[1][0]-p[0][0],p[1][1]-p[0][1]],w=Math.hypot(...e);
+ if(w<EPS)throw Error('L orientation unavailable');
+ const u:P2=[e[0]/w,e[1]/w],v:P2=[-u[1],u[0]];
+ const local=(q:P2):P2=>[(q[0]-origin[0])*u[0]+(q[1]-origin[1])*u[1],(q[0]-origin[0])*v[0]+(q[1]-origin[1])*v[1]];
+ const xy=p.map(local),height=xy[2][1],notchX=xy[3][0],notchY=xy[4][1];
+ const nearly=(a:number,b:number)=>Math.abs(a-b)<1e-4;
+ if(height<22||notchX<10||notchY<18||w-notchX<14||
+ !nearly(xy[0][0],0)||!nearly(xy[0][1],0)||
+ !nearly(xy[1][0],w)||!nearly(xy[1][1],0)||
+ !nearly(xy[2][0],w)||!nearly(xy[3][1],height)||
+ !nearly(xy[4][0],notchX)||!nearly(xy[4][1],notchY)||
+ !nearly(xy[5][0],0)||!nearly(xy[5][1],notchY))
+ throw Error('Unsupported L orientation or insufficient arms');
+ const point=(x:number,y:number):P2=>[origin[0]+x*u[0]+y*v[0],origin[1]+x*u[1]+y*v[1]];
+ const rect=(x0:number,y0:number,x1:number,y1:number)=>[point(x0,y0),point(x1,y0),point(x1,y1),point(x0,y1)];
+ const hallWidth=3.5,yLow=notchY/2-hallWidth/2,yHigh=yLow+hallWidth;
+ const xLow=notchX+(w-notchX-hallWidth)/2,xHigh=xLow+hallWidth;
+ const topCut=xHigh/2;
+ const bounds=[[0,0,topCut,yLow],[topCut,0,xHigh,yLow],[0,yHigh,notchX,notchY],
+  [notchX,yHigh,xLow,height],[xHigh,0,w,height]];
+ if(bounds.some(b=>b[2]-b[0]<5||b[3]-b[1]<5||(b[2]-b[0])*(b[3]-b[1])<40))
+ throw Error('L footprint too small for five rooms and continuous hall');
+ const hall=[point(0,yLow),point(xLow,yLow),point(xLow,height),point(xHigh,height),point(xHigh,yHigh),point(0,yHigh)];
+ validPolygon(hall,'L-hall');
+ if(!contained(hall,p))throw Error('L hall exits building outline');
+ const used=new Set(d.shapes.map(x=>x.id)),nextId=()=>{let i=1;while(used.has('shape-'+i))i++;const id='shape-'+i;used.add(id);return id;};
+ const hallId=nextId();
+ const shapes:DesignShape[]=[{id:hallId,ownerId:plate.ownerId,story:plate.story,kind:'CIRCULATION',label:'Turning Hall (draft)',polygon:hall,status:'DRAFT_UNVERIFIED'}];
+ const center=[point(topCut/2,yLow),point((topCut+xHigh)/2,yLow),point(notchX/2,yHigh),
+  point(xLow,(yHigh+height)/2),point(xHigh,height/2)];
+ const doors:DoorOpeningDraft[]=[];
+ bounds.forEach((b,i)=>{
+  const polygon=rect(b[0],b[1],b[2],b[3]),id=nextId();
+  if(!contained(polygon,p))throw Error('L room outside source');
+  shapes.push({id,ownerId:plate.ownerId,story:plate.story,kind:'ROOM',label:order[i],polygon,status:'DRAFT_UNVERIFIED'});
+  doors.push({id:'auto-l-door-'+(i+1),story:plate.story,fromRoomId:id,toRoomId:hallId,center:center[i],widthFt:3,status:'DRAFT_UNVERIFIED'});
+ });
+ const originalArea=Math.abs(signedPolygonArea(p));
+ const covered=shapes.reduce((n,shape)=>n+Math.abs(signedPolygonArea(shape.polygon)),0);
+ if(Math.abs(originalArea-covered)>Math.max(.01,originalArea*.0001))throw Error('L room/corridor coverage mismatch');
+ const next:DesignDocument={...d,revision:d.revision+1,shapes:[...d.shapes,...shapes],doors:[...(d.doors??[]),...doors]};
+ validateDesignDocument(c,next);
+ if(assessAuthoredCirculation(next,plate.ownerId,plate.story).status!=='DRAFT_ROUTE_CONNECTED')
+ throw Error('L corridor missing valid room doors or passage');
+ return next;
+}
+
 /** Deterministic ranked concepts; evidence never implies a door or usable circulation. */
 export type DraftLayoutAssessment={
  schema:'lotscope-layout-assessment-v1';score:number;sourceRevision:number;
@@ -538,6 +594,13 @@ export function assessAuthoredCirculation(d:DesignDocument,ownerId:string,story:
  const clearWidthFt=3;
  const corridorWidths=corridors.map(corridor=>{
   const poly=corridor.polygon;
+  if(poly.length===6){
+   const lengths=poly.map((p,i)=>Math.hypot(p[0]-poly[(i+1)%6][0],p[1]-poly[(i+1)%6][1]));
+   const rightAngles=poly.every((p,i)=>{const q=poly[(i+1)%6],r=poly[(i+2)%6];
+    return Math.abs((q[0]-p[0])*(r[0]-q[0])+(q[1]-p[1])*(r[1]-q[1]))<1e-5*lengths[i]*lengths[(i+1)%6];});
+   const widthFt=Math.min(lengths[2],lengths[5]);
+   return {id:corridor.id,widthFt,verified:rightAngles&&widthFt>=clearWidthFt&&Math.abs(lengths[2]-lengths[5])<1e-5};
+  }
   if(poly.length!==4)return {id:corridor.id,widthFt:0,verified:false};
   const edgeLengths=poly.map((p,i)=>Math.hypot(p[0]-poly[(i+1)%4][0],p[1]-poly[(i+1)%4][1]));
   const perpendicular=Math.abs((poly[1][0]-poly[0][0])*(poly[3][0]-poly[0][0])+
@@ -629,7 +692,7 @@ export function rankDraftRoomLayouts(c:CandidateRecord,d:DesignDocument,plateId:
  for(const order of orders){
   const key=order.join('\0');if(seen.has(key))continue;seen.add(key);
   let document:DesignDocument;
-  try{document=results.length===0?packCorridorSeed(c,d,plateId,order):results.length%2===0?packTwoDimensionalSeed(c,d,plateId,order,results.length):packDraftRooms(c,d,plateId,labels,axis,d.updatedAt,order);}catch{try{document=packDraftRooms(c,d,plateId,labels,axis,d.updatedAt,order);}catch{continue;}}
+  try{document=results.length===0?(d.shapes.find(x=>x.id===plateId)?.polygon.length===6?packLCorridorSeed(c,d,plateId,order):packCorridorSeed(c,d,plateId,order)):results.length%2===0?packTwoDimensionalSeed(c,d,plateId,order,results.length):packDraftRooms(c,d,plateId,labels,axis,d.updatedAt,order);}catch{try{document=packDraftRooms(c,d,plateId,labels,axis,d.updatedAt,order);}catch{continue;}}
   const added=document.shapes.filter(s=>s.kind==='ROOM'&&!d.shapes.some(t=>t.id===s.id));
   const byName=new Map(added.map(x=>[x.label,x]));
   const relationships=rules.map(rule=>{
