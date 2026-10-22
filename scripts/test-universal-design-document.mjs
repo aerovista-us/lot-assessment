@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {pondyCandidateRegistry as registry} from '../projects/pondy-lot2/candidate-registry.ts';
 import {placementPolygon} from '../packages/roof-geometry/index.ts';
-import {emptyDesignDocument,addDesignShape,addOwnerFootprintShape,removeDesignShape,updateDesignShapePolygon,snapDesignPoint,partitionDesignShape,packDraftRooms,packLCorridorSeed,rankDraftRoomLayouts,assessDraftRoomConnectivity,assessAuthoredCirculation,assessSupportedStoryProgram,assessGarageServiceConnection,assessHomeRouteIntegration,assessVerticalStairAlignment,rankSupportedHomeRoomPrograms,rankWholeHomeCombinations,moveDesignWall,validateDesignDocument,designSourceSignature} from '../packages/candidates/design-document.ts';
+import {emptyDesignDocument,addDesignShape,addOwnerFootprintShape,removeDesignShape,updateDesignShapePolygon,snapDesignPoint,partitionDesignShape,packDraftRooms,packLCorridorSeed,rankDraftRoomLayouts,assessDraftRoomConnectivity,assessAuthoredCirculation,assessSupportedStoryProgram,assessGarageServiceConnection,assessHomeRouteIntegration,assessStairFlightEvidence,assessGaragePassageEvidence,assessDoorTransitionEnvelope,assessVerticalStairAlignment,rankSupportedHomeRoomPrograms,rankWholeHomeCombinations,moveDesignWall,validateDesignDocument,designSourceSignature} from '../packages/candidates/design-document.ts';
 import {renderDesignDocumentAttachment} from '../packages/candidates/design-report-attachment.ts';
 import {createCandidateConceptHtml} from '../packages/candidates/customer-report.ts';
 import {emptyCandidateWorkspace,saveWorkspaceDesignDocument,currentWorkspaceDesignDocument,createWorkspaceExportPackage,importWorkspacePackage} from '../packages/candidates/workspace.ts';
@@ -91,6 +91,22 @@ for(const c of cases){
   assert.deepEqual(cornerEvidence.rejectedDoors,['test-door']);
   const centeredDoor={...cornerDoor,doors:[{...cornerDoor.doors[0],center:[8,4]}]};
   assert.equal(assessAuthoredCirculation(centeredDoor,plate.ownerId,plate.story).status,'DRAFT_ROUTE_CONNECTED');
+  const goodFlight=assessStairFlightEvidence({
+   groundLanding:[[0,0],[4,0],[4,4],[0,4]],upperLanding:[[0,0],[4,0],[4,4],[0,4]],
+   floorToFloorFt:10,riserCount:16,treadDepthFt:11/12,clearWidthFt:3.5,headroomFt:7
+  });
+  assert.equal(goodFlight.status,'DIMENSIONAL_DRAFT_ONLY');
+  assert(assessStairFlightEvidence({
+   groundLanding:[[0,0],[2,0],[2,2],[0,2]],upperLanding:[[0,0],[4,0],[4,4],[0,4]],
+   floorToFloorFt:10,riserCount:12,treadDepthFt:.6,clearWidthFt:2.5,headroomFt:6
+  }).errors.includes('HEADROOM'));
+  const doorApproach=assessDoorTransitionEnvelope(
+   [[0,0],[8,0],[8,8],[0,8]],[[8,0],[16,0],[16,8],[8,8]],[8,4],3);
+  assert.equal(doorApproach.status,'DRAFT_APPROACH_GEOMETRY');
+  assert.equal(assessDoorTransitionEnvelope(
+   [[0,0],[8,0],[8,8],[0,8]],[[8,0],[10,0],[10,8],[8,8]],[8,4],3).status,'UNVERIFIED');
+  assert.equal(assessGaragePassageEvidence(c,doc,plate.ownerId,'missing-room','missing-garage',[0,0],3).status,'UNVERIFIED');
+
   // A bedroom accessible only through another room is graph-connected, but
   // cannot masquerade as independent hallway circulation.
   const roomB={...roomA,id:'test-room-through',label:'Private Bedroom',polygon:[[-8,0],[0,0],[0,8],[-8,8]]};
