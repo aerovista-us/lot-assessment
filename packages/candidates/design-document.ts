@@ -821,6 +821,64 @@ export function assessDoorTransitionEnvelope(a:P2[],b:P2[],center:P2,widthFt:num
   limitations:['Conservative semicircle clearance only; fixtures, door swing, furniture and wheelchair turning are not proven']};
 }
 
+/** A conservative continuous route evidence gate. All modeled connections must
+ * attach to the same hall component, and proposed obstacles must not occupy
+ * either a hallway or a supplied landing. This is not a code/egress approval. */
+export type HomeRouteEvidence={
+ garage?:{roomId:string;garageId:string;center:P2;widthFt:number;garageWalkway:P2[]};
+ stairs?:StairFlightEvidence & {groundStairZoneId:string;upperStairZoneId:string};
+ obstacles?:{id:string;story:'GROUND'|'UPPER'|'OTHER';polygon:P2[]}[];
+};
+export function assessContinuousHomeRoute(c:CandidateRecord,d:DesignDocument,ownerId:string,e:HomeRouteEvidence){
+ validateDesignDocument(c,d);
+ const ground=assessAuthoredCirculation(d,ownerId,'GROUND');
+ const errors:string[]=[];
+ if(ground.status!=='DRAFT_ROUTE_CONNECTED')errors.push('GROUND_ROUTE_UNVERIFIED');
+ const groundCorridors=d.shapes.filter(x=>x.ownerId===ownerId&&x.story==='GROUND'&&x.kind==='CIRCULATION');
+ const upperCorridors=d.shapes.filter(x=>x.ownerId===ownerId&&x.story==='UPPER'&&x.kind==='CIRCULATION');
+ const obstacles=e.obstacles??[];
+ for(const obstacle of obstacles){
+  try{validPolygon(obstacle.polygon,obstacle.id);}catch{errors.push('INVALID_OBSTACLE:'+obstacle.id);continue;}
+  const halls=obstacle.story==='GROUND'?groundCorridors:obstacle.story==='UPPER'?upperCorridors:[];
+  if(halls.some(h=>polygonInteriorOverlap(h.polygon,obstacle.polygon)))errors.push('HALL_OBSTRUCTED:'+obstacle.id);
+ }
+ let garage=null;
+ if(e.garage){
+  garage=assessGaragePassageEvidence(c,d,ownerId,e.garage.roomId,e.garage.garageId,e.garage.center,e.garage.widthFt);
+  if(garage.status!=='OPENING_GEOMETRY_ONLY')errors.push('GARAGE_DOOR_UNVERIFIED');
+  const sourceGarage=sourceBuildingOwners(c).find(x=>x.id===e.garage!.garageId&&x.kind==='garage');
+  try{
+   validPolygon(e.garage.garageWalkway,'garage-walkway');
+   if(!sourceGarage||!contained(e.garage.garageWalkway,placementPolygon(sourceGarage).map(p=>[p[0],p[1]] as P2)))
+    errors.push('GARAGE_WALKWAY_OUTSIDE_SOURCE');
+   if(!e.garage.garageWalkway.some(p=>inside(p,placementPolygon(sourceGarage!).map(q=>[q[0],q[1]] as P2))))
+    errors.push('GARAGE_WALKWAY_DISCONNECTED');
+  }catch{errors.push('GARAGE_WALKWAY_INVALID');}
+  if(obstacles.some(o=>o.story==='GROUND'&&polygonInteriorOverlap(o.polygon,e.garage!.garageWalkway)))
+   errors.push('GARAGE_WALKWAY_OBSTRUCTED');
+ }else errors.push('GARAGE_ENTRY_EVIDENCE_MISSING');
+ let stairs=null;
+ if(e.stairs){
+  stairs=assessStairFlightEvidence(e.stairs);
+  if(stairs.status!=='DIMENSIONAL_DRAFT_ONLY')errors.push('STAIR_DIMENSIONS_UNVERIFIED');
+  const lower=d.shapes.find(x=>x.id===e.stairs!.groundStairZoneId&&x.ownerId===ownerId&&x.story==='GROUND'&&x.kind==='STAIR_ZONE');
+  const upper=d.shapes.find(x=>x.id===e.stairs!.upperStairZoneId&&x.ownerId===ownerId&&x.story==='UPPER'&&x.kind==='STAIR_ZONE');
+  if(!lower||!upper||!contained(e.stairs.groundLanding,lower.polygon)||!contained(e.stairs.upperLanding,upper.polygon))
+   errors.push('STAIR_LANDING_OUTSIDE_ZONE');
+  if(obstacles.some(o=>polygonInteriorOverlap(o.polygon,o.story==='GROUND'?e.stairs!.groundLanding:e.stairs!.upperLanding)))
+   errors.push('STAIR_LANDING_OBSTRUCTED');
+  if(assessAuthoredCirculation(d,ownerId,'UPPER').status!=='DRAFT_ROUTE_CONNECTED')
+   errors.push('UPPER_ROUTE_UNVERIFIED');
+  if(!lower||!groundCorridors.some(h=>overlapBoundary(h.polygon,lower.polygon)>=3))
+   errors.push('GROUND_STAIR_NOT_ON_HALL');
+  if(!upper||!upperCorridors.some(h=>overlapBoundary(h.polygon,upper.polygon)>=3))
+   errors.push('UPPER_STAIR_NOT_ON_HALL');
+ }else errors.push('STAIR_FLIGHT_EVIDENCE_MISSING');
+ return {status:errors.length?'UNVERIFIED' as const:'GEOMETRY_EVIDENCE_ONLY' as const,
+  errors,ground,garage,stairs,limitations:['A shared boundary is not a built opening or a certified unobstructed path',
+  'Door swings, stair run/opening/headroom sections and garage fire separation remain for design review']};
+}
+
 /** Read-only whole-home story inventory. Never derives a story by cloning
  * another floor; every supported level requires a distinct authored plate. */
 export function assessSupportedStoryProgram(d:DesignDocument,ownerId:string,requiredStories:('GROUND'|'UPPER'|'OTHER')[]){
