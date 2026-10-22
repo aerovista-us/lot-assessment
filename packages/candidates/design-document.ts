@@ -444,7 +444,7 @@ function packCorridorSeed(c:CandidateRecord,d:DesignDocument,plateId:string,orde
 
 /** Strict orthogonal L-plate proposal. Keeps the missing corner empty and
  * reserves an actual turning corridor. Other concave topologies fail closed. */
-function packLCorridorSeed(c:CandidateRecord,d:DesignDocument,plateId:string,order:string[]):DesignDocument{
+export function packLCorridorSeed(c:CandidateRecord,d:DesignDocument,plateId:string,order:string[]):DesignDocument{
  validateDesignDocument(c,d);
  const plate=d.shapes.find(x=>x.id===plateId);
  if(!plate||plate.kind!=='FLOOR_PLATE'||plate.story===null||plate.polygon.length!==6||order.length!==5)
@@ -473,7 +473,7 @@ function packLCorridorSeed(c:CandidateRecord,d:DesignDocument,plateId:string,ord
   [notchX,yHigh,xLow,height],[xHigh,0,w,height]];
  if(bounds.some(b=>b[2]-b[0]<5||b[3]-b[1]<5||(b[2]-b[0])*(b[3]-b[1])<40))
  throw Error('L footprint too small for five rooms and continuous hall');
- const hall=[point(0,yLow),point(xLow,yLow),point(xLow,height),point(xHigh,height),point(xHigh,yHigh),point(0,yHigh)];
+ const hall=[point(0,yLow),point(xHigh,yLow),point(xHigh,height),point(xLow,height),point(xLow,yHigh),point(0,yHigh)];
  validPolygon(hall,'L-hall');
  if(!contained(hall,p))throw Error('L hall exits building outline');
  const used=new Set(d.shapes.map(x=>x.id)),nextId=()=>{let i=1;while(used.has('shape-'+i))i++;const id='shape-'+i;used.add(id);return id;};
