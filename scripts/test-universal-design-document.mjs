@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {pondyCandidateRegistry as registry} from '../projects/pondy-lot2/candidate-registry.ts';
 import {placementPolygon} from '../packages/roof-geometry/index.ts';
-import {emptyDesignDocument,addDesignShape,addOwnerFootprintShape,removeDesignShape,updateDesignShapePolygon,snapDesignPoint,partitionDesignShape,packDraftRooms,rankDraftRoomLayouts,moveDesignWall,validateDesignDocument,designSourceSignature} from '../packages/candidates/design-document.ts';
+import {emptyDesignDocument,addDesignShape,addOwnerFootprintShape,removeDesignShape,updateDesignShapePolygon,snapDesignPoint,partitionDesignShape,packDraftRooms,rankDraftRoomLayouts,assessDraftRoomConnectivity,moveDesignWall,validateDesignDocument,designSourceSignature} from '../packages/candidates/design-document.ts';
 import {renderDesignDocumentAttachment} from '../packages/candidates/design-report-attachment.ts';
 import {createCandidateConceptHtml} from '../packages/candidates/customer-report.ts';
 import {emptyCandidateWorkspace,saveWorkspaceDesignDocument,currentWorkspaceDesignDocument,createWorkspaceExportPackage,importWorkspacePackage} from '../packages/candidates/workspace.ts';
@@ -48,6 +48,14 @@ for(const c of cases){
   const alternatives=rankDraftRoomLayouts(c,doc,plate.id,['Laundry','Kitchen','Living','Primary Bedroom','Primary Bath'],'X');
   assert(alternatives.length>=2&&alternatives.length<=3);
   assert(alternatives.every(a=>a.document.shapes.filter(s=>s.kind==='ROOM').length===5));
+  for(const candidate of alternatives){
+   const graph=assessDraftRoomConnectivity(candidate.document,plate.ownerId,plate.story);
+   assert.equal(graph.roomCount,5);
+   assert(graph.edges.every(edge=>edge.sharedWallFt>0));
+   assert.equal(graph.connected,graph.components.length===1);
+   assert(graph.limitations.some(x=>x.includes('NOT validated')));
+  }
+  assert.throws(()=>assessDraftRoomConnectivity(alternatives[0].document,plate.ownerId,plate.story,0),/door width/);
   // A 2D candidate must have room separation along BOTH local axes, not
   // merely five differently ordered full-depth stripes.
   const hasTwoDimensionalTopology=alternatives.some(a=>{
