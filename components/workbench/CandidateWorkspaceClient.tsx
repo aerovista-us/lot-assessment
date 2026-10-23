@@ -184,10 +184,9 @@ export function CandidateWorkspaceClient({ candidateId }: { candidateId: string 
   }
 
   return <>
-    <section className="staff-page-head">
-      <p className="eyebrow">CANDIDATE WORKSPACE · LIFECYCLE V1</p>
-      <h1>{activeCandidate.label}</h1>
-      <p className="lede">{activeCandidate.family} · {activeCandidate.status.replaceAll("_", " ")} · {activeCandidate.evidenceState} evidence</p>
+    <section className="staff-page-head workspace-page-head">
+      <nav className="workspace-breadcrumbs" aria-label="Breadcrumb"><Link href="/workbench/projects/pondy-lot2">Pondy Lot 2</Link><span aria-hidden="true">/</span><Link href="/workbench/projects/pondy-lot2/candidates">Designs</Link><span aria-hidden="true">/</span><span aria-current="page">{activeCandidate.revisionLabel}</span></nav>
+      <div className="workspace-title-row"><div><p className="eyebrow">YOUR DESIGN WORKSPACE</p><h1>{activeCandidate.revisionLabel}</h1><p className="lede">{activeCandidate.label}</p></div><span className="mode-pill">Digital concept</span></div>
       <section className="wb-panel design-journey" aria-label="Complete design journey" id="design-journey">
         <div className="section-heading"><div><p className="eyebrow">YOUR DESIGN JOURNEY</p>
           <h2>{savedDesign ? "Review your saved layout, then create its report" : "Generate options and choose a layout"}</h2></div>
@@ -210,8 +209,9 @@ export function CandidateWorkspaceClient({ candidateId }: { candidateId: string 
           <p>Digital validation is not permission to build. Review the actual room selection, unresolved routes and drawing limitations before sharing.</p>
         </details>
       </section>
-      <div className="hero-actions">
-        <Link className="secondary-button" href="/workbench/projects/pondy-lot2/candidates">Candidate Library</Link>
+      <div className="workspace-main-actions"><a className="primary-button" href="#universal-design-editor">Design your layout <span aria-hidden="true">↗</span></a><a className="secondary-button" href="#customer-report-preview">Preview &amp; report</a><Link className="secondary-button" href={`/workbench/projects/pondy-lot2/compare?left=${activeCandidate.id}`}>Compare designs</Link>
+      <details className="workspace-version-tools"><summary>Versions &amp; backups</summary><div className="hero-actions">
+        <Link className="secondary-button" href="/workbench/projects/pondy-lot2/candidates">Design library</Link>
         {editableWorkingCopy ? <button className="secondary-button" type="button" onClick={checkpoint}>Save checkpoint</button> : null}
         {editableWorkingCopy ? <button className="secondary-button" type="button" disabled={undoIds.length === 0} title="Undo · Ctrl/Cmd+Z" onClick={undoEdit}>Undo</button> : null}
         {editableWorkingCopy ? <button className="secondary-button" type="button" disabled={redoIds.length === 0} title="Redo · Ctrl/Cmd+Y or Shift+Cmd/Ctrl+Z" onClick={redoEdit}>Redo</button> : null}
@@ -222,10 +222,12 @@ export function CandidateWorkspaceClient({ candidateId }: { candidateId: string 
         <button className="primary-button" type="button" disabled={reportBusy} onClick={createCustomerReport}>{reportBusy ? "Building report…" : "Create Customer Report"}</button>
         <button className="secondary-button" type="button" onClick={exportCurrent}>Export package</button>
         <Link className="secondary-button" href={`/workbench/projects/pondy-lot2/compare?left=${activeCandidate.id}`}>Compare</Link>
-      </div>
-      <p className="microcopy">Customer report is a private, downloadable concept HTML. Full roof views, room plans and elevations require source-approved geometry; no public publishing is triggered.</p>
+      </div></details></div>
+      <p className="microcopy workspace-storage-note">Saved layouts stay in this browser. Export a backup before changing browsers or devices.</p>
       {message && <p role="status" aria-live="polite" className="microcopy lifecycle-message">{message}</p>}
     </section>
+
+    <nav className="workspace-section-nav" aria-label="In this design"><a href="#universal-design-editor">Layout studio</a><a href="#customer-report-preview">Report</a><a href="#candidate-drawings">Site &amp; buildings</a><a href="#candidate-validation">Validation</a></nav>
 
     <UniversalDesignEditor candidate={activeCandidate} document={savedDesign}
       onSave={doc=>{workspace.saveDesignDocument(activeCandidate,doc);setMessage(`Saved design revision ${doc.revision} in this browser. The report will use this exact saved design.`);}}/>
@@ -247,7 +249,7 @@ export function CandidateWorkspaceClient({ candidateId }: { candidateId: string 
 
     <section id="candidate-drawings" className="candidate-workspace-grid">
       <article className="wb-panel candidate-plan-panel">
-        <div className="section-heading"><div><p className="eyebrow">COMPONENT PLAN</p><h2>Rendered from registry components</h2></div><span className="mode-pill">{activeCandidate.components.length} COMPONENTS</span></div>
+        <div className="section-heading"><div><p className="eyebrow">SITE &amp; BUILDINGS</p><h2>See the whole arrangement</h2></div><span className="mode-pill">{activeCandidate.components.length} COMPONENTS</span></div>
         <CandidatePlan candidate={candidate} />
         <p className="microcopy">Lifecycle actions branch before geometry changes. A variant or new design starts with stale evidence and cannot inherit a current PASS from its parent.</p>
       </article>
@@ -272,8 +274,8 @@ export function CandidateWorkspaceClient({ candidateId }: { candidateId: string 
     </section>
 
     <section id="candidate-validation" className="wb-panel candidate-evidence-panel">
-      <div className="section-heading"><div><p className="eyebrow">CURRENT EVALUATION</p><h2>{evaluation?.summary ?? "No current evaluation"}</h2></div><span className={evaluation?.status === "PASS" ? "repair-pass" : evaluation?.status === "PARTIAL_FAIL" ? "repair-watch" : "repair-fail"}>{evaluation?.status ?? "NONE"}</span></div>
-      <div className="gate-grid">{evaluation?.gates.map((gate) => <article key={gate.id}><div><span>{gate.status}</span><strong>{gate.label}</strong></div><p>{gate.summary}</p>{gate.repairClasses?.length ? <small>Repair classes: {gate.repairClasses.join(" · ")}</small> : null}</article>)}</div>
+      <div className="section-heading"><div><p className="eyebrow">VALIDATION</p><h2>Know what still needs attention</h2><p className="microcopy">{evaluation?.summary ?? "No current evaluation. Run the validation pipeline to assess this revision."} These checks describe the source candidate; your room layout remains a digital concept.</p></div><span className={evaluation?.status === "PASS" ? "repair-pass" : evaluation?.status === "PARTIAL_FAIL" ? "repair-watch" : "repair-fail"}>{evaluation?.status ?? "NONE"}</span></div>
+      <div className="gate-grid">{evaluation?.gates.map((gate) => <article key={gate.id} data-gate-status={gate.status}><div><span>{gate.status.replaceAll("_", " ")}</span><strong>{gate.label}</strong></div><p>{gate.summary}</p>{gate.repairClasses?.length ? <small>Repair classes: {gate.repairClasses.join(" · ")}</small> : null}</article>)}</div>
     </section>
 
     <section className="candidate-detail-grid">

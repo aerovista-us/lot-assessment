@@ -1,6 +1,6 @@
 # Customer design journey — October 22, 2026
 
-This describes draft PR #131, not an accepted production release. Release evidence must identify the exact served commit. The browser connection works again; the PR preview currently requires an AeroVista Account sign-in.
+PR #131 was merged and published as `e846de015d71c37dec9e3927aec76973f0a06c75` after the owner authorized release on green automated checks. The authenticated production Workbench served that exact commit. The existing saved revision 5 (four shapes, including three rooms) survived reload and exactly matched its generated report. This is baseline smoke evidence; the complete non-top selection and responsive visual acceptance in issue #132 remain separate. Preview authentication is still independent from production.
 
 ## Customer workflow
 
@@ -40,4 +40,4 @@ Local pixel-layout verification remains incomplete: the available browser could 
 - Compare exact saved DesignDocument records and report records, door references, source signature and parcel handedness.
 - Capture desktop/mobile screenshots and browser logs, plus a report/export artifact and commit/revision identifiers.
 
-Passing local fixtures is not authenticated hosted acceptance. Keep PR #131 draft until the software release checks and issue #132 evidence pass. Digital concept and digitally validated remain distinct from construction approved; physical, structural, stair, fire-separation and jurisdictional acceptance are independently disclosed and never inferred from these tests.
+Passing isolated fixtures is not authenticated hosted acceptance. PR #131 is already released; issue #132 remains open for the complete non-top selection and responsive acceptance evidence. Digital concept and digitally validated remain distinct from construction approved; physical, structural, stair, fire-separation and jurisdictional acceptance are independently disclosed and never inferred from these tests.

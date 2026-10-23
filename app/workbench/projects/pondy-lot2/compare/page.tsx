@@ -7,10 +7,10 @@ export default async function CandidateComparePage({ searchParams }: { searchPar
   const { left } = await searchParams;
   return <main className="shell workbench-shell candidate-library-shell">
     <section className="staff-page-head">
-      <p className="eyebrow">PONDY LOT 2 · CANDIDATE COMPARE</p>
-      <h1>Compare geometry, lineage and machine evidence together.</h1>
-      <p className="lede">Use comparison after branching or import. Staff may choose among options, but the comparison surface never creates or upgrades a PASS.</p>
-      <div className="hero-actions"><Link className="secondary-button" href="/workbench/projects/pondy-lot2/candidates">Candidate Library</Link><Link className="secondary-button" href="/workbench/projects/pondy-lot2/explore">Run exploration</Link></div>
+      <p className="eyebrow">PONDY LOT 2 · COMPARE DESIGNS</p>
+      <h1>Two designs. A clearer decision.</h1>
+      <p className="lede">Put the building arrangements and source checks side by side. Compare the tradeoffs, then open the design you want to refine.</p>
+      <div className="hero-actions"><Link className="secondary-button" href="/workbench/projects/pondy-lot2/candidates">Design library</Link><Link className="secondary-button" href="/workbench/projects/pondy-lot2/explore">Explore options</Link></div>
     </section>
     <CandidateCompareWorkspace initialLeft={left} />
   </main>;

@@ -3,10 +3,11 @@ import {build} from 'esbuild';
 import path from 'node:path';
 import {webcrypto} from 'node:crypto';
 import {JSDOM,VirtualConsole} from 'jsdom';
+import {mkdir,readFile,writeFile} from 'node:fs/promises';
 // Exercise production components with local navigation/download transports.
 // This is a DOM interaction test, not authentication or pixel-layout acceptance.
 const root=process.cwd();
-const result=await build({stdin:{contents:"import React from 'react';\nimport {createRoot} from 'react-dom/client';\nimport {CandidateWorkspaceClient} from './components/workbench/CandidateWorkspaceClient';\nimport {WorkbenchNavigation} from './components/workbench/WorkbenchNavigation';\nimport {pondyCandidateRegistry} from './projects/pondy-lot2/candidate-registry';\nimport {emptyCandidateWorkspace,upsertWorkspaceCandidate} from './packages/candidates/workspace';\nimport {readBrowserWorkspace,persistBrowserWorkspace} from './packages/candidates/browser-workspace';\nconst id='journey-ui-fixture';\nif(!readBrowserWorkspace(localStorage).candidates.some(c=>c.id===id)){\n const candidate=structuredClone(pondyCandidateRegistry.candidates[0]);\n candidate.id=id;candidate.label='Pondy design journey \u00b7 local UI fixture';candidate.revisionLabel='UI fixture';\n candidate.source='AUTOMATION';candidate.components=candidate.components.filter(c=>c.kind!=='roof');\n const home=candidate.components.find(c=>c.kind==='home')!;\n Object.assign(home,{polygon:[[20,5],[60,5],[60,35],[38,35],[38,27.5],[20,27.5]],x:20,y:5,widthFt:40,depthFt:30,rotationDeg:0});\n persistBrowserWorkspace(localStorage,upsertWorkspaceCandidate(emptyCandidateWorkspace(),candidate));\n}\ncreateRoot(document.getElementById('root')!).render(<><p style={{padding:'10px 20px',margin:0,background:'#49371c'}}>Local fixture verification \u00b7 authentication and hosted deployment are not being tested here.</p><WorkbenchNavigation sourceCommit='local-fixture' environment='review'/><div id='workbench-content'><main className='shell workbench-shell candidate-workspace-shell'><CandidateWorkspaceClient candidateId={id}/></main></div></>);\n",resolveDir:root,loader:'tsx'},
+const result=await build({stdin:{contents:"import React from 'react';\nimport {createRoot} from 'react-dom/client';\nimport {CandidateWorkspaceClient} from './components/workbench/CandidateWorkspaceClient';\nimport {WorkbenchNavigation} from './components/workbench/WorkbenchNavigation';\nimport {CandidateLibraryWorkspace} from './components/workbench/CandidateLibraryWorkspace';\nimport {CandidateCompareWorkspace} from './components/workbench/CandidateCompareWorkspace';\nimport WorkbenchHome from './app/workbench/page';\nimport {pondyCandidateRegistry} from './projects/pondy-lot2/candidate-registry';\nimport {emptyCandidateWorkspace,upsertWorkspaceCandidate} from './packages/candidates/workspace';\nimport {readBrowserWorkspace,persistBrowserWorkspace} from './packages/candidates/browser-workspace';\nconst id='journey-ui-fixture';\nif(!readBrowserWorkspace(localStorage).candidates.some(c=>c.id===id)){\n const candidate=structuredClone(pondyCandidateRegistry.candidates[0]);\n candidate.id=id;candidate.label='Pondy design journey \u00b7 local UI fixture';candidate.revisionLabel='UI fixture';\n candidate.source='AUTOMATION';candidate.components=candidate.components.filter(c=>c.kind!=='roof');\n const home=candidate.components.find(c=>c.kind==='home')!;\n Object.assign(home,{polygon:[[20,5],[60,5],[60,35],[38,35],[38,27.5],[20,27.5]],x:20,y:5,widthFt:40,depthFt:30,rotationDeg:0});\n persistBrowserWorkspace(localStorage,upsertWorkspaceCandidate(emptyCandidateWorkspace(),candidate));\n}\ncreateRoot(document.getElementById('root')!).render(<><p style={{padding:'10px 20px',margin:0,background:'#49371c'}}>Local fixture verification \u00b7 authentication and hosted deployment are not being tested here.</p><WorkbenchNavigation sourceCommit='local-fixture' environment='review'/><div id='workbench-content'>{window.location.pathname.endsWith('/workbench')?<WorkbenchHome/>:<main className='shell workbench-shell candidate-workspace-shell'>{window.location.pathname.endsWith('/candidates')?<CandidateLibraryWorkspace/>:window.location.pathname.endsWith('/compare')?<CandidateCompareWorkspace/>:<CandidateWorkspaceClient candidateId={id}/>}</main>}</div></>);\n",resolveDir:root,loader:'tsx'},
  bundle:true,write:false,platform:'browser',format:'iife',target:'es2022',jsx:'automatic',tsconfig:path.join(root,'tsconfig.json'),
  define:{'process.env.NODE_ENV':'"development"'},logLevel:'error',
  plugins:[{name:'test-router',setup(builder){
@@ -19,14 +20,14 @@ const script=result.outputFiles[0].text;
 const key='lotscope:pondy-lot2:candidate-workspace:v1';
 const errors=[];
 async function waitFor(check,label){for(let i=0;i<80;i++){if(check())return;await new Promise(r=>setTimeout(r,10));}throw Error('Timed out: '+label+' | '+[...doc.querySelectorAll('.lifecycle-message')].map(e=>e.textContent).join(' | '));}
-async function open(raw){
+async function open(raw,url='http://fixture.test/workbench/projects/pondy-lot2/candidates/journey-ui-fixture'){
  const console=new VirtualConsole();console.on('error',(...args)=>errors.push(args.join(' ')));
- const dom=new JSDOM('<!doctype html><div id="root"></div>',{url:'http://fixture.test/workbench/projects/pondy-lot2/candidates/journey-ui-fixture',runScripts:'outside-only',pretendToBeVisual:true,virtualConsole:console});
+ const dom=new JSDOM('<!doctype html><div id="root"></div>',{url,runScripts:'outside-only',pretendToBeVisual:true,virtualConsole:console});
  Object.defineProperty(dom.window,'crypto',{value:webcrypto});
  dom.window.structuredClone=structuredClone;dom.window.TextEncoder=TextEncoder;dom.window.URL.createObjectURL=()=> 'blob:local-test';dom.window.URL.revokeObjectURL=()=>{};
  if(raw)dom.window.localStorage.setItem(key,raw);
  dom.window.eval(script);
- await waitFor(()=>dom.window.document.querySelector('#universal-design-editor'),'editor ready');
+ await waitFor(()=>dom.window.document.querySelector('#universal-design-editor,.library-discovery,.compare-selector-panel'),'workspace ready');
  return dom;
 }
 let app=await open();let doc=app.window.document;
@@ -58,10 +59,36 @@ await waitFor(()=>doc.querySelectorAll('.layout-option').length>=3,'replacement 
 button('Cancel comparison').click();
 await waitFor(()=>doc.querySelectorAll('.layout-option').length===0,'comparison cancelled');
 assert.deepEqual(JSON.parse(doc.querySelector('[data-saved-design-document]').textContent),selected,'Cancelling comparison changed saved design');
+const customShapes=[...doc.querySelectorAll('summary')].find(e=>e.textContent.includes('Create custom shapes'));customShapes.click();
+assert(customShapes.parentElement.open,'Manual shape tools must be reachable');
 button('Create shape from owner footprint').click();
 await waitFor(()=>!doc.querySelector('#customer-report-preview a[download]'),'stale report download blocked');
 assert(doc.querySelector('#customer-report-preview [role="alert"]').textContent.includes('Regenerate'));
-assert.equal(doc.querySelector('nav a[aria-current="page"]').textContent,'Candidates');
+assert.equal(doc.querySelector('nav a[aria-current="page"]').textContent,'Designs');
+assert.equal(errors.length,0,errors.join('\n'));
+const menu=doc.querySelector('.workbench-menu-toggle');
+assert.equal(menu.getAttribute('aria-expanded'),'false');menu.click();
+await waitFor(()=>menu.getAttribute('aria-expanded')==='true','navigation opened');
+doc.querySelector('nav a[aria-current="page"]').click();
+await waitFor(()=>menu.getAttribute('aria-expanded')==='false','navigation closed after selection');
+app.window.close();app=await open(raw,'http://fixture.test/workbench/projects/pondy-lot2/candidates');doc=app.window.document;
+const search=doc.querySelector('input[type="search"]');
+function changeSearch(value){Object.getOwnPropertyDescriptor(app.window.HTMLInputElement.prototype,'value').set.call(search,value);search.dispatchEvent(new app.window.Event('input',{bubbles:true}));}
+changeSearch('local UI fixture');
+await waitFor(()=>doc.querySelectorAll('.library-candidate-card').length===1,'search finds saved local draft');
+assert.match(doc.querySelector('.library-candidate-card').textContent,/UI fixture/);
+changeSearch('no-such-design-87129');
+await waitFor(()=>doc.querySelector('.library-no-results'),'search empty state');
+[...doc.querySelectorAll('button')].find(b=>b.textContent==='Clear search and filters').click();
+await waitFor(()=>!doc.querySelector('.library-no-results')&&search.value==='','clear filters restores library');
+[...doc.querySelectorAll('.library-filter-row button')].find(b=>b.textContent==='Local drafts').click();
+await waitFor(()=>doc.querySelectorAll('.library-candidate-card').length===1,'local draft filter');
 assert.equal(errors.length,0,errors.join('\n'));
 app.window.close();
-console.log('PASS actual React components: compare three layouts, choose non-top, save, fresh mount/reload, exact report preview, download enable/staleness, cancel replacement without mutation, active navigation; router/download APIs are local test doubles; no hosted authentication or pixel-layout claim');
+if(process.env.WORKBENCH_UI_FIXTURE_DIR){
+ const out=path.resolve(process.env.WORKBENCH_UI_FIXTURE_DIR);await mkdir(out,{recursive:true});
+ const css=(await readFile(path.join(root,'app/globals.css'),'utf8'))+'\n'+await readFile(path.join(root,'app/workbench/workbench.css'),'utf8');
+ await writeFile(path.join(out,'app.js'),script);
+ await writeFile(path.join(out,'index.html'),'<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>'+css+'</style></head><body><div id="root"></div><script src="/app.js"></script></body></html>');
+}
+console.log('PASS actual React components: compare three layouts, choose non-top, save, fresh mount/reload, exact report preview, download enable/staleness, cancel replacement without mutation, active/mobile navigation, library search, no-results recovery and local draft filter; router/download APIs are local test doubles; no hosted authentication or pixel-layout claim');

@@ -230,31 +230,21 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
  const bb=xs.length?[Math.min(...xs)-3,Math.min(...ys)-3,Math.max(...xs)-Math.min(...xs)+6,Math.max(...ys)-Math.min(...ys)+6]:[0,0,100,100];
  const pts=(polygon:ReadonlyArray<readonly[number,number]>)=>polygon.map(p=>p[0]+","+p[1]).join(" ");
  return <section id="universal-design-editor" className="wb-panel design-editor" data-universal-design-editor="v1">
-  <div className="section-heading"><div><p className="eyebrow">UNIVERSAL DESIGN WORKSPACE · PHASE 0</p><h2>Create shapes for any saved design</h2></div><span className="mode-pill">{base.shapes.length} DRAFT SHAPES</span></div>
-  <p className="microcopy">One editor for every candidate: attach footprint-derived floor plates, rooms, circulation areas, stairs, garage regions and roof-zone concepts to the exact source revision. Nothing is treated as a verified room plan or solved roof until separately validated.</p>
+  <div className="section-heading"><div><p className="eyebrow">LAYOUT STUDIO</p><h2>Give every room a place.</h2></div><span className="mode-pill">{base.shapes.length} DRAFT SHAPES</span></div>
+  <p className="microcopy">Start with the rooms you need. Explore alternatives on the source footprint, then save the layout you prefer.</p>
   {stale&&<div className="candidate-warning-box"><strong>Source revision changed</strong><p>Attached shapes are stale. Reconcile against the new footprint before reuse. The customer report will refuse stale geometry.</p></div>}
-  <div className="candidate-detail-grid">
-   <div>
-    <label className="microcopy" htmlFor="design-owner">Building owner</label>
+  <div className="design-context-bar">
+   <div>    <label className="microcopy" htmlFor="design-owner">Building owner</label>
     <select id="design-owner" value={ownerId} onChange={e=>{setOwnerId(e.target.value);setEditingShapeId("");setLayoutOptions([]);}}>{owners.map(o=><option key={o.id} value={o.id}>{o.label} · {o.kind}</option>)}</select>
-    <label className="microcopy" htmlFor="design-kind">New shape type</label>
-    <select id="design-kind" value={kind} onChange={e=>setKind(e.target.value as DesignShape["kind"])}>
-     {(["FLOOR_PLATE","ROOM","GARAGE_AREA","CIRCULATION","STAIR_ZONE","ROOF_ZONE","GABLE_ZONE"] as const).map(t=><option key={t} value={t}>{t.replaceAll("_"," ")}</option>)}
-    </select>
-    {!roof&&<><label className="microcopy" htmlFor="design-story">Floor</label><select id="design-story" value={story} onChange={e=>{setStory(e.target.value as typeof story);setEditingShapeId("");setLayoutOptions([]);}}><option value="GROUND">Ground</option><option value="UPPER">Upper</option><option value="OTHER">Other level</option></select></>}
-    <label className="microcopy" htmlFor="design-label">Label</label>
-    <input id="design-label" value={label} onChange={e=>setLabel(e.target.value)} placeholder="e.g. Kitchen concept" />
-    <div className="hero-actions"><button className="primary-button" type="button" disabled={stale||!activeOwner} onClick={()=>save(true)}>Create shape from owner footprint</button></div>
-    <p className="microcopy">For a smaller shape, enter source world-coordinate polygon vertices as model XY pairs; the engine checks containment inside the selected owner.</p>
-    <label className="microcopy" htmlFor="design-points">Custom vertices (model feet, no mirror)</label>
-    <textarea id="design-points" rows={3} value={vertices} onChange={e=>setVertices(e.target.value)}/>
-    <button className="secondary-button" type="button" disabled={stale||!activeOwner} onClick={()=>save(false)}>Add custom polygon</button>
-    {note&&<p role="status" className="microcopy lifecycle-message">{note}</p>}
-   </div>
-   <div><p className="eyebrow">SOURCE FOOTPRINT · DRAFT SHAPES</p>
-    <svg viewBox={bb.join(" ")} role="img" aria-label="Source building owner polygon with draft floor and roof zones" style={{width:"100%",maxHeight:330,background:"#f0f4f7"}}>
+</div><div>    <label className="microcopy" htmlFor="design-story">Floor</label><select id="design-story" value={story} onChange={e=>{setStory(e.target.value as typeof story);setEditingShapeId("");setLayoutOptions([]);}}><option value="GROUND">Ground</option><option value="UPPER">Upper</option><option value="OTHER">Other level</option></select>
+</div>
+   <span className="design-context-note">Changes apply to the selected building and floor.</span>
+  </div>
+  <div className="design-studio-grid">
+   <div className="design-canvas-panel"><div className="design-canvas-heading"><span>YOUR FLOOR PLAN</span><small>{activeOwner?.label} · {story.toLowerCase()} floor</small></div>
+    <svg viewBox={bb.join(" ")} role="img" aria-label="Source building owner polygon with draft floor and roof zones" className="design-floor-canvas">
      {shell.length>0&&<polygon points={pts(shell)} fill="#dce7ed" stroke="#31566d" strokeWidth={.6}/>}
-     {!stale&&base.shapes.filter(s=>s.ownerId===ownerId&&(s.story===story||s.story===null)).map(s=>{
+     {!stale&&base.shapes.filter(s=>s.ownerId===ownerId&&(s.story===story||s.story===null)).map((s,shapeIndex)=>{
       const poly=s.polygon.map((p,i)=>{
        if(drag?.shapeId===s.id&&drag.index===i)return drag.point;
        if(wallDrag?.shapeId===s.id&&(i===wallDrag.index||i===(wallDrag.index+1)%s.polygon.length))
@@ -262,7 +252,8 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
        return p;
       });
       return <g key={s.id}>
-       <polygon data-saved-shape={s.id} data-shape-kind={s.kind} points={pts(poly)} fill={s.story===null?"#e9bc81":s.kind==="CIRCULATION"?"#f4ce7c":"#95c3cb"} fillOpacity={.35} stroke={s.story===null?"#a16f35":"#326b84"} strokeDasharray="1.8 1" strokeWidth={.7}><title>{s.label} · {s.kind} · draft</title></polygon>
+       <polygon data-saved-shape={s.id} data-shape-kind={s.kind} points={pts(poly)} fill={s.story===null?"#e9bc81":s.kind==="CIRCULATION"?"#f4ce7c":s.kind==="ROOM"?["#9dcfc7","#b4c8e2","#c8c3e2","#b9d0a5","#e1c7ab"][shapeIndex%5]:"#95c3cb"} fillOpacity={.35} stroke={s.story===null?"#a16f35":"#326b84"} strokeDasharray="1.8 1" strokeWidth={.7}><title>{s.label} · {s.kind} · draft</title></polygon>
+       {s.kind==="ROOM"&&<text x={poly.reduce((n,p)=>n+p[0],0)/poly.length} y={poly.reduce((n,p)=>n+p[1],0)/poly.length} textAnchor="middle" dominantBaseline="middle" fontSize={2.2} fill="#204654" pointerEvents="none">{s.label.length>20?s.label.slice(0,18)+"…":s.label}</text>}
        {editingShapeId===s.id&&poly.map((p,i)=><line key={"wall-"+i} x1={p[0]} y1={p[1]}
         x2={poly[(i+1)%poly.length][0]} y2={poly[(i+1)%poly.length][1]}
         stroke="#175a7e" strokeOpacity={0.4} strokeWidth={1.1} style={{cursor:"move",touchAction:"none"}}
@@ -274,27 +265,23 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
         onPointerCancel={()=>setDrag(null)} />)}
       </g>;
      })}
+     {!stale&&(base.doors??[]).filter(d=>d.story===story&&base.shapes.some(s=>s.ownerId===ownerId&&(s.id===d.fromRoomId||s.id===d.toRoomId))).map(d=><circle key={d.id} cx={d.center[0]} cy={d.center[1]} r={0.5} fill="#a12750"><title>Proposed door · {d.widthFt} ft</title></circle>)}
     </svg>
-    <label className="microcopy" htmlFor="design-edit-shape">Drag vertices on source XY grid</label>
-    <select id="design-edit-shape" value={editingShapeId} onChange={e=>{setEditingShapeId(e.target.value);setDrag(null);}}>
-     <option value="">Choose a draft shape to edit</option>
-     {base.shapes.filter(s=>s.ownerId===ownerId&&(s.story===story||s.story===null)).map(s=><option value={s.id} key={s.id}>{s.label} · {s.story??"ROOF"}</option>)}
-    </select>
-    <label className="microcopy" htmlFor="design-snap">Grid snapping (ft)</label>
-    <select id="design-snap" value={snapGrid} onChange={e=>setSnapGrid(e.target.value)}>
-     <option value="0.25">0.25 ft</option><option value="0.5">0.5 ft</option><option value="1">1 ft</option>
-    </select>
-    <div className="grid" style={{gridTemplateColumns:"1fr 1fr",gap:8}}>
-     <label className="microcopy">Partition axis<select value={partitionAxis} onChange={e=>setPartitionAxis(e.target.value as "X"|"Y")}><option value="X">Vertical cut (X)</option><option value="Y">Horizontal cut (Y)</option></select></label>
-     <label className="microcopy">Cut coordinate (model ft)<input inputMode="decimal" value={partitionOffset} onChange={e=>setPartitionOffset(e.target.value)} placeholder="Absolute model coordinate" /></label>
-    </div>
-    <button className="secondary-button" type="button" onClick={partitionSelected} disabled={stale||!editingShapeId}>Split selected floor shape</button>
+    <div className="design-canvas-legend" aria-label="Plan legend"><span><i className="legend-room"/>Rooms</span><span><i className="legend-hall"/>Hallways</span><span><i className="legend-door"/>Proposed doors</span></div>
+    <p className="microcopy design-canvas-caption">{base.shapes.some(s=>s.ownerId===ownerId&&s.kind==="ROOM"&&s.story===story)?"Your saved geometry. Generate alternatives to explore another arrangement.":"Your source footprint. Add room names to explore possible layouts."}</p>
+   </div>
+   <aside className="design-program-panel" aria-label="Room layout generator"><p className="eyebrow">YOUR ROOM PROGRAM</p><h3>What belongs here?</h3><p className="microcopy">Separate each room name with a comma. Include the rooms that matter to this floor.</p>
     <label className="microcopy">Room names (comma separated)<input value={roomLabels} onChange={e=>setRoomLabels(e.target.value)} /></label>
     <label className="microcopy">Room seed direction<select value={packAxis} onChange={e=>setPackAxis(e.target.value as "X"|"Y")}><option value="X">Across X</option><option value="Y">Across Y</option></select></label>
-    <p className="microcopy">If no floor plate exists, the generator derives it from the selected home’s original polygon. Room proposals are draft geometry; select and save one before regenerating the report.</p>
-    <button className="secondary-button" type="button" onClick={packRooms} disabled={stale||activeOwner?.kind!=="home"}>Generate room layout alternatives</button>
+    <p className="microcopy">Generate options for this building and floor, compare them, then save your choice. Your current saved layout stays intact while you explore.</p>
+    <button className="primary-button" type="button" onClick={packRooms} disabled={stale||activeOwner?.kind!=="home"}>Generate room layout alternatives</button>
+
+    {activeOwner?.kind!=="home"&&<p className="microcopy">Choose a home in Building owner to generate room alternatives. Garage and roof geometry can be edited with the refinement tools below.</p>}
+   </aside>
+  </div>
+  {note&&<p role="status" className="microcopy lifecycle-message">{note}</p>}
     {layoutOptions.length>0&&!alternativesCurrent&&<p role="status" className="candidate-warning-box">Layout inputs or source design changed. Previous alternatives are stale; generate new ones before saving.</p>}
-    {alternativesCurrent&&<section aria-label="Compare draft room layouts" className="wb-panel" data-layout-comparison="draft" style={{marginTop:12}}>
+    {alternativesCurrent&&<section aria-label="Compare draft room layouts" className="layout-comparison" data-layout-comparison="draft">
      <h3>Compare {layoutOptions.length} draft layouts</h3>
      <p className="microcopy">Proximity scores compare planning preferences, not overall quality or code compliance. Hallways are amber; proposed doors are pink. Saving replaces rooms and hallways for this building and floor. Other floors stay attached, and your saved design is untouched until Save selected layout.</p>
      <div className="layout-options-grid">
@@ -306,7 +293,7 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
        const checks=option.assessment.relationships;
        return <button key={index} type="button" className="layout-option" aria-pressed={selectedLayout===index} onClick={()=>setSelectedLayout(index)}>
         <strong>Concept {index+1}{index===0?" · highest score":""}</strong>
-        <svg viewBox={bb.join(" ")} role="img" aria-label={`Draft floor plan for concept ${index+1}`} style={{display:"block",width:"100%",height:120,background:"#f0f4f7",marginBlock:8}}>
+        <svg viewBox={bb.join(" ")} role="img" aria-label={`Draft floor plan for concept ${index+1}`} className="layout-option-plan">
          {shell.length>0&&<polygon points={pts(shell)} fill="#dce7ed" stroke="#31566d" strokeWidth={.6}/>}
          {halls.map(hall=><polygon key={hall.id} data-proposed-shape={hall.id} points={pts(hall.polygon)} fill="#f4ce7c" stroke="#946a20" strokeWidth={.5}><title>{hall.label} · draft hallway</title></polygon>)}
          {rooms.map(room=>{const center=room.polygon.reduce((sum,p)=>[sum[0]+p[0]/room.polygon.length,sum[1]+p[1]/room.polygon.length] as P2,[0,0] as P2);return <g key={room.id}><polygon points={pts(room.polygon)} fill="#95c3cb" fillOpacity={.65} stroke="#326b84" strokeWidth={.5}><title>{room.label}</title></polygon><text x={center[0]} y={center[1]} textAnchor="middle" fontSize={2.4} fill="#123e52" pointerEvents="none">{room.label.length>18?room.label.slice(0,16)+"…":room.label}</text></g>;})}
@@ -324,15 +311,46 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
       {activeLayout.assessment.relationships.length===0?<p className="microcopy">No applicable proximity preferences identified for these room names.</p>:activeLayout.assessment.relationships.map((r,i)=><p key={i} className="microcopy">{r.satisfied?"Met":"Not met"} · {r.priority}: {r.a} / {r.b} — {r.reason}</p>)}
       {activeLayout.assessment.limitations.map((warning,i)=><p className="microcopy" key={i}>{warning}</p>)}
      </div>}
-     <div className="hero-actions"><button type="button" className="primary-button" onClick={saveSelectedLayout}>Save selected layout</button><button type="button" className="secondary-button" onClick={()=>{setLayoutOptions([]);setLayoutSource("");setNote("Layout comparison cancelled; saved design unchanged.");}}>Cancel comparison</button></div>
+     <div className="hero-actions layout-decision-actions"><button type="button" className="primary-button" onClick={saveSelectedLayout}>Save selected layout</button><button type="button" className="secondary-button" onClick={()=>{setLayoutOptions([]);setLayoutSource("");setNote("Layout comparison cancelled; saved design unchanged.");}}>Cancel comparison</button></div>
     </section>}
-    <p className="microcopy">Drag any highlighted wall or vertex; invalid moves outside the source owner or through polygon edges are rejected. Partition divides the selected floor polygon along a model X or Y line, validates both halves and clears dependent draft doors. Blue: floor concepts. Amber: roof-zone proposals.</p>
-   </div>
+
+  <div className="design-advanced-heading"><h3>Refine your design</h3><p>Open the tools you need. Each saved change updates the design revision.</p></div>
+  <div className="design-advanced-grid">
+   <details className="design-tool-panel"><summary><span>Create custom shapes</span><small>Floor regions, rooms and roof zones</small></summary><div className="design-tool-body">
+    <label className="microcopy" htmlFor="design-kind">New shape type</label>
+    <select id="design-kind" value={kind} onChange={e=>setKind(e.target.value as DesignShape["kind"])}>
+     {(["FLOOR_PLATE","ROOM","GARAGE_AREA","CIRCULATION","STAIR_ZONE","ROOF_ZONE","GABLE_ZONE"] as const).map(t=><option key={t} value={t}>{t.replaceAll("_"," ")}</option>)}
+    </select>
+    <label className="microcopy" htmlFor="design-label">Label</label>
+    <input id="design-label" value={label} onChange={e=>setLabel(e.target.value)} placeholder="e.g. Kitchen concept" />
+    <div className="hero-actions"><button className="primary-button" type="button" disabled={stale||!activeOwner} onClick={()=>save(true)}>Create shape from owner footprint</button></div>
+    <p className="microcopy">For a smaller shape, enter source world-coordinate polygon vertices as model XY pairs; the engine checks containment inside the selected owner.</p>
+    <label className="microcopy" htmlFor="design-points">Custom vertices (model feet, no mirror)</label>
+    <textarea id="design-points" rows={3} value={vertices} onChange={e=>setVertices(e.target.value)}/>
+    <button className="secondary-button" type="button" disabled={stale||!activeOwner} onClick={()=>save(false)}>Add custom polygon</button>
+
+   </div></details>
+   <details className="design-tool-panel"><summary><span>Edit walls &amp; vertices</span><small>Move, snap and divide saved shapes</small></summary><div className="design-tool-body">
+    <label className="microcopy" htmlFor="design-edit-shape">Drag vertices on source XY grid</label>
+    <select id="design-edit-shape" value={editingShapeId} onChange={e=>{setEditingShapeId(e.target.value);setDrag(null);}}>
+     <option value="">Choose a draft shape to edit</option>
+     {base.shapes.filter(s=>s.ownerId===ownerId&&(s.story===story||s.story===null)).map(s=><option value={s.id} key={s.id}>{s.label} · {s.story??"ROOF"}</option>)}
+    </select>
+    <label className="microcopy" htmlFor="design-snap">Grid snapping (ft)</label>
+    <select id="design-snap" value={snapGrid} onChange={e=>setSnapGrid(e.target.value)}>
+     <option value="0.25">0.25 ft</option><option value="0.5">0.5 ft</option><option value="1">1 ft</option>
+    </select>
+    <div className="grid" style={{gridTemplateColumns:"1fr 1fr",gap:8}}>
+     <label className="microcopy">Partition axis<select value={partitionAxis} onChange={e=>setPartitionAxis(e.target.value as "X"|"Y")}><option value="X">Vertical cut (X)</option><option value="Y">Horizontal cut (Y)</option></select></label>
+     <label className="microcopy">Cut coordinate (model ft)<input inputMode="decimal" value={partitionOffset} onChange={e=>setPartitionOffset(e.target.value)} placeholder="Absolute model coordinate" /></label>
+    </div>
+    <button className="secondary-button" type="button" onClick={partitionSelected} disabled={stale||!editingShapeId}>Split selected floor shape</button>
+
+    <p className="microcopy">Choose a shape, then drag its highlighted walls or vertices on the plan. Arrow keys move a focused vertex by the selected grid increment. Invalid moves are rejected.</p>
+   </div></details>
   </div>
-  <div className="candidate-detail-grid" style={{marginBlock:20}}>
-   <article className="wb-panel">
-    <p className="eyebrow">FLOOR SOLVER · WALLS, ROOM RELATIONSHIPS AND DOORS</p>
-    <h3>Derived shared wall segments</h3>
+  <div className="design-advanced-grid">
+   <details className="design-tool-panel"><summary><span>Connections &amp; doors</span><small>Refine shared walls and openings</small></summary><div className="design-tool-body">
     <p className="microcopy">Generated from authored room/circulation polygons on the selected building and floor. This is geometry checking, not an approved room/egress plan.</p>
     <label htmlFor="shared-wall-selector" className="microcopy">Shared room wall</label>
     <select id="shared-wall-selector" value={Math.min(wallIndex,Math.max(0,walls.length-1))} onChange={e=>setWallIndex(Number(e.target.value))}>
@@ -344,10 +362,8 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
     <div className="component-list">
      {solution?.floors.filter(f=>f.ownerId===ownerId).map(f=><div key={f.story}><span>{f.story} · {f.status}</span><strong>{f.roomIds.length} rooms · {f.wallSegments.length} shared walls · {f.doors.length} doors</strong>{f.issues.map((issue,i)=><small key={i}>{issue.code}: {issue.detail}</small>)}</div>)}
     </div>
-   </article>
-   <article className="wb-panel">
-    <p className="eyebrow">ROOF SOLVER · SOURCE-GEOMETRY PREVIEW</p>
-    <h3>Gable pitch, ridge and sections</h3>
+   </div></details>
+   <details className="design-tool-panel"><summary><span>Roof studies</span><small>Pitch, ridge and fascia parameters</small></summary><div className="design-tool-body">
     <label className="microcopy" htmlFor="gable-draft-selector">Roof-zone draft</label>
     <select id="gable-draft-selector" value={chosenRoof?.id??""} onChange={e=>setSelectedRoofId(e.target.value)}>
      {roofShapes.length?roofShapes.map(s=><option key={s.id} value={s.id}>{s.label} · {s.id}</option>):<option value="">Create a GABLE ZONE shape first</option>}
@@ -368,14 +384,19 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
     {preview?.ridges.map(r=><p className="microcopy" key={r.zoneId}>{r.zoneId}: plate {r.plateZFt.toFixed(2)} ft · ridge {r.ridgeZFt.toFixed(2)} ft · pitch {(r.pitch*12).toFixed(2)}/12</p>)}
     {preview?.issues.map((issue,i)=><p className="microcopy" key={i}>{issue.code}: {issue.detail}</p>)}
     <p className="microcopy">The computed preview cannot create a locked roof or approve valley drainage, structure, fascia or permit geometry.</p>
-   </article>
+   </div></details>
   </div>
+
+  <details className="design-tool-panel design-shape-manager"><summary><span>Manage saved shapes</span><small>{base.shapes.length} shapes across all buildings and floors</small></summary><div className="design-tool-body">
+  <div className="component-list">
+   {base.shapes.map(s=><div key={s.id}><span>{s.story??"ROOF"} · DRAFT</span><strong>{s.label}</strong><small>{s.ownerId} · {s.kind} · {s.polygon.length} vertices</small><button className="tiny-action" type="button" disabled={stale} onClick={()=>drop(s.id)}>Remove</button></div>)}
+  </div>
+
+  </div></details>
   {document&&<details className="design-verification"><summary>Inspect saved revision data</summary>
     <p className="microcopy">Revision {document.revision} · {document.candidateId}. Exact saved shapes and proposed door records; model XY orientation is retained.</p>
     <pre data-saved-design-document={document.candidateId}>{JSON.stringify(document,null,2)}</pre>
   </details>}
-  <div className="component-list">
-   {base.shapes.map(s=><div key={s.id}><span>{s.story??"ROOF"} · DRAFT</span><strong>{s.label}</strong><small>{s.ownerId} · {s.kind} · {s.polygon.length} vertices</small><button className="tiny-action" type="button" disabled={stale} onClick={()=>drop(s.id)}>Remove</button></div>)}
-  </div>
+
  </section>;
 }

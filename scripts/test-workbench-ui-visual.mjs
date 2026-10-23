@@ -1,0 +1,84 @@
+// Real production components + CSS in an isolated fixture. This does not test hosted auth.
+import assert from 'node:assert/strict';
+import {createRequire} from 'node:module';
+import {createServer} from 'node:http';
+import {readFile,mkdir,writeFile} from 'node:fs/promises';
+import {execFileSync} from 'node:child_process';
+import path from 'node:path';
+const requireQA=createRequire(path.join(process.env.WORKBENCH_QA_MODULES??process.cwd(),'__workbench_qa__.cjs'));
+const puppeteer=requireQA('puppeteer-core');
+assert(process.env.CHROME_BIN,'CHROME_BIN is required');
+assert(process.env.WORKBENCH_UI_FIXTURE_DIR,'Generate the production component fixture first');
+const out=path.resolve(process.env.WORKBENCH_QA_OUTPUT??'/tmp/workbench-ui-evidence');
+await mkdir(out,{recursive:true});
+const fixture=path.resolve(process.env.WORKBENCH_UI_FIXTURE_DIR);
+const html=await readFile(path.join(fixture,'index.html'));
+const js=await readFile(path.join(fixture,'app.js'));
+const server=createServer((request,response)=>{response.setHeader('Content-Type',request.url==='/app.js'?'text/javascript':'text/html');response.end(request.url==='/app.js'?js:html);});
+await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+const browser=await puppeteer.launch({executablePath:process.env.CHROME_BIN,headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
+const base=`http://127.0.0.1:${server.address().port}`;
+const evidence={sourceSha:execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),scope:'Isolated production components and CSS; no hosted authentication or physical-device claim',cases:[]};
+const routes=[['home','/workbench','.studio-home-hero'],['library','/workbench/projects/pondy-lot2/candidates','.library-discovery'],['design','/workbench/projects/pondy-lot2/candidates/journey-ui-fixture','#universal-design-editor'],['compare','/workbench/projects/pondy-lot2/compare','.compare-evidence-table']];
+try{
+ for(const [width,height] of [[390,844],[768,1024],[1440,1000]]){
+  for(const [view,route,ready] of routes){
+   const page=await browser.newPage();const errors=[];page.on('pageerror',error=>errors.push(String(error)));
+   await page.setViewport({width,height,deviceScaleFactor:1});
+   await page.goto(base+route,{waitUntil:'networkidle0'});await page.waitForSelector(ready);
+   const noOverflow=async()=>assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`${view} overflows ${width}px`);
+   await noOverflow();
+   if(width<960){
+    await page.click('.workbench-menu-toggle');
+    await page.waitForFunction(()=>document.querySelector('.workbench-menu-toggle').getAttribute('aria-expanded')==='true');
+    await noOverflow();
+    await page.focus('#workbench-navigation-links a');await page.keyboard.press('Escape');
+    assert.equal(await page.$eval('.workbench-menu-toggle',e=>e.getAttribute('aria-expanded')),'false');
+    assert(await page.$eval('.workbench-menu-toggle',e=>e===document.activeElement),'Escape must return focus to menu toggle');
+   }
+   if(view==='library'){
+    await page.type('input[type="search"]','local UI fixture');
+    await page.waitForFunction(()=>document.querySelectorAll('.library-candidate-card').length===1);
+    await noOverflow();
+    await page.$eval('input[type="search"]',e=>e.select());await page.keyboard.press('Backspace');
+    await page.waitForFunction(()=>document.querySelectorAll('.library-candidate-card').length>1);
+   }
+   let fidelity;
+   if(view==='design'){
+    assert.equal(await page.$eval('.design-tool-panel',e=>e.open),false,'Advanced tools start collapsed');
+    const generator=await page.$('[aria-label="Room layout generator"] input');
+    await generator.click({clickCount:3});await generator.type('Laundry, Kitchen, Living, Primary Bedroom, Primary Bath');
+    await page.click('[aria-label="Room layout generator"] button');
+    await page.waitForSelector('.layout-option:nth-child(3)');
+    await page.click('.layout-option:nth-child(2)');
+    await page.waitForFunction(()=>document.querySelectorAll('.layout-option')[1].getAttribute('aria-pressed')==='true');
+    await noOverflow();
+    await page.screenshot({path:path.join(out,`comparison-${width}.png`),fullPage:false});
+    await page.click('.layout-decision-actions .primary-button');
+    await page.waitForSelector('[data-saved-design-document]');
+    const selected=await page.$eval('[data-saved-design-document]',e=>e.textContent);
+    await page.reload({waitUntil:'networkidle0'});await page.waitForSelector('[data-saved-design-document]');
+    assert.deepEqual(JSON.parse(await page.$eval('[data-saved-design-document]',e=>e.textContent)),JSON.parse(selected));
+    await page.click('#customer-report-preview button.primary-button');
+    await page.waitForSelector('#customer-report-preview iframe');
+    await page.waitForFunction(()=>document.querySelector('#customer-report-preview iframe')?.contentDocument?.querySelector('[data-report-design-document]'));
+    const reported=await page.$eval('#customer-report-preview iframe',frame=>frame.contentDocument.querySelector('[data-report-design-document]').textContent);
+    assert.deepEqual(JSON.parse(reported),JSON.parse(selected),'Report changed the non-top selected design');
+    fidelity={nonTopSelection:true,reload:true,exactReportDocument:true,rooms:JSON.parse(selected).shapes.filter(s=>s.kind==='ROOM').length};
+    await noOverflow();
+    await page.$eval('#universal-design-editor',e=>e.scrollIntoView({block:'start',behavior:'instant'}));
+    await page.screenshot({path:path.join(out,`studio-${width}.png`),fullPage:false});
+   }
+   await page.evaluate(()=>scrollTo({top:0,behavior:'instant'}));
+   await page.screenshot({path:path.join(out,`${view}-${width}.png`),fullPage:view==='home'});
+   assert.deepEqual(errors,[],`${view} application errors`);
+   evidence.cases.push({width,height,view,noHorizontalOverflow:true,mobileMenu:width<960,applicationErrors:errors,...fidelity});
+   console.log(`PASS ${view} at ${width}px${fidelity?' · non-top save/reload/report fidelity':''}`);
+   await page.close();
+  }
+ }
+ await writeFile(path.join(out,'results.json'),JSON.stringify(evidence,null,2)+'\n');
+}catch(error){
+ for(const [index,page] of (await browser.pages()).entries())await page.screenshot({path:path.join(out,`failure-${index}.png`),fullPage:true}).catch(()=>{});
+ await writeFile(path.join(out,'failure.json'),JSON.stringify({error:String(error),completedCases:evidence.cases},null,2)+'\n');throw error;
+}finally{await browser.close();await new Promise(resolve=>server.close(resolve));}
