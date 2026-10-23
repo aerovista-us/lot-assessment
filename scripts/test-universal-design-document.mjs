@@ -366,6 +366,10 @@ for(const c of cases){
  const customerReport=(await createCandidateConceptHtml(imported.candidate,reattached)).html;
  assert.equal(customerReport.includes('data-design-shape='),true);
  assert(customerReport.includes('DIGITAL CONCEPT VALIDATION ONLY'));
+ assert(customerReport.includes('Three readiness levels'));
+ assert(customerReport.includes('Current report classification: Digital concept'));
+ assert(customerReport.includes('Construction approved:'));
+
  assert(customerReport.includes('not field verification or approval'));
  assert(customerReport.includes('qualified professional and authority review'));
  const moved=structuredClone(c);
