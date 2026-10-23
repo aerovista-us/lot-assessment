@@ -837,8 +837,10 @@ export function assessContinuousHomeRoute(c:CandidateRecord,d:DesignDocument,own
  const groundCorridors=d.shapes.filter(x=>x.ownerId===ownerId&&x.story==='GROUND'&&x.kind==='CIRCULATION');
  const upperCorridors=d.shapes.filter(x=>x.ownerId===ownerId&&x.story==='UPPER'&&x.kind==='CIRCULATION');
  const obstacles=e.obstacles??[];
+ const validObstacles:typeof obstacles=[];
  for(const obstacle of obstacles){
   try{validPolygon(obstacle.polygon,obstacle.id);}catch{errors.push('INVALID_OBSTACLE:'+obstacle.id);continue;}
+  validObstacles.push(obstacle);
   const halls=obstacle.story==='GROUND'?groundCorridors:obstacle.story==='UPPER'?upperCorridors:[];
   if(halls.some(h=>polygonInteriorOverlap(h.polygon,obstacle.polygon)))errors.push('HALL_OBSTRUCTED:'+obstacle.id);
  }
@@ -857,7 +859,7 @@ export function assessContinuousHomeRoute(c:CandidateRecord,d:DesignDocument,own
       e.garage!.garageWalkway[(i+1)%e.garage!.garageWalkway.length])))
     errors.push('GARAGE_WALKWAY_MISSES_DOOR');
   }catch{errors.push('GARAGE_WALKWAY_INVALID');}
-  if(obstacles.some(o=>o.story==='GROUND'&&polygonInteriorOverlap(o.polygon,e.garage!.garageWalkway)))
+  if(validObstacles.some(o=>o.story==='GROUND'&&polygonInteriorOverlap(o.polygon,e.garage!.garageWalkway)))
    errors.push('GARAGE_WALKWAY_OBSTRUCTED');
  }else errors.push('GARAGE_ENTRY_EVIDENCE_MISSING');
  let stairs=null;
@@ -868,8 +870,12 @@ export function assessContinuousHomeRoute(c:CandidateRecord,d:DesignDocument,own
   const upper=d.shapes.find(x=>x.id===e.stairs!.upperStairZoneId&&x.ownerId===ownerId&&x.story==='UPPER'&&x.kind==='STAIR_ZONE');
   if(!lower||!upper||!contained(e.stairs.groundLanding,lower.polygon)||!contained(e.stairs.upperLanding,upper.polygon))
    errors.push('STAIR_LANDING_OUTSIDE_ZONE');
-  if(obstacles.some(o=>polygonInteriorOverlap(o.polygon,o.story==='GROUND'?e.stairs!.groundLanding:e.stairs!.upperLanding)))
-   errors.push('STAIR_LANDING_OBSTRUCTED');
+  for(const o of validObstacles){
+   if(o.story!=='GROUND'&&o.story!=='UPPER')continue;
+   const landing=o.story==='GROUND'?e.stairs.groundLanding:e.stairs.upperLanding;
+   try{if(polygonInteriorOverlap(o.polygon,landing))errors.push('STAIR_LANDING_OBSTRUCTED:'+o.id);}
+   catch{errors.push('INVALID_STAIR_LANDING_GEOMETRY');}
+  }
   if(assessAuthoredCirculation(d,ownerId,'UPPER').status!=='DRAFT_ROUTE_CONNECTED')
    errors.push('UPPER_ROUTE_UNVERIFIED');
   if(!lower||!groundCorridors.some(h=>overlapBoundary(h.polygon,lower.polygon)>=3))
