@@ -821,6 +821,39 @@ export function assessDoorTransitionEnvelope(a:P2[],b:P2[],center:P2,widthFt:num
   limitations:['Conservative semicircle clearance only; fixtures, door swing, furniture and wheelchair turning are not proven']};
 }
 
+/** Conservative single straight-flight placement test. This does not model
+ * a switchback, floor opening, section headroom or structural support. */
+export function assessStraightStairRunPlacement(e:StairFlightEvidence,flightFootprint:P2[],
+ groundZone:P2[],upperZone:P2[]){
+ const dimensions=assessStairFlightEvidence(e),errors=[...dimensions.errors];
+ const rect=(poly:P2[],name:string)=>{
+  try{
+   validPolygon(poly,name);
+   if(poly.length!==4)throw Error('Not a rectangle');
+   const lengths=poly.map((p,i)=>Math.hypot(p[0]-poly[(i+1)%4][0],p[1]-poly[(i+1)%4][1]));
+   const dot=(poly[1][0]-poly[0][0])*(poly[3][0]-poly[0][0])+
+    (poly[1][1]-poly[0][1])*(poly[3][1]-poly[0][1]);
+   if(Math.abs(dot)>1e-5*lengths[0]*lengths[3]||
+    Math.abs(lengths[0]-lengths[2])>1e-5||Math.abs(lengths[1]-lengths[3])>1e-5)
+    throw Error('Nonrectangular');
+   return {long:Math.max(lengths[0],lengths[1]),short:Math.min(lengths[0],lengths[1])};
+  }catch{errors.push('INVALID_FLIGHT_FOOTPRINT');return null;}
+ };
+ const flight=rect(flightFootprint,'stair-flight');
+ const requiredRunFt=(e.riserCount-1)*e.treadDepthFt;
+ if(!Number.isFinite(requiredRunFt)||requiredRunFt<=0)errors.push('INVALID_REQUIRED_RUN');
+ if(flight&&(flight.long+EPS<requiredRunFt||flight.short+EPS<e.clearWidthFt))
+  errors.push('INSUFFICIENT_FLIGHT_ENVELOPE');
+ if(flight&&!contained(flightFootprint,groundZone))errors.push('FLIGHT_OUTSIDE_GROUND_ZONE');
+ if(flight&&!contained(flightFootprint,upperZone))errors.push('FLIGHT_OUTSIDE_UPPER_ZONE');
+ if(!contained(e.groundLanding,groundZone)||!contained(e.upperLanding,upperZone))
+  errors.push('LANDING_OUTSIDE_STAIR_ZONE');
+ return {status:errors.length?'UNVERIFIED' as const:'STRAIGHT_FLIGHT_FOOTPRINT_ONLY' as const,
+  requiredRunFt,flight,errors,
+  limitations:['The rectangular flight envelope and supplied heights are only preliminary dimensions',
+   'Floor opening, intersecting landing geometry, exact riser/nosing arrangement, structural framing and sectional headroom remain unverified']};
+}
+
 /** A conservative continuous route evidence gate. All modeled connections must
  * attach to the same hall component, and proposed obstacles must not occupy
  * either a hallway or a supplied landing. This is not a code/egress approval. */
