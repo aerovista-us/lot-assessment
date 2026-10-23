@@ -363,7 +363,11 @@ for(const c of cases){
  assert(reattached);
  assert.equal(reattached.shapes.length,3);
  assert.equal(validateDesignDocument(imported.candidate,reattached).valid,true);
- assert.equal((await createCandidateConceptHtml(imported.candidate,reattached)).html.includes('data-design-shape='),true);
+ const customerReport=(await createCandidateConceptHtml(imported.candidate,reattached)).html;
+ assert.equal(customerReport.includes('data-design-shape='),true);
+ assert(customerReport.includes('DIGITAL CONCEPT VALIDATION ONLY'));
+ assert(customerReport.includes('not field verification or approval'));
+ assert(customerReport.includes('qualified professional and authority review'));
  const moved=structuredClone(c);
  const m=moved.components.find(x=>x.id===owners[0].id);
  m.x+=3;
