@@ -14,7 +14,14 @@ export default function PondyLotWorkspace() {
     <section className="staff-page-head"><p className="eyebrow">PONDY FLATS · LOT WORKSPACE</p><h1>{lot.label}</h1><p className="lede">{lot.address} · {lot.frontage} access · {lot.informationState.toLowerCase()} information state</p>
       <div className="hero-actions"><Link className="primary-button" href="/workbench/projects/pondy-lot2/explore">Run exploration</Link><Link className="secondary-button" href="/workbench/projects/pondy-lot2/candidates">Review saved candidates</Link></div></section>
 
-    <section className="lot-progress-ribbon">{stages.map((stage, index) => <div key={stage} className={index < 5 ? "stage-complete" : index === 5 ? "stage-active" : "stage-pending"}><span>{index + 1}</span><b>{stage}</b></div>)}</section>
+    <section aria-label="Concept workflow stages, not approval status" className="lot-progress-ribbon">{stages.map((stage, index) => <div key={stage} className="stage-pending"><span>{index + 1}</span><b>{stage}</b></div>)}</section>
+    <p className="microcopy">Journey stages describe the workflow, not verified completion. Check each candidate's latest evidence and saved selection before making a decision.</p>
+    <section className="wb-panel" aria-label="Continue digital concept journey"><p className="eyebrow">CONTINUE THE DESIGN JOURNEY</p>
+      <h2>Choose a concept, validate its digital evidence, then create the report.</h2>
+      <p>Digital concept → Digitally validated → Construction approved. Software evidence never substitutes for field measurements, code checks or professional authorization.</p>
+      <div className="hero-actions"><Link className="primary-button" href="/workbench/projects/pondy-lot2/candidates/auto-PONDY-AFL-14">Continue Design 4 →</Link>
+      <Link className="secondary-button" href="/workbench/projects/pondy-lot2/compare">Compare candidates →</Link></div>
+    </section>
 
     <section className="lot-workspace-grid">
       <article className="wb-panel"><p className="eyebrow">NEXT ACTION</p><h2>Run broad exploration first.</h2><p>Workbench should search and triage before staff starts drawing. The durable registry currently contains {interventions.length} intervention-ready saved candidates; a fresh exploration can surface additional distinct concepts.</p><Link className="secondary-button" href="/workbench/projects/pondy-lot2/explore">Run Candidate Search & Triage</Link></article>
