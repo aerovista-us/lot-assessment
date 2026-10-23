@@ -118,6 +118,8 @@ for(const c of cases){
   assert.equal(badGarageRoute.status,'UNVERIFIED');
   assert(badGarageRoute.errors.includes('GARAGE_DOOR_UNVERIFIED'));
   assert(badGarageRoute.errors.includes('GARAGE_WALKWAY_OUTSIDE_SOURCE'));
+  assert(badGarageRoute.errors.includes('GARAGE_WALKWAY_DOOR_CLEARANCE'));
+
   assert(badGarageRoute.errors.includes('HALL_OBSTRUCTED:blocked-hall'));
   const malformedObstacleRoute=assessContinuousHomeRoute(c,passageCandidate.document,plate.ownerId,{
    garage:{roomId:'nonexistent',garageId:'nonexistent',center:[0,0],widthFt:3,
