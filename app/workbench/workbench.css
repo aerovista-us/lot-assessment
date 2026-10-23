@@ -695,3 +695,9 @@
 @media(max-width:420px) { .workspace-title-row { flex-direction:column; gap:10px; }.design-context-bar { grid-template-columns:1fr; }.design-context-note { grid-column:auto; }.library-filter-row { gap:6px; }.library-filter-row button { padding-inline:10px; font-size:11px; }.design-canvas-legend { gap:12px; }.design-floor-canvas { height:270px; }.journey-steps { grid-template-columns:1fr 1fr; }.journey-steps a { padding:11px; }.layout-decision-actions>* { flex:1 1 100%; } }
 @media(prefers-reduced-motion:reduce) { html:has(#workbench-content) { scroll-behavior:auto; } #workbench-content *, .workbench-nav-shell * { transition:none!important; animation:none!important; } }
 @media(max-width:760px) { .design-editor :is(input,select,textarea),.library-search input,.compare-selectors select { font-size:16px; } }
+
+/* Keep the keyboard-only skip link hidden regardless of prefixed content or scroll. */
+.workbench-skip-link { position:fixed; top:8px; left:12px; clip-path:inset(50%); width:1px; height:1px; overflow:hidden; padding:0; white-space:nowrap; }
+.workbench-skip-link:focus { clip-path:none; width:auto; height:auto; overflow:visible; padding:12px; }
+.design-editor .lifecycle-message { padding:12px 15px; border-left:3px solid #e9c481; border-radius:0 8px 8px 0; background:#e9c48108; color:#d6dfeb!important; }
+.compare-selectors,.compare-selectors label { min-width:0; }
