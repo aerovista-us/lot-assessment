@@ -119,6 +119,18 @@ for(const c of cases){
   assert(badGarageRoute.errors.includes('GARAGE_DOOR_UNVERIFIED'));
   assert(badGarageRoute.errors.includes('GARAGE_WALKWAY_OUTSIDE_SOURCE'));
   assert(badGarageRoute.errors.includes('HALL_OBSTRUCTED:blocked-hall'));
+  const malformedObstacleRoute=assessContinuousHomeRoute(c,passageCandidate.document,plate.ownerId,{
+   garage:{roomId:'nonexistent',garageId:'nonexistent',center:[0,0],widthFt:3,
+    garageWalkway:[[0,0],[4,0],[4,4],[0,4]]},
+   stairs:{groundStairZoneId:'not-present',upperStairZoneId:'not-present',
+    groundLanding:[[0,0],[4,0],[4,4],[0,4]],upperLanding:[[0,0],[4,0],[4,4],[0,4]],
+    floorToFloorFt:10,riserCount:16,treadDepthFt:11/12,clearWidthFt:3.5,headroomFt:7},
+   obstacles:[{id:'malformed',story:'GROUND',polygon:[]}]
+  });
+  assert.equal(malformedObstacleRoute.status,'UNVERIFIED');
+  assert(malformedObstacleRoute.errors.includes('INVALID_OBSTACLE:malformed'));
+  assert(malformedObstacleRoute.errors.includes('STAIR_LANDING_OUTSIDE_ZONE'));
+
 
 
   // A bedroom accessible only through another room is graph-connected, but
