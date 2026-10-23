@@ -855,9 +855,9 @@ export function assessContinuousHomeRoute(c:CandidateRecord,d:DesignDocument,own
     errors.push('GARAGE_WALKWAY_OUTSIDE_SOURCE');
    // Proximity to the garage building alone is not connection to its door:
    // the modeled garage-side route must actually meet the proposed opening.
-   if(!e.garage.garageWalkway.some((p,i)=>onEdge(e.garage!.center,p,
-      e.garage!.garageWalkway[(i+1)%e.garage!.garageWalkway.length])))
-    errors.push('GARAGE_WALKWAY_MISSES_DOOR');
+   const entryRoom=d.shapes.find(x=>x.id===e.garage!.roomId&&x.ownerId===ownerId&&x.kind==='ROOM'&&x.story==='GROUND');
+   if(!entryRoom||!hasUsableDoorInterval(entryRoom.polygon,e.garage.garageWalkway,e.garage.center,e.garage.widthFt))
+    errors.push('GARAGE_WALKWAY_DOOR_CLEARANCE');
   }catch{errors.push('GARAGE_WALKWAY_INVALID');}
   if(validObstacles.some(o=>o.story==='GROUND'&&polygonInteriorOverlap(o.polygon,e.garage!.garageWalkway)))
    errors.push('GARAGE_WALKWAY_OBSTRUCTED');
