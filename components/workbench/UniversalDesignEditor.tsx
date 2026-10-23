@@ -1,5 +1,5 @@
 "use client";
-import {useEffect,useState} from "react";
+import {useEffect,useMemo,useState} from "react";
 import type {CandidateRecord} from "@/packages/candidates";
 import {placementPolygon} from "@/packages/roof-geometry";
 import {
@@ -40,7 +40,9 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
  useEffect(()=>{setOwnerId(owners[0]?.id??"");setNote("");setLayoutOptions([]);setLayoutSource("");},[candidate.id]);
  const activeOwner=owners.find(o=>o.id===ownerId);
  const roof=kind==="ROOF_ZONE"||kind==="GABLE_ZONE";
- const base=document??emptyDesignDocument(candidate);
+ // Unsaved alternatives are source-bound too. A fresh empty document on each
+ // render changes updatedAt and instantly invalidates a generated comparison.
+ const base=useMemo(()=>document??emptyDesignDocument(candidate),[document,candidate]);
  const stale=Boolean(document&&(()=>{try{validateDesignDocument(candidate,document);return false}catch{return true}})());
  const sourceKey=JSON.stringify([candidate.id,base.sourceSignature,base.revision,base.updatedAt,ownerId,story,editingShapeId,roomLabels,packAxis]);
  const alternativesCurrent=layoutOptions.length>0&&!stale&&layoutSource===sourceKey;

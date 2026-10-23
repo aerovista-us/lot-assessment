@@ -28,6 +28,10 @@ This fixture also exposed a concave collision false positive: a polygon's vertex
 
 Existing universal design, common solver, candidate report, workspace and intervention regression suites also remain required. Hosted CI must install the real private App Adapter package and pass TypeScript and the production build. The local container has public dependencies only; it cannot independently complete the authenticated build without that package.
 
+`npm run test:customer-journey-ui` runs the actual React editor, workspace hook, navigation and report-preview components in a DOM test environment. It compares three alternatives, selects a non-top option, saves, mounts a fresh page with persisted data, checks the exact report document, cancels replacement comparison without mutation and blocks an outdated report download. Only navigation/download transports are test doubles. This caught and fixed an unsaved-comparison bug: recreating the empty design document on every render changed its timestamp and immediately marked generated alternatives stale. The empty document is now memoized against its real source. This test establishes component behavior, not hosted authentication or visual/mobile layout acceptance.
+
+Local pixel-layout verification remains incomplete: the available browser could not reach the container's fixture server. No desktop/mobile screenshot acceptance is claimed for this commit.
+
 ## Outstanding hosted acceptance — issue #132
 
 - Authenticate on the exact PR preview; confirm its served commit.
