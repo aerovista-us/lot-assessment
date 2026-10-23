@@ -365,6 +365,9 @@ for(const c of cases){
  assert.equal(validateDesignDocument(imported.candidate,reattached).valid,true);
  const customerReport=(await createCandidateConceptHtml(imported.candidate,reattached)).html;
  assert.equal(customerReport.includes('data-design-shape='),true);
+ assert(customerReport.includes('What this saved concept proposes'));
+ assert(customerReport.includes('actual saved selections, not regenerated ranking winners'));
+ assert(customerReport.includes('Room placement and hallway allocation'));
  assert(customerReport.includes('DIGITAL CONCEPT VALIDATION ONLY'));
  assert(customerReport.includes('Three readiness levels'));
  assert(customerReport.includes('Current report classification: Digital concept'));
