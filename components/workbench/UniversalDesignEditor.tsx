@@ -4,7 +4,7 @@ import type {CandidateRecord} from "@/packages/candidates";
 import {placementPolygon} from "@/packages/roof-geometry";
 import {
  addDesignShape,addOwnerFootprintShape,emptyDesignDocument,removeDesignShape,addDraftDoor,setDraftRoofParameters,
- sourceBuildingOwners,validateDesignDocument,updateDesignShapePolygon,snapDesignPoint,partitionDesignShape,packDraftRooms,rankDraftRoomLayouts,moveDesignWall,type RankedDraftLayout,type DesignDocument,type DesignShape,type P2
+ sourceBuildingOwners,validateDesignDocument,updateDesignShapePolygon,snapDesignPoint,partitionDesignShape,prepareDraftRoomAlternatives,rankDraftRoomLayouts,moveDesignWall,type RankedDraftLayout,type DesignDocument,type DesignShape,type P2
 } from "@/packages/candidates/design-document";
 import {solveUniversalDesign} from "@/packages/candidates/design-solving";
 type Props={candidate:CandidateRecord;document?:DesignDocument;onSave:(doc:DesignDocument)=>void};
@@ -118,20 +118,20 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
    const plate=selected??existing[0];
    if(existing.length>1&&existing.some(x=>JSON.stringify(x.polygon)!==JSON.stringify(plate?.polygon)))
     throw Error("This home/story contains different floor plates. Choose and reconcile the correct footprint before generating rooms.");
-   let candidateDoc=base;
+   let candidateDoc=prepareDraftRoomAlternatives(candidate,base,ownerId,story);
    if(existing.length>1&&plate){
     const duplicates=new Set(existing.filter(x=>x.id!==plate.id).map(x=>x.id));
     const duplicateDependents=base.shapes.some(x=>duplicates.has(x.ownerId))||
      (base.doors??[]).some(x=>duplicates.has(x.fromRoomId)||duplicates.has(x.toRoomId))||
      (base.roofParameters??[]).some(x=>duplicates.has(x.shapeId));
     if(duplicateDependents)throw Error("Duplicate plates have attached geometry. Reconcile those dependencies manually before generating rooms.");
-    candidateDoc={...base,shapes:base.shapes.filter(x=>!duplicates.has(x.id)),
+    candidateDoc={...candidateDoc,shapes:candidateDoc.shapes.filter(x=>!duplicates.has(x.id)),
      revision:base.revision+1,updatedAt:new Date().toISOString()};
     validateDesignDocument(candidate,candidateDoc);
    }
    let resolvedPlate=plate;
    if(!resolvedPlate){
-    candidateDoc=addOwnerFootprintShape(candidate,base,{ownerId,label:activeOwner.label+" · source floor plate",kind:"FLOOR_PLATE",story});
+    candidateDoc=addOwnerFootprintShape(candidate,candidateDoc,{ownerId,label:activeOwner.label+" · source floor plate",kind:"FLOOR_PLATE",story});
     resolvedPlate=candidateDoc.shapes[candidateDoc.shapes.length-1];
    }
    const alternatives=rankDraftRoomLayouts(candidate,candidateDoc,resolvedPlate.id,labels,packAxis);
@@ -227,7 +227,7 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
  const xs=shell.map(p=>p[0]),ys=shell.map(p=>p[1]);
  const bb=xs.length?[Math.min(...xs)-3,Math.min(...ys)-3,Math.max(...xs)-Math.min(...xs)+6,Math.max(...ys)-Math.min(...ys)+6]:[0,0,100,100];
  const pts=(polygon:ReadonlyArray<readonly[number,number]>)=>polygon.map(p=>p[0]+","+p[1]).join(" ");
- return <section id="universal-design-editor" className="wb-panel" data-universal-design-editor="v1">
+ return <section id="universal-design-editor" className="wb-panel design-editor" data-universal-design-editor="v1">
   <div className="section-heading"><div><p className="eyebrow">UNIVERSAL DESIGN WORKSPACE · PHASE 0</p><h2>Create shapes for any saved design</h2></div><span className="mode-pill">{base.shapes.length} DRAFT SHAPES</span></div>
   <p className="microcopy">One editor for every candidate: attach footprint-derived floor plates, rooms, circulation areas, stairs, garage regions and roof-zone concepts to the exact source revision. Nothing is treated as a verified room plan or solved roof until separately validated.</p>
   {stale&&<div className="candidate-warning-box"><strong>Source revision changed</strong><p>Attached shapes are stale. Reconcile against the new footprint before reuse. The customer report will refuse stale geometry.</p></div>}
@@ -252,7 +252,7 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
    <div><p className="eyebrow">SOURCE FOOTPRINT · DRAFT SHAPES</p>
     <svg viewBox={bb.join(" ")} role="img" aria-label="Source building owner polygon with draft floor and roof zones" style={{width:"100%",maxHeight:330,background:"#f0f4f7"}}>
      {shell.length>0&&<polygon points={pts(shell)} fill="#dce7ed" stroke="#31566d" strokeWidth={.6}/>}
-     {!stale&&base.shapes.filter(s=>s.ownerId===ownerId).map(s=>{
+     {!stale&&base.shapes.filter(s=>s.ownerId===ownerId&&(s.story===story||s.story===null)).map(s=>{
       const poly=s.polygon.map((p,i)=>{
        if(drag?.shapeId===s.id&&drag.index===i)return drag.point;
        if(wallDrag?.shapeId===s.id&&(i===wallDrag.index||i===(wallDrag.index+1)%s.polygon.length))
@@ -260,7 +260,7 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
        return p;
       });
       return <g key={s.id}>
-       <polygon points={pts(poly)} fill={s.story===null?"#e9bc81":"#95c3cb"} fillOpacity={.35} stroke={s.story===null?"#a16f35":"#326b84"} strokeDasharray="1.8 1" strokeWidth={.7}><title>{s.label} · {s.kind} · draft</title></polygon>
+       <polygon data-saved-shape={s.id} data-shape-kind={s.kind} points={pts(poly)} fill={s.story===null?"#e9bc81":s.kind==="CIRCULATION"?"#f4ce7c":"#95c3cb"} fillOpacity={.35} stroke={s.story===null?"#a16f35":"#326b84"} strokeDasharray="1.8 1" strokeWidth={.7}><title>{s.label} · {s.kind} · draft</title></polygon>
        {editingShapeId===s.id&&poly.map((p,i)=><line key={"wall-"+i} x1={p[0]} y1={p[1]}
         x2={poly[(i+1)%poly.length][0]} y2={poly[(i+1)%poly.length][1]}
         stroke="#175a7e" strokeOpacity={0.4} strokeWidth={1.1} style={{cursor:"move",touchAction:"none"}}
@@ -276,7 +276,7 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
     <label className="microcopy" htmlFor="design-edit-shape">Drag vertices on source XY grid</label>
     <select id="design-edit-shape" value={editingShapeId} onChange={e=>{setEditingShapeId(e.target.value);setDrag(null);}}>
      <option value="">Choose a draft shape to edit</option>
-     {base.shapes.filter(s=>s.ownerId===ownerId).map(s=><option value={s.id} key={s.id}>{s.label} · {s.story??"ROOF"}</option>)}
+     {base.shapes.filter(s=>s.ownerId===ownerId&&(s.story===story||s.story===null)).map(s=><option value={s.id} key={s.id}>{s.label} · {s.story??"ROOF"}</option>)}
     </select>
     <label className="microcopy" htmlFor="design-snap">Grid snapping (ft)</label>
     <select id="design-snap" value={snapGrid} onChange={e=>setSnapGrid(e.target.value)}>
@@ -294,18 +294,25 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
     {layoutOptions.length>0&&!alternativesCurrent&&<p role="status" className="candidate-warning-box">Layout inputs or source design changed. Previous alternatives are stale; generate new ones before saving.</p>}
     {alternativesCurrent&&<section aria-label="Compare draft room layouts" className="wb-panel" data-layout-comparison="draft" style={{marginTop:12}}>
      <h3>Compare {layoutOptions.length} draft layouts</h3>
-     <p className="microcopy">Proximity scores are relative, not percentages or quality grades. They compare shared-wall preferences only—not circulation, usable doors, daylight, or code compliance. Select a concept to inspect; the saved design is untouched until Save selected layout.</p>
-     <div className="grid" style={{gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:10}}>
+     <p className="microcopy">Proximity scores compare planning preferences, not overall quality or code compliance. Hallways are amber; proposed doors are pink. Saving replaces rooms and hallways for this building and floor. Other floors stay attached, and your saved design is untouched until Save selected layout.</p>
+     <div className="layout-options-grid">
       {layoutOptions.map((option,index)=>{
-       const rooms=option.document.shapes.filter(s=>s.kind==="ROOM"&&!base.shapes.some(b=>b.id===s.id));
+       const rooms=option.document.shapes.filter(s=>s.kind==="ROOM"&&s.ownerId===ownerId&&s.story===story);
+       const halls=option.document.shapes.filter(s=>s.kind==="CIRCULATION"&&s.ownerId===ownerId&&s.story===story);
+       const addedIds=new Set([...rooms,...halls].map(s=>s.id));
+       const doors=(option.document.doors??[]).filter(d=>addedIds.has(d.fromRoomId)||addedIds.has(d.toRoomId));
        const checks=option.assessment.relationships;
-       return <button key={index} type="button" className="secondary-button" aria-pressed={selectedLayout===index} onClick={()=>setSelectedLayout(index)} style={{textAlign:"left",border:selectedLayout===index?"2px solid #175a7e":undefined}}>
+       return <button key={index} type="button" className="layout-option" aria-pressed={selectedLayout===index} onClick={()=>setSelectedLayout(index)}>
         <strong>Concept {index+1}{index===0?" · highest score":""}</strong>
         <svg viewBox={bb.join(" ")} role="img" aria-label={`Draft floor plan for concept ${index+1}`} style={{display:"block",width:"100%",height:120,background:"#f0f4f7",marginBlock:8}}>
          {shell.length>0&&<polygon points={pts(shell)} fill="#dce7ed" stroke="#31566d" strokeWidth={.6}/>}
+         {halls.map(hall=><polygon key={hall.id} data-proposed-shape={hall.id} points={pts(hall.polygon)} fill="#f4ce7c" stroke="#946a20" strokeWidth={.5}><title>{hall.label} · draft hallway</title></polygon>)}
          {rooms.map(room=>{const center=room.polygon.reduce((sum,p)=>[sum[0]+p[0]/room.polygon.length,sum[1]+p[1]/room.polygon.length] as P2,[0,0] as P2);return <g key={room.id}><polygon points={pts(room.polygon)} fill="#95c3cb" fillOpacity={.65} stroke="#326b84" strokeWidth={.5}><title>{room.label}</title></polygon><text x={center[0]} y={center[1]} textAnchor="middle" fontSize={2.4} fill="#123e52" pointerEvents="none">{room.label.length>18?room.label.slice(0,16)+"…":room.label}</text></g>;})}
+         {doors.map(door=><circle key={door.id} cx={door.center[0]} cy={door.center[1]} r={.55} fill="#a12750"><title>Proposed doorway · {door.widthFt} ft</title></circle>)}
         </svg>
         <span>Score {option.assessment.score} · {checks.filter(r=>r.satisfied).length}/{checks.length} preferences</span>
+        <small>{rooms.length} rooms · {halls.length} hallways · {doors.length} proposed doors</small>
+        {selectedLayout===index&&<b className="layout-selection-label">Selected for inspection · not saved</b>}
        </button>;
       })}
      </div>
@@ -361,6 +368,10 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
     <p className="microcopy">The computed preview cannot create a locked roof or approve valley drainage, structure, fascia or permit geometry.</p>
    </article>
   </div>
+  {document&&<details className="design-verification"><summary>Inspect saved revision data</summary>
+    <p className="microcopy">Revision {document.revision} · {document.candidateId}. Exact saved shapes and proposed door records; model XY orientation is retained.</p>
+    <pre data-saved-design-document={document.candidateId}>{JSON.stringify(document,null,2)}</pre>
+  </details>}
   <div className="component-list">
    {base.shapes.map(s=><div key={s.id}><span>{s.story??"ROOF"} · DRAFT</span><strong>{s.label}</strong><small>{s.ownerId} · {s.kind} · {s.polygon.length} vertices</small><button className="tiny-action" type="button" disabled={stale} onClick={()=>drop(s.id)}>Remove</button></div>)}
   </div>

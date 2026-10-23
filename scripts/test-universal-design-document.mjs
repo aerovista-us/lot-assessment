@@ -252,12 +252,12 @@ for(const c of cases){
   const selectedRooms=selected.shapes.filter(s=>s.kind==='ROOM');
   const report=(await createCandidateConceptHtml(c,restored)).html;
   assert.equal((report.match(/data-design-shape="/g)||[]).length,selected.shapes.length);
-  const svgTags=[...report.matchAll(/<polygon\\b[^>]*data-design-shape="([^"]+)"[^>]*>/g)];
+  const svgTags=[...report.matchAll(/<polygon\b[^>]*data-design-shape="([^"]+)"[^>]*>/g)];
   assert.equal(svgTags.length,selected.shapes.length,'Report must contain each saved shape once');
   const shapeCoords=new Map(svgTags.map(match=>{
-   const points=match[0].match(/\\bpoints="([^"]+)"/);
+   const points=match[0].match(/\bpoints="([^"]+)"/);
    assert(points,'Report polygon without points '+match[1]);
-   return [match[1],points[1].trim().split(/\\s+/).map(pair=>pair.split(',').map(Number))];
+   return [match[1],points[1].trim().split(/\s+/).map(pair=>pair.split(',').map(Number))];
   }));
   assert.equal(shapeCoords.size,selected.shapes.length,'Report must not duplicate shape IDs');
   for(const shape of selected.shapes){
@@ -304,14 +304,14 @@ for(const c of cases){
    assert.deepEqual(loadedL.shapes,route.shapes,'L corridor and rooms changed on reload');
    assert.deepEqual(loadedL.doors,route.doors,'L doorway drafts changed on reload');
    const lReport=(await createCandidateConceptHtml(c,loadedL)).html;
-   const drawing=[...lReport.matchAll(/<polygon\\b[^>]*data-design-shape="([^"]+)"[^>]*>/g)];
+   const drawing=[...lReport.matchAll(/<polygon\b[^>]*data-design-shape="([^"]+)"[^>]*>/g)];
    assert.equal(drawing.length,route.shapes.length,'Report lost L hallway or room polygons');
    for(const shape of route.shapes){
     const element=drawing.find(m=>m[1]===shape.id);
     assert(element,'Report omitted L space '+shape.id);
-    const pts=element[0].match(/\\bpoints="([^"]+)"/);
+    const pts=element[0].match(/\bpoints="([^"]+)"/);
     assert(pts);
-    const actual=pts[1].trim().split(/\\s+/).map(v=>v.split(',').map(Number));
+    const actual=pts[1].trim().split(/\s+/).map(v=>v.split(',').map(Number));
     assert.equal(actual.length,shape.polygon.length);
     shape.polygon.forEach((point,i)=>point.forEach((v,j)=>assert(Math.abs(actual[i][j]-v)<.001,
       'Report changed L passage/room geometry '+shape.id)));

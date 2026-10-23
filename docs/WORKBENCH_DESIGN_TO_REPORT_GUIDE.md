@@ -1,5 +1,9 @@
 # LotScope Workbench — from saved design to customer report
 
+**October 22, 2026 · Draft PR #131 workflow:** Generate room alternatives → compare rooms/hallways/proposed doors → explicitly **Save selected layout** → confirm **Saved in this browser** → reload → **Create Customer Report** → inspect preview → **Download this report**. Candidate Library links to this same report preview. A design change marks the preview stale and requires regeneration. Export a `.lotscope.json` backup for another browser or preview origin. Replacement alternatives keep the saved layout intact until explicitly saved; existing stair reservations require reconciliation. [Acceptance and limitations](CUSTOMER_JOURNEY_ACCEPTANCE_2026-10-22.md).
+
+The report includes exact saved geometry data and separate candidate/design hashes. Readiness remains **Digital concept**, **Digitally validated**, or **Construction approved**; automated checks never imply professional or field approval. These draft improvements still require exact-head hosted acceptance. The baseline manual-authoring instructions below describe the previously deployed workflow.
+
 **2026-10-12 · Source-bound, concept-only workflow.** [Open Candidate Library](https://lotscope.aerovista.us/workbench/projects/pondy-lot2/candidates). This is the same editor and solver for current/future designs, not a special Design 4 workflow.
 
 ## Step 1 — Choose the exact candidate

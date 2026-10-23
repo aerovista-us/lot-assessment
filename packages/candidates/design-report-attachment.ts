@@ -46,5 +46,8 @@ export function renderDesignDocumentAttachment(candidate:CandidateRecord,doc:Des
   '<p class="source-boundary"><b>DRAFT SHAPES ONLY.</b> Floor regions and roof-zone concepts come from the shared multi-design engine, bound to this exact candidate revision. They are not room-plan closure, solved roof geometry, elevations, structure or a permit. If the source footprint changes, the attachment is rejected until reconciled.</p>'+
   '<p>Room polygons and labels are saved to this candidate revision and shown as source-contained DRAFT geometry. Adjacency does not prove door connections, travel paths, stairs or egress.</p>'+
   '<p>Source revision '+escape(doc.sourceRevision)+' · Design document revision '+doc.revision+' · '+doc.shapes.length+' editable shapes</p>'+
-  explanations+'<div class="design-attached-grid">'+figs+'</div></section>'+renderUniversalSolvePreview(candidate,doc);
+  explanations+'<div class="design-attached-grid">'+figs+'</div>'+
+  '<details class="design-verification"><summary>Saved revision and exact geometry data</summary>'+
+  '<p>These are the saved document records used to draw this report, including doorway references and the original model XY coordinates. This data verifies report fidelity, not physical approval.</p>'+
+  '<pre data-report-design-document="'+escape(doc.candidateId)+'">'+escape(JSON.stringify(doc,null,2))+'</pre></details></section>'+renderUniversalSolvePreview(candidate,doc);
 }

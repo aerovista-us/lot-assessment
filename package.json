@@ -12,6 +12,7 @@
     "test:universal-design": "node --experimental-loader ./scripts/alias-loader.mjs scripts/test-universal-design-document.mjs",
     "test:room-packing": "node scripts/test-room-packing.mjs",
     "test:workspace": "node --experimental-loader ./scripts/alias-loader.mjs scripts/test-candidate-workspace.mjs",
+    "test:design-journey": "node --experimental-loader ./scripts/alias-loader.mjs scripts/test-design-journey.mjs",
     "test:intervention": "node --experimental-loader ./scripts/alias-loader.mjs scripts/test-intervention-editor.mjs",
     "test:authoritative-circulation": "node --experimental-loader ./scripts/alias-loader.mjs scripts/test-authoritative-circulation.mjs",
     "test:roof-inspector": "tsx scripts/test-roof-inspector-workspace.tsx",

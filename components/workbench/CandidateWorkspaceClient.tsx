@@ -28,11 +28,16 @@ export function CandidateWorkspaceClient({ candidateId }: { candidateId: string 
   const workspace = useCandidateWorkspace(pondyCandidateRegistry);
   const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
+  const [reportBusy, setReportBusy] = useState(false);
+  const reportInFlight = useRef(false);
+  const [report, setReport] = useState<{ html: string; href: string; filename: string; snapshot: string; revision?: number } | null>(null);
   const [undoIds, setUndoIds] = useState<string[]>([]);
   const [redoIds, setRedoIds] = useState<string[]>([]);
   const pendingCheckpointRef = useRef<string | null>(null);
   const candidate = workspace.registry.candidates.find((item) => item.id === candidateId);
   const editableWorkingCopy = Boolean(candidate && workspace.isLocalCandidate(candidate.id) && (candidate.source === "STAFF_INTERVENTION" || candidate.source === "IMPORT"));
+
+  useEffect(() => () => { if (report) URL.revokeObjectURL(report.href); }, [report]);
 
   useEffect(() => {
     setUndoIds([]);
@@ -88,6 +93,8 @@ export function CandidateWorkspaceClient({ candidateId }: { candidateId: string 
   }, [editableWorkingCopy, undoIds, redoIds, candidate?.updatedAt]);
 
   if (!workspace.ready) return <div className="staff-empty-state wb-panel">Loading candidate workspace…</div>;
+  if (workspace.storageError) return <div className="wb-panel workspace-storage-error" role="alert"><h2>Saved workspace needs attention</h2>
+    <p>{workspace.storageError}</p><button type="button" className="secondary-button" onClick={workspace.retryStorage}>Retry saved workspace</button></div>;
   if (!candidate) return <div className="staff-empty-state wb-panel">Candidate not found in the checked-in registry or local draft workspace. <Link href="/workbench/projects/pondy-lot2/candidates">Return to Candidate Library</Link>.</div>;
 
   const activeCandidate = candidate;
@@ -98,6 +105,8 @@ export function CandidateWorkspaceClient({ candidateId }: { candidateId: string 
   const savedDesign=currentWorkspaceDesignDocument(workspace.workspace,activeCandidate);
   const savedRooms=savedDesign?.shapes.filter(shape=>shape.kind==="ROOM").length??0;
   const savedHalls=savedDesign?.shapes.filter(shape=>shape.kind==="CIRCULATION").length??0;
+  const reportSnapshot = JSON.stringify([activeCandidate, savedDesign ?? null]);
+  const reportCurrent = report?.snapshot === reportSnapshot;
   const parent = activeCandidate.lineage.parentCandidateId ? workspace.registry.candidates.find((item) => item.id === activeCandidate.lineage.parentCandidateId) : null;
   const children = workspace.registry.candidates.filter((item) => item.lineage.parentCandidateId === activeCandidate.id);
   const placements = activeCandidate.components.filter((item) => item.kind === "home" || item.kind === "garage");
@@ -150,20 +159,19 @@ export function CandidateWorkspaceClient({ candidateId }: { candidateId: string 
   }
 
   async function createCustomerReport() {
+    if (reportInFlight.current) return;
+    reportInFlight.current = true;
+    setReportBusy(true);
     try {
       const attachment=currentWorkspaceDesignDocument(workspace.workspace,activeCandidate);
       const result=await createCandidateConceptHtml(activeCandidate,attachment);
       const blob=new Blob([result.html],{type:"text/html;charset=utf-8"});
       const href=URL.createObjectURL(blob);
-      const anchor=document.createElement("a");
-      anchor.href=href;
-      anchor.download=activeCandidate.id+"-"+activeCandidate.revisionLabel.replace(/[^a-z0-9_-]+/ig,"-")+".customer-concept.html";
-      document.body.appendChild(anchor);
-      anchor.click();
-      anchor.remove();
-      window.setTimeout(()=>URL.revokeObjectURL(href),30000);
-      setMessage("Downloaded this candidate's digital concept report with 22 report categories and source-bound drawings where supported. Review the saved room selection and coordinates in the HTML before sharing. Digital verification is not field or construction approval.");
+      setReport({html:result.html,href,snapshot:reportSnapshot,revision:attachment?.revision,
+        filename:activeCandidate.id+"-"+activeCandidate.revisionLabel.replace(/[^a-z0-9_-]+/ig,"-")+".customer-concept.html"});
+      setMessage(attachment ? `Report preview ready from saved design revision ${attachment.revision}. Review it below, then download the same report.` : "Candidate-only report preview ready. Save a room layout to include an interior design.");
     }catch(cause){setMessage(cause instanceof Error?cause.message:"Customer report generation failed.");}
+    finally { reportInFlight.current = false; setReportBusy(false); }
   }
 
   function exportCurrent() {
@@ -180,45 +188,28 @@ export function CandidateWorkspaceClient({ candidateId }: { candidateId: string 
       <p className="eyebrow">CANDIDATE WORKSPACE · LIFECYCLE V1</p>
       <h1>{activeCandidate.label}</h1>
       <p className="lede">{activeCandidate.family} · {activeCandidate.status.replaceAll("_", " ")} · {activeCandidate.evidenceState} evidence</p>
-      <nav aria-label="Complete design journey" className="wb-panel" style={{marginBlock:12}} id="design-journey">
-        <p className="eyebrow">DESIGN JOURNEY · GUIDED CONCEPT WORKFLOW</p>
-        <h2>Generate → Compare → Refine → Validate → Drawings → Report</h2>
-        <p className="microcopy">These actions operate on your current candidate. The engine only produces supported draft geometry and conditional concept drawings; it cannot automatically complete all floors, circulation, roof junctions or professional sign-offs yet.</p>
-        <div className="wb-panel" role="note" aria-label="Design readiness levels" style={{padding:14,marginBlock:12}}>
-          <p className="eyebrow">DESIGN READINESS · THREE DISTINCT LEVELS</p>
-          <ol className="microcopy">
-            <li><strong>Digital concept — current report classification:</strong> Generated source-bound geometry and preliminary alternatives. Save your preferred layout before reporting.</li>
-            <li><strong>Digitally validated:</strong> Applicable software checks are documented individually. A passing gate cannot establish approvals that were not tested.</li>
-            <li><strong>Construction approved:</strong> Requires independent field measurements, architectural/engineering details, code review and the relevant authority's approval. Never inferred from this software.</li>
-          </ol>
-          <p className="microcopy"><strong>Next:</strong> Choose and save a layout, then inspect the regenerated report. Digital validation is not permission to build.</p>
+      <section className="wb-panel design-journey" aria-label="Complete design journey" id="design-journey">
+        <div className="section-heading"><div><p className="eyebrow">YOUR DESIGN JOURNEY</p>
+          <h2>{savedDesign ? "Review your saved layout, then create its report" : "Generate options and choose a layout"}</h2></div>
+          <span className="mode-pill">DIGITAL CONCEPT</span></div>
+        <div className="journey-steps" aria-label="Design workflow actions">
+          <a href="#universal-design-editor"><b>1 · Generate & compare</b><span>Inspect room alternatives</span></a>
+          <a href="#universal-design-editor"><b>2 · Choose & save</b><span>{savedDesign ? `Saved revision ${savedDesign.revision}` : "Your choice needs an explicit save"}</span></a>
+          <a href="#candidate-validation"><b>3 · Review validation</b><span>Understand checks and open issues</span></a>
+          <a href="#customer-report-preview"><b>4 · Preview & report</b><span>{reportCurrent ? "Report matches saved revision" : "Build from your saved design"}</span></a>
         </div>
-        <div className="hero-actions">
-          <a className="primary-button" href="#universal-design-editor">1. Generate supported floor concepts ↓</a>
-          <Link className="secondary-button" href={`/workbench/projects/pondy-lot2/compare?left=${activeCandidate.id}`}>2. Compare designs ↗</Link>
-          <a className="secondary-button" href="#universal-design-editor">3. Refine selected design ↓</a>
-          <a className="secondary-button" href="#candidate-validation">4. Review validation ↓</a>
-          <a className="secondary-button" href="#candidate-drawings">5. Review available drawings ↓</a>
-          <button type="button" className="primary-button" onClick={createCustomerReport}>6. Create conditional concept report →</button>
+        <div className="saved-design-status" role="status" aria-live="polite" data-saved-design-revision={savedDesign?.revision}>
+          <strong>{savedDesign ? `Saved in this browser · revision ${savedDesign.revision}` : "No saved room layout attached"}</strong>
+          <p>{savedDesign ? `${savedRooms} rooms · ${savedHalls} circulation areas · ${savedDesign.doors?.length ?? 0} proposed doors. This revision supplies the report.` : "Compare alternatives below and use Save selected layout to attach your choice."}</p>
+          <p className="microcopy">Drafts stay in this browser on this site. Export a package to keep a portable backup.</p>
         </div>
-        <div role="status" aria-live="polite" className="wb-panel" style={{padding:12,marginBlock:12}}>
-          <strong>{savedDesign?`Saved design revision ${savedDesign.revision} · ${savedRooms} rooms · ${savedHalls} circulation areas`:"No saved room design attached yet"}</strong>
-          <p className="microcopy">{savedDesign?"This is the design document currently attached to this candidate and used for report generation. Reopen this candidate after saving to confirm it persisted.":"Generate alternatives below and save the selected concept before exporting the report."}</p>
-          {savedDesign&&<button type="button" className="secondary-button" onClick={createCustomerReport}>Generate report from saved revision {savedDesign.revision} →</button>}
-        </div>
-        <p className="microcopy">Missing circulation, structural, roof, print and AHJ evidence stays unresolved. Create Customer Report never means permit-ready or publicly published.</p>
-      </nav>
-      <nav aria-label="Existing candidate instructions" className="wb-panel" style={{marginBlock:12}}>
-        <p className="eyebrow">YOUR NEXT STEPS · EXISTING CANDIDATE DEMO</p>
-        <ol className="microcopy">
-          <li><strong>Review:</strong> Inspect this candidate and its current evidence.</li>
-          <li><strong>Edit:</strong> {editableWorkingCopy ? "Use the editable working copy below." : "Create Intervention first if offered, or branch as a new design."} </li>
-          <li><strong>Choose layout:</strong> Open Build / Edit Design Shapes, choose a home and floor, then Generate room layout alternatives. Compare the ranked concepts and explicitly save the layout you want to carry forward.</li>
-          <li><strong>Report:</strong> Use Create Customer Report after saving your changes; download and inspect the concept HTML.</li>
-        </ol>
-        <p className="microcopy">No step here creates a new-lot candidate automatically. Draft geometry and professional approval are separate.</p>
-        <div className="hero-actions"><a className="secondary-button" href="#universal-design-editor">Jump to shape and room editor ↓</a></div>
-      </nav>
+        <details className="journey-readiness" aria-label="Design readiness levels"><summary>What does Digital concept mean?</summary>
+          <ol><li><strong>Digital concept:</strong> proposed source-bound geometry.</li>
+            <li><strong>Digitally validated:</strong> applicable software checks passed, with remaining limitations documented.</li>
+            <li><strong>Construction approved:</strong> independent field, professional and jurisdictional acceptance obtained. Never inferred from software.</li></ol>
+          <p>Digital validation is not permission to build. Review the actual room selection, unresolved routes and drawing limitations before sharing.</p>
+        </details>
+      </section>
       <div className="hero-actions">
         <Link className="secondary-button" href="/workbench/projects/pondy-lot2/candidates">Candidate Library</Link>
         {editableWorkingCopy ? <button className="secondary-button" type="button" onClick={checkpoint}>Save checkpoint</button> : null}
@@ -228,17 +219,31 @@ export function CandidateWorkspaceClient({ candidateId }: { candidateId: string 
         {localCandidate ? <button className="secondary-button" type="button" onClick={() => branch("VARIANT")}>Branch variant</button> : null}
         <button className="secondary-button" type="button" onClick={() => branch("NEW_DESIGN")}>New design from this</button>
         <a className="secondary-button" href="#universal-design-editor">Build / Edit Design Shapes</a>
-        <button className="primary-button" type="button" onClick={createCustomerReport}>Create Customer Report</button>
+        <button className="primary-button" type="button" disabled={reportBusy} onClick={createCustomerReport}>{reportBusy ? "Building report…" : "Create Customer Report"}</button>
         <button className="secondary-button" type="button" onClick={exportCurrent}>Export package</button>
         <Link className="secondary-button" href={`/workbench/projects/pondy-lot2/compare?left=${activeCandidate.id}`}>Compare</Link>
       </div>
       <p className="microcopy">Customer report is a private, downloadable concept HTML. Full roof views, room plans and elevations require source-approved geometry; no public publishing is triggered.</p>
-      {message && <p className="microcopy lifecycle-message">{message}</p>}
+      {message && <p role="status" aria-live="polite" className="microcopy lifecycle-message">{message}</p>}
     </section>
 
-    <UniversalDesignEditor candidate={activeCandidate}
-      document={currentWorkspaceDesignDocument(workspace.workspace,activeCandidate)}
-      onSave={doc=>{workspace.saveDesignDocument(activeCandidate,doc);setMessage("Design document attached to this candidate revision; Create Customer Report will now include the draft shapes.");}}/>
+    <UniversalDesignEditor candidate={activeCandidate} document={savedDesign}
+      onSave={doc=>{workspace.saveDesignDocument(activeCandidate,doc);setMessage(`Saved design revision ${doc.revision} in this browser. The report will use this exact saved design.`);}}/>
+
+    <section id="customer-report-preview" className="wb-panel customer-report-preview" aria-label="Saved design report">
+      <div className="section-heading"><div><p className="eyebrow">CUSTOMER REPORT</p><h2>Preview your saved design</h2></div>
+        <span className="mode-pill">{reportCurrent ? "CURRENT SAVED REVISION" : "CONCEPT REPORT"}</span></div>
+      <p className="microcopy">The preview and downloaded HTML use the same report. Its saved geometry data includes rooms, hallways, doors and source references. Digital concept validation is separate from construction approval.</p>
+      {report && !reportCurrent ? <p role="alert" className="candidate-warning-box">The saved design changed after this preview was created. Regenerate the report before downloading.</p> : null}
+      <div className="hero-actions">
+        <button type="button" className="primary-button" disabled={reportBusy} onClick={createCustomerReport}>{reportBusy ? "Building report…" : report ? "Regenerate saved report" : "Create Customer Report"}</button>
+        {report && reportCurrent ? <a className="secondary-button" href={report.href} download={report.filename}>Download this report</a> : null}
+        <button type="button" className="secondary-button" onClick={exportCurrent}>Export design backup</button>
+      </div>
+      {report ? <><p className="microcopy">{report.revision !== undefined ? `Report design revision ${report.revision}` : "Candidate-only report · no saved room design"}. Open the downloaded HTML to print or save as PDF.</p>
+        <iframe className="report-frame" title="Customer concept report preview" srcDoc={report.html} sandbox="allow-same-origin" /></> :
+        <p className="microcopy">{savedDesign ? "Your saved layout is ready to preview." : "A candidate-only report is available now. Save a room layout to include your interior design."}</p>}
+    </section>
 
     <section id="candidate-drawings" className="candidate-workspace-grid">
       <article className="wb-panel candidate-plan-panel">

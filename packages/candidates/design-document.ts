@@ -244,6 +244,22 @@ export function partitionDesignShape(
  return next;
 }
 
+/** Build a proposal base for replacing one floor's rooms, without touching the
+ * saved document or unrelated floors. A saved proposal still needs explicit
+ * customer selection. Stair reservations require manual coordination. */
+export function prepareDraftRoomAlternatives(c:CandidateRecord,d:DesignDocument,ownerId:string,story:'GROUND'|'UPPER'|'OTHER'):DesignDocument{
+ validateDesignDocument(c,d);
+ if(!sourceBuildingOwners(c).some(owner=>owner.id===ownerId&&owner.kind==='home'))throw Error('Select a source home for room alternatives');
+ if(d.shapes.some(shape=>shape.ownerId===ownerId&&shape.story===story&&shape.kind==='STAIR_ZONE'))
+  throw Error('This floor has a stair reservation. Reconcile that reservation before generating a replacement room layout.');
+ const replaced=new Set(d.shapes.filter(shape=>shape.ownerId===ownerId&&shape.story===story&&
+  (shape.kind==='ROOM'||shape.kind==='CIRCULATION')).map(shape=>shape.id));
+ if(!replaced.size)return d;
+ const next={...d,shapes:d.shapes.filter(shape=>!replaced.has(shape.id)),
+  doors:(d.doors??[]).filter(door=>!replaced.has(door.fromRoomId)&&!replaced.has(door.toRoomId))};
+ validateDesignDocument(c,next);return next;
+}
+
 /** A geometry-safe, purpose-aware *draft* seed, not a complete home plan.
  * Local axes follow the floor plate's first edge, so rotation does not change
  * layout. Concave slices are only admitted when clipping preserves exact area,
@@ -568,8 +584,13 @@ function polygonInteriorOverlap(a:P2[],b:P2[]){
  const strictInside=(p:P2[],q:P2)=>!p.some((v,i)=>onEdge(q,v,p[(i+1)%p.length]))&&inside(q,p);
  // Identical polygons can have every vertex and edge on the boundary, so
  // strict vertex tests alone cannot detect duplicate allocated floor area.
+ // Mutual containment also catches duplicate concave polygons whose vertex
+ // average lies outside their own interior. Only sample points that actually
+ // belong to both polygon interiors; a concave vertex average is not evidence.
+ if(Math.abs(Math.abs(signedPolygonArea(a))-Math.abs(signedPolygonArea(b)))<EPS&&contained(a,b)&&contained(b,a))return true;
  const centroid=(p:P2[]):P2=>[p.reduce((sum,q)=>sum+q[0],0)/p.length,p.reduce((sum,q)=>sum+q[1],0)/p.length];
- if(strictInside(a,centroid(b))||strictInside(b,centroid(a)))return true;
+ const ca=centroid(a),cb=centroid(b);
+ if((strictInside(a,ca)&&strictInside(b,ca))||(strictInside(a,cb)&&strictInside(b,cb)))return true;
  for(let i=0;i<a.length;i++)for(let j=0;j<b.length;j++){
   const p=a[i],q=a[(i+1)%a.length],r=b[j],t=b[(j+1)%b.length];
   if(cross(p,q,r)*cross(p,q,t)<-EPS&&cross(r,t,p)*cross(r,t,q)<-EPS)return true;

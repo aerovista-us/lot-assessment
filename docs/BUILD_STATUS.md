@@ -1,5 +1,13 @@
 # LotScope — Build Status
 
+## Draft customer-journey checkpoint — October 22, 2026
+
+PR [#131](https://github.com/aerovista-us/lot-assessment/pull/131) adds supported rectangular/L-shaped room alternatives, explicit saved-layout selection, doorway/circulation evidence, and the three-level readiness vocabulary. The latest enhancement pass adds responsive navigation and controls, confirmed browser saves, replacement comparison without deleting the saved design, an in-app saved-report preview/download, exact geometry records and a separate design digest. See [current acceptance record](CUSTOMER_JOURNEY_ACCEPTANCE_2026-10-22.md).
+
+**Source status, not production acceptance:** automated fixture checks cover non-top Save → Reload → Report fidelity. Browser access is restored, but the exact-head hosted preview still needs an authenticated session and the Design 4 round trip in [#132](https://github.com/aerovista-us/lot-assessment/issues/132). PR #131 remains draft. Physical construction approval is a separate professional/jurisdictional process; missing software fidelity evidence remains a release gate.
+
+The October 12 and September entries below are historical deployment checkpoints.
+
 ## Current checkpoint — October 12, 2026 (supersedes the September baseline below)
 
 **RUNNING:** Public LotScope, authenticated Workbench, candidate library, source-bound private customer HTML builder, shared DesignDocument editor (PR #97) and common floor/roof model solver (PR #98). PR #98 merged as `79ffc2776000d527921d0c045e808f59b2a5643f`; exact matching Vercel production READY was verified October 12. The independently hosted roof-visibility gate and three hosted QA jobs passed the PR head; independent long benchmark was in progress when merged, not asserted complete.
