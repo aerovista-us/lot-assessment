@@ -97,12 +97,17 @@ for(const c of cases){
   });
   assert.equal(goodFlight.status,'DIMENSIONAL_DRAFT_ONLY');
   const straightStair={groundLanding:[[0,0],[4,0],[4,4],[0,4]],
-   upperLanding:[[0,0],[4,0],[4,4],[0,4]],
+   upperLanding:[[19,0],[23,0],[23,4],[19,4]],
    floorToFloorFt:10,riserCount:16,treadDepthFt:11/12,clearWidthFt:3.5,headroomFt:7};
-  const stairZone=[[0,0],[20,0],[20,8],[0,8]];
+  const stairZone=[[0,0],[24,0],[24,8],[0,8]];
   const fittingRun=assessStraightStairRunPlacement(straightStair,
    [[4,0],[19,0],[19,4],[4,4]],stairZone,stairZone);
   assert.equal(fittingRun.status,'STRAIGHT_FLIGHT_FOOTPRINT_ONLY');
+  const misleadingLandings=assessStraightStairRunPlacement(
+   {...straightStair,upperLanding:straightStair.groundLanding},
+   [[4,0],[19,0],[19,4],[4,4]],stairZone,stairZone);
+  assert(misleadingLandings.errors.includes('STAIR_LANDINGS_NOT_AT_OPPOSITE_FLIGHT_ENDS'));
+
   assert(assessStraightStairRunPlacement(straightStair,
    [[4,0],[10,0],[10,4],[4,4]],stairZone,stairZone).errors.includes('INSUFFICIENT_FLIGHT_ENVELOPE'));
   assert(assessStraightStairRunPlacement(straightStair,
