@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { CandidateRecord, CandidateRegistry, LotScopePackage } from "@/packages/candidates";
 import {
-  WORKSPACE_SCHEMA_VERSION,
   addWorkspaceCheckpoint,
   branchWorkspaceCandidate,
   createWorkspaceCheckpoint,
@@ -16,40 +15,31 @@ import {
   type CandidateWorkspaceState,
   type ImportMode
 } from "@/packages/candidates/workspace";
+import { readBrowserWorkspace, persistBrowserWorkspace } from "@/packages/candidates/browser-workspace";
 
-const STORAGE_KEY = "lotscope:pondy-lot2:candidate-workspace:v1";
 const CHANGE_EVENT = "lotscope-candidate-workspace-change";
 
 function readWorkspace(): CandidateWorkspaceState {
   if (typeof window === "undefined") return emptyCandidateWorkspace();
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return emptyCandidateWorkspace();
-    const parsed = JSON.parse(raw) as CandidateWorkspaceState;
-    if (parsed.schemaVersion !== WORKSPACE_SCHEMA_VERSION) return emptyCandidateWorkspace();
-    if (!Array.isArray(parsed.candidates) || !Array.isArray(parsed.checkpoints)) return emptyCandidateWorkspace();
-    return parsed;
-  } catch {
-    return emptyCandidateWorkspace();
-  }
-}
-
-function persistWorkspace(state: CandidateWorkspaceState) {
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    window.dispatchEvent(new CustomEvent(CHANGE_EVENT));
-    return true;
-  } catch {
-    return false;
-  }
+  return readBrowserWorkspace(window.localStorage);
 }
 
 export function useCandidateWorkspace(base: CandidateRegistry) {
   const [workspace, setWorkspace] = useState<CandidateWorkspaceState>(() => emptyCandidateWorkspace());
   const [ready, setReady] = useState(false);
+  const [storageError, setStorageError] = useState<string | null>(null);
+
+  const refreshWorkspace = useCallback(() => {
+    try {
+      setWorkspace(readWorkspace());
+      setStorageError(null);
+    } catch (cause) {
+      setStorageError(cause instanceof Error ? cause.message : "Could not read this browser's saved workspace.");
+    }
+  }, []);
 
   useEffect(() => {
-    const refresh = () => setWorkspace(readWorkspace());
+    const refresh = refreshWorkspace;
     refresh();
     setReady(true);
     window.addEventListener("storage", refresh);
@@ -58,13 +48,20 @@ export function useCandidateWorkspace(base: CandidateRegistry) {
       window.removeEventListener("storage", refresh);
       window.removeEventListener(CHANGE_EVENT, refresh);
     };
-  }, []);
+  }, [refreshWorkspace]);
 
   const registry = useMemo(() => mergeCandidateRegistry(base, workspace), [base, workspace]);
 
   const commit = useCallback((next: CandidateWorkspaceState) => {
-    if (!persistWorkspace(next)) throw new Error("Could not save the candidate workspace to this browser. Check storage permissions or available space and export a backup before closing the page.");
+    try {
+      persistBrowserWorkspace(window.localStorage, next);
+    } catch (cause) {
+      setStorageError(cause instanceof Error ? cause.message : "Could not confirm the save.");
+      throw cause;
+    }
     setWorkspace(next);
+    setStorageError(null);
+    window.dispatchEvent(new CustomEvent(CHANGE_EVENT));
   }, []);
   const saveCandidate = useCallback((candidate: CandidateRecord) => {
     const next = upsertWorkspaceCandidate(readWorkspace(), candidate);
@@ -113,6 +110,8 @@ export function useCandidateWorkspace(base: CandidateRegistry) {
 
   return {
     ready,
+    storageError,
+    retryStorage: refreshWorkspace,
     workspace,
     registry,
     saveCandidate,

@@ -67,6 +67,8 @@ export function CandidateCompareWorkspace({ initialLeft }: { initialLeft?: strin
   if (!workspace.ready) return <div className="staff-empty-state wb-panel">Loading candidate workspace…</div>;
   if (candidates.length < 2) return <div className="staff-empty-state wb-panel">At least two candidates are required for comparison.</div>;
 
+  if (workspace.storageError) return <div className="wb-panel workspace-storage-error" role="alert"><h2>Saved workspace needs attention</h2><p>{workspace.storageError}</p><button type="button" className="secondary-button" onClick={workspace.retryStorage}>Retry saved workspace</button></div>;
+
   return <>
     <section className="wb-panel compare-selector-panel">
       <div><p className="eyebrow">COMPARE</p><h2>Parent, intervention and solver descendants on one evidence surface.</h2><p>Comparison does not change validation state. It exposes component and gate differences so staff can select among candidates that have actually earned their current machine status.</p></div>

@@ -17,6 +17,16 @@ export function renderDesignDocumentAttachment(candidate:CandidateRecord,doc:Des
  const base='<polygon points="'+points(parcel.polygon as P2[])+'" fill="#eef3f6" stroke="#6d8391" stroke-width=".6"/>'+
  [...ownerMap.values()].map(o=>'<polygon points="'+points(placementPolygon(o) as P2[])+'" fill="#b9cbd5" fill-opacity=".14" stroke="#536f81" stroke-width=".6"><title>'+escape(o.label)+' exact source footprint</title></polygon>').join('');
  const groups=['GROUND','UPPER','OTHER','ROOF'] as const;
+ const authoredRooms=doc.shapes.filter(shape=>shape.kind==='ROOM');
+ const authoredHalls=doc.shapes.filter(shape=>shape.kind==='CIRCULATION');
+ const authoredDoors=doc.doors??[];
+ const explanations='<section aria-label="Saved design decisions and tradeoffs">'+
+  '<h3>What this saved concept proposes</h3>'+
+  '<p>This revision contains '+authoredRooms.length+' drafted rooms, '+authoredHalls.length+
+  ' circulation zones and '+authoredDoors.length+' proposed doorway records. These are the actual saved selections, not regenerated ranking winners.</p>'+
+  (authoredRooms.length?'<p><strong>Room program:</strong> '+escape(authoredRooms.map(r=>r.label).join(' · '))+'</p>':'<p>No authored room program is attached.</p>')+
+  '<p><strong>Why it matters:</strong> Room placement and hallway allocation affect access, privacy, service proximity and usable space. Ranking preferences are hypotheses, not proof that this alternative offers better living flow.</p>'+
+  '<p><strong>Decision still needed:</strong> Review door placement, circulation continuity, garage access and stair evidence before considering this layout digitally validated. Physical construction acceptance requires separate professional review.</p></section>';
  const figs=groups.map(story=>{
   const items=doc.shapes.filter(s=>story==='ROOF'?s.story===null:s.story===story);
   if(!items.length)return '';
@@ -36,5 +46,8 @@ export function renderDesignDocumentAttachment(candidate:CandidateRecord,doc:Des
   '<p class="source-boundary"><b>DRAFT SHAPES ONLY.</b> Floor regions and roof-zone concepts come from the shared multi-design engine, bound to this exact candidate revision. They are not room-plan closure, solved roof geometry, elevations, structure or a permit. If the source footprint changes, the attachment is rejected until reconciled.</p>'+
   '<p>Room polygons and labels are saved to this candidate revision and shown as source-contained DRAFT geometry. Adjacency does not prove door connections, travel paths, stairs or egress.</p>'+
   '<p>Source revision '+escape(doc.sourceRevision)+' · Design document revision '+doc.revision+' · '+doc.shapes.length+' editable shapes</p>'+
-  '<div class="design-attached-grid">'+figs+'</div></section>'+renderUniversalSolvePreview(candidate,doc);
+  explanations+'<div class="design-attached-grid">'+figs+'</div>'+
+  '<details class="design-verification"><summary>Saved revision and exact geometry data</summary>'+
+  '<p>These are the saved document records used to draw this report, including doorway references and the original model XY coordinates. This data verifies report fidelity, not physical approval.</p>'+
+  '<pre data-report-design-document="'+escape(doc.candidateId)+'">'+escape(JSON.stringify(doc,null,2))+'</pre></details></section>'+renderUniversalSolvePreview(candidate,doc);
 }

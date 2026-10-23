@@ -29,8 +29,16 @@ export default function WorkbenchHome() {
     </Link>)}</section>
 
     <section className="wb-panel staff-flow-panel"><div><p className="eyebrow">STANDARD LOT PATH</p><h2>Automation first, controlled intervention second.</h2></div>
-      <div className="staff-flow-ribbon">{["Intake","Rules","Program","Explore","Review","Intervention","Validate","Select","Freeze","Present"].map((label, index) => <span key={label} className={index <= 5 ? "flow-active" : ""}>{label}</span>)}</div>
-      <p>Current Pondy state: exploration and review are mature enough to expose intervention candidates. No intervention can carry forward old PASS evidence after geometry changes.</p>
+      <div className="staff-flow-ribbon">{["Intake","Rules","Program","Explore","Review","Intervention","Validate","Select","Freeze","Present"].map((label) => <span key={label}>{label}</span>)}</div>
+      <p>These are workflow stages, not completion claims. Review each candidate's exact revision, saved layout, and current evidence before reporting. Digital validation does not equal construction approval.</p>
+    </section>
+
+    <section className="wb-panel" aria-label="Design journey launch" style={{marginBlock:20}}>
+      <p className="eyebrow">CONTINUE A CUSTOMER DESIGN</p>
+      <h2>Generate, compare, choose, save, validate and report.</h2>
+      <p>Digital concept → Digitally validated → Construction approved. Only independently supported software gates can be called digitally validated; building authorization requires external review.</p>
+      <div className="hero-actions"><Link className="primary-button" href="/workbench/projects/pondy-lot2/candidates/auto-PONDY-AFL-14">Open Design 4 workspace</Link>
+      <Link className="secondary-button" href="/workbench/projects/pondy-lot2/compare">Compare saved designs</Link></div>
     </section>
 
     <section className="staff-advanced"><div><p className="eyebrow">ADVANCED / ENGINEERING</p><h2>Existing solver tools remain available during migration.</h2></div>

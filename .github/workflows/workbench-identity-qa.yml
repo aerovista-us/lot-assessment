@@ -20,6 +20,10 @@ on:
       - 'packages/candidates/index.ts'
       - 'components/workbench/UniversalDesignEditor.tsx'
       - 'components/workbench/useCandidateWorkspace.ts'
+      - 'components/workbench/WorkbenchNavigation.tsx'
+      - 'packages/candidates/browser-workspace.ts'
+      - 'scripts/test-design-journey.mjs'
+      - 'scripts/test-customer-journey-ui.mjs'
       - 'scripts/test-universal-design-document.mjs'
       - 'packages/candidates/customer-report-roof-gallery.ts'
       - 'scripts/test-customer-report-roof-gallery.mjs'
@@ -64,6 +68,10 @@ jobs:
         run: node --experimental-loader ./scripts/alias-loader.mjs scripts/test-customer-report-roof-gallery.mjs
       - name: Universal owner-bound floor and roof draft document acceptance
         run: npm run test:universal-design
+      - name: Saved selection, browser storage and exact report fidelity
+        run: npm run test:design-journey
+      - name: Customer layout selection, reload and report UI interactions
+        run: npm run test:customer-journey-ui
       - name: Universal floor, roof, wall, door and section solver acceptance
         run: npm run test:universal-design-solving
       - name: Production build

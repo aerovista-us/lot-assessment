@@ -244,6 +244,22 @@ export function partitionDesignShape(
  return next;
 }
 
+/** Build a proposal base for replacing one floor's rooms, without touching the
+ * saved document or unrelated floors. A saved proposal still needs explicit
+ * customer selection. Stair reservations require manual coordination. */
+export function prepareDraftRoomAlternatives(c:CandidateRecord,d:DesignDocument,ownerId:string,story:'GROUND'|'UPPER'|'OTHER'):DesignDocument{
+ validateDesignDocument(c,d);
+ if(!sourceBuildingOwners(c).some(owner=>owner.id===ownerId&&owner.kind==='home'))throw Error('Select a source home for room alternatives');
+ if(d.shapes.some(shape=>shape.ownerId===ownerId&&shape.story===story&&shape.kind==='STAIR_ZONE'))
+  throw Error('This floor has a stair reservation. Reconcile that reservation before generating a replacement room layout.');
+ const replaced=new Set(d.shapes.filter(shape=>shape.ownerId===ownerId&&shape.story===story&&
+  (shape.kind==='ROOM'||shape.kind==='CIRCULATION')).map(shape=>shape.id));
+ if(!replaced.size)return d;
+ const next={...d,shapes:d.shapes.filter(shape=>!replaced.has(shape.id)),
+  doors:(d.doors??[]).filter(door=>!replaced.has(door.fromRoomId)&&!replaced.has(door.toRoomId))};
+ validateDesignDocument(c,next);return next;
+}
+
 /** A geometry-safe, purpose-aware *draft* seed, not a complete home plan.
  * Local axes follow the floor plate's first edge, so rotation does not change
  * layout. Concave slices are only admitted when clipping preserves exact area,
@@ -337,6 +353,168 @@ export function packDraftRooms(
  validateDesignDocument(c,next);return next;
 }
 
+/** Two-row rectangular seed topology. This is a geometric candidate generator, NOT a
+ * walkable floor-plan or door/egress solver. Irregular footprints remain on the
+ * existing fail-closed clipping path until connected 2D subdivision is proven. */
+/** Source-bound two-dimensional grid subdivision. For concave plates the
+ * clipping result is accepted ONLY if each cell is a single valid polygon
+ * and the union accounts for the exact plate area; no phantom infill. */
+function packTwoDimensionalSeed(c:CandidateRecord,d:DesignDocument,plateId:string,order:string[],variant:number):DesignDocument{
+ validateDesignDocument(c,d);
+ const plate=d.shapes.find(x=>x.id===plateId);
+ if(!plate||plate.kind!=='FLOOR_PLATE'||plate.story===null||order.length<3)throw Error('Unsupported 2D room seed');
+ if(d.shapes.some(x=>x.ownerId===plate.ownerId&&x.story===plate.story&&['ROOM','CIRCULATION','STAIR_ZONE'].includes(x.kind)))throw Error('Existing authored rooms require reconciliation');
+ const p=plate.polygon,origin=p[0],ex:[number,number]=[p[1][0]-p[0][0],p[1][1]-p[0][1]];
+ const widthAxis=Math.hypot(...ex);if(widthAxis<EPS)throw Error('Degenerate footprint edge');
+ const ux:P2=[ex[0]/widthAxis,ex[1]/widthAxis],uy:P2=[-ux[1],ux[0]];
+ const local=(q:P2):P2=>[(q[0]-origin[0])*ux[0]+(q[1]-origin[1])*ux[1],(q[0]-origin[0])*uy[0]+(q[1]-origin[1])*uy[1]];
+ const world=(q:P2):P2=>[origin[0]+q[0]*ux[0]+q[1]*uy[0],origin[1]+q[0]*ux[1]+q[1]*uy[1]];
+ const poly=p.map(local),xs=poly.map(q=>q[0]),ys=poly.map(q=>q[1]);
+ const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys),width=maxX-minX,depth=maxY-minY;
+ if(width<12||depth<12)throw Error('2D seed footprint too narrow');
+ const clip=(points:P2[],dimension:0|1,cut:number,upper:boolean):P2[]=>{
+  const output:P2[]=[];
+  for(let i=0;i<points.length;i++){
+   const a=points[i],b=points[(i+1)%points.length],ina=upper?a[dimension]>=cut-EPS:a[dimension]<=cut+EPS,inb=upper?b[dimension]>=cut-EPS:b[dimension]<=cut+EPS;
+   if(ina)output.push(a);
+   if(ina!==inb){const t=(cut-a[dimension])/(b[dimension]-a[dimension]);output.push([a[0]+t*(b[0]-a[0]),a[1]+t*(b[1]-a[1])]);}
+  }
+  const clean:P2[]=[];
+  for(const q of output)if(!clean.length||Math.hypot(q[0]-clean[clean.length-1][0],q[1]-clean[clean.length-1][1])>1e-6)clean.push(q);
+  if(clean.length>1&&Math.hypot(clean[0][0]-clean[clean.length-1][0],clean[0][1]-clean[clean.length-1][1])<1e-6)clean.pop();
+  return clean;
+ };
+ const cut=Math.max(1,Math.min(order.length-1,variant%2===0?Math.ceil(order.length/2):Math.floor(order.length/2)));
+ const rows=[order.slice(0,cut),order.slice(cut)],rowCut=minY+depth*(variant%3===0?.48:variant%3===1?.56:.42);
+ const weight=(name:string)=>/living|great|family|primary|master/i.test(name)?1.5:/bath|laundry|utility|mud|pantry/i.test(name)?.8:1.1;
+ const added:DesignShape[]=[],used=new Set(d.shapes.map(x=>x.id));let seq=1,area=0;
+ for(let r=0;r<2;r++){
+  const row=rows[r],total=row.reduce((n,label)=>n+weight(label),0);
+  const strip=clip(poly,1,rowCut,r===1);
+  if(strip.length<3)throw Error('Empty 2D row in source polygon');
+  let x0=minX;
+  for(let i=0;i<row.length;i++){
+   const label=row[i],x1=i===row.length-1?maxX:x0+width*weight(label)/total;
+   let cell=clip(strip,0,x0,true);cell=clip(cell,0,x1,false);
+   if(cell.length<3)throw Error('Unsupported disconnected room region');
+   const polygon=cell.map(world);
+   validPolygon(polygon,label);
+   const cellArea=Math.abs(signedPolygonArea(polygon));
+   const dx=Math.max(...cell.map(q=>q[0]))-Math.min(...cell.map(q=>q[0]));
+   const dy=Math.max(...cell.map(q=>q[1]))-Math.min(...cell.map(q=>q[1]));
+   if(Math.min(dx,dy)<5||cellArea<40||!contained(polygon,p))throw Error('2D seed invalid room geometry');
+   while(used.has('shape-'+seq))seq++;
+   const id='shape-'+seq++;used.add(id);
+   added.push({id,ownerId:plate.ownerId,story:plate.story,kind:'ROOM',label,polygon,status:'DRAFT_UNVERIFIED'});
+   area+=cellArea;x0=x1;
+  }
+ }
+ // Concave slices may form disconnected islands: never silently discard them.
+ if(Math.abs(area-Math.abs(signedPolygonArea(p)))>Math.max(.01,Math.abs(signedPolygonArea(p))*.0001))
+  throw Error('2D seed cannot account for complete footprint');
+ const next:DesignDocument={...d,revision:d.revision+1,updatedAt:d.updatedAt,shapes:[...d.shapes,...added]};
+ validateDesignDocument(c,next);
+ return next;
+}
+
+/** Draft rectangular passage seed, preserving the same explicit choose/save flow.
+ * Generated openings and hall are conceptual only, never code-approved. */
+function packCorridorSeed(c:CandidateRecord,d:DesignDocument,plateId:string,order:string[]):DesignDocument{
+ validateDesignDocument(c,d);
+ const plate=d.shapes.find(x=>x.id===plateId);
+ if(!plate||plate.kind!=='FLOOR_PLATE'||plate.story===null||plate.polygon.length!==4||order.length<3)throw Error('Corridor seed needs a rectangular plate');
+ if(d.shapes.some(x=>x.ownerId===plate.ownerId&&x.story===plate.story&&['ROOM','CIRCULATION','STAIR_ZONE'].includes(x.kind)))throw Error('Authored floor requires reconciliation');
+ const p=plate.polygon,edge:P2=[p[1][0]-p[0][0],p[1][1]-p[0][1]],width=Math.hypot(...edge);
+ const other:P2=[p[3][0]-p[0][0],p[3][1]-p[0][1]],depth=Math.hypot(...other);
+ if(width<22||depth<22||Math.abs(edge[0]*other[0]+edge[1]*other[1])>1e-5*width*depth||
+ Math.hypot(p[2][0]-p[1][0]-other[0],p[2][1]-p[1][1]-other[1])>1e-5)throw Error('Corridor seed requires orthogonal rectangle');
+ const ux:P2=[edge[0]/width,edge[1]/width],uy:P2=[other[0]/depth,other[1]/depth];
+ const point=(x:number,y:number):P2=>[p[0][0]+x*ux[0]+y*uy[0],p[0][1]+x*ux[1]+y*uy[1]];
+ const rectangle=(a:number,b:number,c:number,e:number):P2[]=>[point(a,b),point(c,b),point(c,e),point(a,e)];
+ const hallWidth=3.5,hallBottom=(depth-hallWidth)/2,hallTop=hallBottom+hallWidth,cut=Math.ceil(order.length/2);
+ const rows=[order.slice(0,cut),order.slice(cut)],shapes:DesignShape[]=[],doors:DoorOpeningDraft[]=[];
+ const used=new Set(d.shapes.map(x=>x.id));let idN=1,doorN=1;
+ const nextId=()=>{while(used.has('shape-'+idN))idN++;const id='shape-'+idN++;used.add(id);return id;};
+ const hallId=nextId();shapes.push({id:hallId,ownerId:plate.ownerId,story:plate.story,kind:'CIRCULATION',label:'Central Hall (draft)',polygon:rectangle(0,hallBottom,width,hallTop),status:'DRAFT_UNVERIFIED'});
+ for(let row=0;row<2;row++){
+  const items=rows[row],weights=items.map(label=>/living|primary|master/i.test(label)?1.5:/bath|utility|laundry/i.test(label)?.8:1),total=weights.reduce((a,b)=>a+b,0);
+  let x=0;
+  for(let i=0;i<items.length;i++){
+   const right=i===items.length-1?width:x+width*weights[i]/total;
+   if(right-x<5||((row===0?hallBottom:depth-hallTop)*(right-x))<40)throw Error('Unusable corridor-adjacent room');
+   const y0=row===0?0:hallTop,y1=row===0?hallBottom:depth;
+   const id=nextId();
+   shapes.push({id,ownerId:plate.ownerId,story:plate.story,kind:'ROOM',label:items[i],polygon:rectangle(x,y0,right,y1),status:'DRAFT_UNVERIFIED'});
+   const center=point((x+right)/2,row===0?hallBottom:hallTop);
+   const doorId='auto-door-'+doorN++;
+   if((d.doors??[]).some(z=>z.id===doorId))throw Error('Door identity conflict');
+   doors.push({id:doorId,fromRoomId:id,toRoomId:hallId,story:plate.story,center,widthFt:3,status:'DRAFT_UNVERIFIED'});
+   x=right;
+  }
+ }
+ const next:DesignDocument={...d,revision:d.revision+1,shapes:[...d.shapes,...shapes],doors:[...(d.doors??[]),...doors]};
+ validateDesignDocument(c,next);
+ if(assessAuthoredCirculation(next,plate.ownerId,plate.story).status!=='DRAFT_ROUTE_CONNECTED')throw Error('Draft hall access is not connected');
+ return next;
+}
+
+/** Strict orthogonal L-plate proposal. Keeps the missing corner empty and
+ * reserves an actual turning corridor. Other concave topologies fail closed. */
+export function packLCorridorSeed(c:CandidateRecord,d:DesignDocument,plateId:string,order:string[]):DesignDocument{
+ validateDesignDocument(c,d);
+ const plate=d.shapes.find(x=>x.id===plateId);
+ if(!plate||plate.kind!=='FLOOR_PLATE'||plate.story===null||plate.polygon.length!==6||order.length!==5)
+  throw Error('L corridor needs a six-corner plate and five-room program');
+ if(d.shapes.some(x=>x.ownerId===plate.ownerId&&x.story===plate.story&&['ROOM','CIRCULATION','STAIR_ZONE'].includes(x.kind)))
+  throw Error('Existing layout requires explicit reconciliation');
+ const story=plate.story;
+ const p=plate.polygon,origin=p[0],e:P2=[p[1][0]-p[0][0],p[1][1]-p[0][1]],w=Math.hypot(...e);
+ if(w<EPS)throw Error('L orientation unavailable');
+ const u:P2=[e[0]/w,e[1]/w],v:P2=[-u[1],u[0]];
+ const local=(q:P2):P2=>[(q[0]-origin[0])*u[0]+(q[1]-origin[1])*u[1],(q[0]-origin[0])*v[0]+(q[1]-origin[1])*v[1]];
+ const xy=p.map(local),height=xy[2][1],notchX=xy[3][0],notchY=xy[4][1];
+ const nearly=(a:number,b:number)=>Math.abs(a-b)<1e-4;
+ if(height<22||notchX<10||notchY<18||w-notchX<14||
+ !nearly(xy[0][0],0)||!nearly(xy[0][1],0)||
+ !nearly(xy[1][0],w)||!nearly(xy[1][1],0)||
+ !nearly(xy[2][0],w)||!nearly(xy[3][1],height)||
+ !nearly(xy[4][0],notchX)||!nearly(xy[4][1],notchY)||
+ !nearly(xy[5][0],0)||!nearly(xy[5][1],notchY))
+ throw Error('Unsupported L orientation or insufficient arms');
+ const point=(x:number,y:number):P2=>[origin[0]+x*u[0]+y*v[0],origin[1]+x*u[1]+y*v[1]];
+ const rect=(x0:number,y0:number,x1:number,y1:number)=>[point(x0,y0),point(x1,y0),point(x1,y1),point(x0,y1)];
+ const hallWidth=3.5,yLow=notchY/2-hallWidth/2,yHigh=yLow+hallWidth;
+ const xLow=notchX+(w-notchX-hallWidth)/2,xHigh=xLow+hallWidth;
+ const topCut=xHigh/2;
+ const bounds=[[0,0,topCut,yLow],[topCut,0,xHigh,yLow],[0,yHigh,notchX,notchY],
+  [notchX,yHigh,xLow,height],[xHigh,0,w,height]];
+ if(bounds.some(b=>b[2]-b[0]<5||b[3]-b[1]<5||(b[2]-b[0])*(b[3]-b[1])<40))
+ throw Error('L footprint too small for five rooms and continuous hall');
+ const hall=[point(0,yLow),point(xHigh,yLow),point(xHigh,height),point(xLow,height),point(xLow,yHigh),point(0,yHigh)];
+ validPolygon(hall,'L-hall');
+ if(!contained(hall,p))throw Error('L hall exits building outline');
+ const used=new Set(d.shapes.map(x=>x.id)),nextId=()=>{let i=1;while(used.has('shape-'+i))i++;const id='shape-'+i;used.add(id);return id;};
+ const hallId=nextId();
+ const shapes:DesignShape[]=[{id:hallId,ownerId:plate.ownerId,story,kind:'CIRCULATION',label:'Turning Hall (draft)',polygon:hall,status:'DRAFT_UNVERIFIED'}];
+ const center=[point(topCut/2,yLow),point((topCut+xHigh)/2,yLow),point(notchX/2,yHigh),
+  point(xLow,(yHigh+height)/2),point(xHigh,height/2)];
+ const doors:DoorOpeningDraft[]=[];
+ bounds.forEach((b,i)=>{
+  const polygon=rect(b[0],b[1],b[2],b[3]),id=nextId();
+  if(!contained(polygon,p))throw Error('L room outside source');
+  shapes.push({id,ownerId:plate.ownerId,story,kind:'ROOM',label:order[i],polygon,status:'DRAFT_UNVERIFIED'});
+  doors.push({id:'auto-l-door-'+(i+1),story,fromRoomId:id,toRoomId:hallId,center:center[i],widthFt:3,status:'DRAFT_UNVERIFIED'});
+ });
+ const originalArea=Math.abs(signedPolygonArea(p));
+ const covered=shapes.reduce((n,shape)=>n+Math.abs(signedPolygonArea(shape.polygon)),0);
+ if(Math.abs(originalArea-covered)>Math.max(.01,originalArea*.0001))throw Error('L room/corridor coverage mismatch');
+ const next:DesignDocument={...d,revision:d.revision+1,shapes:[...d.shapes,...shapes],doors:[...(d.doors??[]),...doors]};
+ validateDesignDocument(c,next);
+ if(assessAuthoredCirculation(next,plate.ownerId,story).status!=='DRAFT_ROUTE_CONNECTED')
+ throw Error('L corridor missing valid room doors or passage');
+ return next;
+}
+
 /** Deterministic ranked concepts; evidence never implies a door or usable circulation. */
 export type DraftLayoutAssessment={
  schema:'lotscope-layout-assessment-v1';score:number;sourceRevision:number;
@@ -354,6 +532,463 @@ function overlapBoundary(a:P2[],b:P2[]):number{
   shared+=Math.max(0,Math.min(len,Math.max(t(q),t(r)))-Math.max(0,Math.min(t(q),t(r))));
  }return shared;
 }
+/** Check an entire doorway interval on a shared straight wall, including
+ * end clearances, rather than merely touching the wall at its center. */
+function hasUsableDoorInterval(a:P2[],b:P2[],center:P2,widthFt:number,endClearanceFt=.5){
+ if(!Number.isFinite(widthFt)||widthFt<=0)return false;
+ const half=widthFt/2+endClearanceFt;
+ for(let i=0;i<a.length;i++){
+  const p=a[i],q=a[(i+1)%a.length],dx=q[0]-p[0],dy=q[1]-p[1],len=Math.hypot(dx,dy);
+  if(len<widthFt+2*endClearanceFt||Math.abs(cross(p,q,center))/len>1e-5)continue;
+  const c=((center[0]-p[0])*dx+(center[1]-p[1])*dy)/len;
+  if(c<half-1e-5||c>len-half+1e-5)continue;
+  for(let j=0;j<b.length;j++){
+   const r=b[j],t=b[(j+1)%b.length];
+   if(Math.abs(cross(p,q,r))/len>1e-5||Math.abs(cross(p,q,t))/len>1e-5)continue;
+   const lo=Math.min(((r[0]-p[0])*dx+(r[1]-p[1])*dy)/len,((t[0]-p[0])*dx+(t[1]-p[1])*dy)/len);
+   const hi=Math.max(((r[0]-p[0])*dx+(r[1]-p[1])*dy)/len,((t[0]-p[0])*dx+(t[1]-p[1])*dy)/len);
+   if(c-half>=lo-1e-5&&c+half<=hi+1e-5)return true;
+  }
+ }
+ return false;
+}
+/** Geometry-only access graph. An edge means a common wall could fit a
+ * proposed opening; it does not prove a door, route, exit, or code clearance. */
+export function assessDraftRoomConnectivity(d:DesignDocument,ownerId:string,story:'GROUND'|'UPPER'|'OTHER',doorWidthFt=3){
+ if(!Number.isFinite(doorWidthFt)||doorWidthFt<=0)throw Error('Invalid proposed door width');
+ const rooms=d.shapes.filter(x=>x.ownerId===ownerId&&x.story===story&&['ROOM','CIRCULATION'].includes(x.kind));
+ const edges:{from:string;to:string;sharedWallFt:number;doorCapable:boolean}[]=[];
+ for(let i=0;i<rooms.length;i++)for(let j=i+1;j<rooms.length;j++){
+  const sharedWallFt=overlapBoundary(rooms[i].polygon,rooms[j].polygon);
+  if(sharedWallFt>EPS)edges.push({from:rooms[i].id,to:rooms[j].id,sharedWallFt,doorCapable:sharedWallFt>=doorWidthFt+1});
+ }
+ const neighbors=new Map(rooms.map(x=>[x.id,[] as string[]]));
+ for(const e of edges.filter(x=>x.doorCapable)){
+  neighbors.get(e.from)?.push(e.to);neighbors.get(e.to)?.push(e.from);
+ }
+ const visited=new Set<string>(),components:string[][]=[];
+ for(const room of rooms){
+  if(visited.has(room.id))continue;
+  const stack=[room.id],component:string[]=[];visited.add(room.id);
+  while(stack.length){const id=stack.pop()!;component.push(id);for(const next of neighbors.get(id)??[])if(!visited.has(next)){visited.add(next);stack.push(next);}}
+  components.push(component);
+ }
+ return {roomCount:rooms.length,edges,components,connected:components.length<=1,
+  doorCapableEdges:edges.filter(x=>x.doorCapable).length,
+  limitations:['Common wall length only; door placement, circulation widths, accessible paths, exterior access and egress NOT validated']};
+}
+
+/** Strict interior polygon collision: boundary contact alone is permitted.
+ * Crossings or interior vertices/midpoints constitute an obstruction. */
+function polygonInteriorOverlap(a:P2[],b:P2[]){
+ const strictInside=(p:P2[],q:P2)=>!p.some((v,i)=>onEdge(q,v,p[(i+1)%p.length]))&&inside(q,p);
+ // Identical polygons can have every vertex and edge on the boundary, so
+ // strict vertex tests alone cannot detect duplicate allocated floor area.
+ // Mutual containment also catches duplicate concave polygons whose vertex
+ // average lies outside their own interior. Only sample points that actually
+ // belong to both polygon interiors; a concave vertex average is not evidence.
+ if(Math.abs(Math.abs(signedPolygonArea(a))-Math.abs(signedPolygonArea(b)))<EPS&&contained(a,b)&&contained(b,a))return true;
+ const centroid=(p:P2[]):P2=>[p.reduce((sum,q)=>sum+q[0],0)/p.length,p.reduce((sum,q)=>sum+q[1],0)/p.length];
+ const ca=centroid(a),cb=centroid(b);
+ if((strictInside(a,ca)&&strictInside(b,ca))||(strictInside(a,cb)&&strictInside(b,cb)))return true;
+ for(let i=0;i<a.length;i++)for(let j=0;j<b.length;j++){
+  const p=a[i],q=a[(i+1)%a.length],r=b[j],t=b[(j+1)%b.length];
+  if(cross(p,q,r)*cross(p,q,t)<-EPS&&cross(r,t,p)*cross(r,t,q)<-EPS)return true;
+ }
+ for(const [first,other] of [[a,b],[b,a]]){
+  for(let i=0;i<first.length;i++){
+   const x=first[i],y=first[(i+1)%first.length];
+   if(strictInside(other,x)||strictInside(other,[(x[0]+y[0])/2,(x[1]+y[1])/2]))return true;
+  }
+ }
+ return false;
+}
+/** Explicit circulation evidence only. Unlike adjacency, this check uses authored
+ * door records and an authored circulation zone. It still cannot certify
+ * door swing, unobstructed route width, exterior exits or building code. */
+export function assessAuthoredCirculation(d:DesignDocument,ownerId:string,story:'GROUND'|'UPPER'|'OTHER'){
+ const rooms=d.shapes.filter(x=>x.ownerId===ownerId&&x.story===story&&x.kind==='ROOM');
+ const corridors=d.shapes.filter(x=>x.ownerId===ownerId&&x.story===story&&x.kind==='CIRCULATION');
+ const ids=new Set([...rooms,...corridors].map(x=>x.id));
+ const links=new Map([...ids].map(id=>[id,[] as string[]]));
+ const accepted:{doorId:string;from:string;to:string}[]=[];
+ const rejected:string[]=[];
+ for(const door of d.doors??[]){
+  if(door.story!==story||!ids.has(door.fromRoomId)||!ids.has(door.toRoomId))continue;
+  const from=d.shapes.find(x=>x.id===door.fromRoomId)!,to=d.shapes.find(x=>x.id===door.toRoomId)!;
+  const intervalFits=hasUsableDoorInterval(from.polygon,to.polygon,door.center,door.widthFt);
+  if(!Number.isFinite(door.widthFt)||door.widthFt<3||!intervalFits){
+   rejected.push(door.id);continue;
+  }
+  accepted.push({doorId:door.id,from:from.id,to:to.id});
+  links.get(from.id)?.push(to.id);links.get(to.id)?.push(from.id);
+ }
+ // Anchor the traversal on ONE corridor; independently disconnected corridor
+ // islands cannot each seed a passing route.
+ const reached=new Set<string>(),queue=corridors.length?[corridors[0].id]:[];
+ const corridorSet=new Set(corridors.map(x=>x.id));
+ queue.forEach(id=>reached.add(id));
+ // Hallways must connect through their own circulation edges, not through
+ // private rooms which otherwise bridge disconnected corridor islands.
+ while(queue.length){
+  const id=queue.shift()!;
+  for(const next of links.get(id)??[])if(corridorSet.has(next)&&!reached.has(next)){
+   reached.add(next);queue.push(next);
+  }
+ }
+ // Rooms are terminal destinations, not pass-through links.
+ for(const room of rooms)if((links.get(room.id)??[]).some(id=>reached.has(id)))reached.add(room.id);
+ const unreachableRooms=rooms.filter(x=>!reached.has(x.id)).map(x=>x.id);
+ const disconnectedCorridors=corridors.filter(x=>!reached.has(x.id)).map(x=>x.id);
+ // A route that goes through a bedroom or bathroom may be graph-connected,
+ // but it is not independent household circulation. Require every room
+ // to have its own opening to a corridor on the anchored circulation island.
+ const corridorIds=new Set(corridors.map(x=>x.id));
+ const roomsWithoutHallDoor=rooms.filter(room=>!accepted.some(door=>
+  (door.from===room.id&&corridorIds.has(door.to)&&reached.has(door.to))||
+  (door.to===room.id&&corridorIds.has(door.from)&&reached.has(door.from)))).map(x=>x.id);
+ const hasCorridor=corridors.length>0;
+ // Conservative, geometry-backed width test. Unsupported/concave passages
+ // remain unverified rather than being approved from a bounding box.
+ const clearWidthFt=3;
+ const corridorWidths=corridors.map(corridor=>{
+  const poly=corridor.polygon;
+  if(poly.length===6){
+   const lengths=poly.map((p,i)=>Math.hypot(p[0]-poly[(i+1)%6][0],p[1]-poly[(i+1)%6][1]));
+   const rightAngles=poly.every((p,i)=>{const q=poly[(i+1)%6],r=poly[(i+2)%6];
+    return Math.abs((q[0]-p[0])*(r[0]-q[0])+(q[1]-p[1])*(r[1]-q[1]))<1e-5*lengths[i]*lengths[(i+1)%6];});
+   // This six-vertex orthogonal L must have two genuinely full-width arms.
+   // The inner reflex vertex is index 4 and the bend must contain a square
+   // of clear width, not a diagonal/corner-only graph connection.
+   const armWidthA=lengths[2],armWidthB=lengths[5];
+   const widthFt=Math.min(armWidthA,armWidthB);
+   const fullTurn=rightAngles&&widthFt>=clearWidthFt&&
+    Math.abs(armWidthA-armWidthB)<1e-5&&
+    Math.abs(lengths[0]-lengths[4]-armWidthA)<1e-5&&
+    Math.abs(lengths[1]-lengths[3]-armWidthB)<1e-5;
+   return {id:corridor.id,widthFt,verified:fullTurn};
+  }
+  if(poly.length!==4)return {id:corridor.id,widthFt:0,verified:false};
+  const edgeLengths=poly.map((p,i)=>Math.hypot(p[0]-poly[(i+1)%4][0],p[1]-poly[(i+1)%4][1]));
+  const perpendicular=Math.abs((poly[1][0]-poly[0][0])*(poly[3][0]-poly[0][0])+
+   (poly[1][1]-poly[0][1])*(poly[3][1]-poly[0][1]))<1e-5*edgeLengths[0]*edgeLengths[3];
+  const parallelOpposites=Math.abs(edgeLengths[0]-edgeLengths[2])<1e-5&&
+   Math.abs(edgeLengths[1]-edgeLengths[3])<1e-5;
+  const widthFt=Math.min(...edgeLengths);
+  return {id:corridor.id,widthFt,verified:perpendicular&&parallelOpposites&&widthFt>=clearWidthFt};
+ });
+ const corridorCollisions:string[]=[];
+ for(const corridor of corridors)for(const room of rooms){
+  if(polygonInteriorOverlap(corridor.polygon,room.polygon))corridorCollisions.push(corridor.id+':'+room.id);
+ }
+ // Checking only room-vs-hall leaves room-vs-room overlaps invisible,
+ // and overlapping hall islands can still appear as allocated free space.
+ for(let i=0;i<rooms.length;i++)for(let j=i+1;j<rooms.length;j++)
+  if(polygonInteriorOverlap(rooms[i].polygon,rooms[j].polygon))
+   corridorCollisions.push(rooms[i].id+':'+rooms[j].id);
+ for(let i=0;i<corridors.length;i++)for(let j=i+1;j<corridors.length;j++)
+  if(polygonInteriorOverlap(corridors[i].polygon,corridors[j].polygon))
+   corridorCollisions.push(corridors[i].id+':'+corridors[j].id);
+ const corridorGeometryVerified=hasCorridor&&corridorWidths.every(x=>x.verified)&&
+  corridorCollisions.length===0;
+ return {status:rooms.length>0&&corridorGeometryVerified&&unreachableRooms.length===0&&roomsWithoutHallDoor.length===0&&disconnectedCorridors.length===0&&rejected.length===0?'DRAFT_ROUTE_CONNECTED' as const:'UNVERIFIED' as const,
+  rooms:rooms.length,circulationZones:corridors.length,corridorWidths,corridorCollisions,acceptedDoors:accepted,rejectedDoors:rejected,unreachableRooms,roomsWithoutHallDoor,disconnectedCorridors,
+  limitations:['Door width and common-wall graph are draft-only; actual route clearance, swings, exterior exit, vertical access and code review are NOT proven']};
+}
+
+/** Evidence check for a service-to-garage connection. Proximity alone
+ * never establishes a usable passage or garage/fire separation approval. */
+export function assessGarageServiceConnection(c:CandidateRecord,d:DesignDocument,ownerId:string,story:'GROUND'|'UPPER'|'OTHER'){
+ const services=d.shapes.filter(x=>x.ownerId===ownerId&&x.story===story&&x.kind==='ROOM'&&/laundry|utility|mud|entry|service/i.test(x.label));
+ const garages=sourceBuildingOwners(c).filter(x=>x.kind==='garage');
+ const adjacent:{roomId:string;garageId:string;commonWallFt:number}[]=[];
+ for(const room of services)for(const garage of garages){
+  const commonWallFt=overlapBoundary(room.polygon,placementPolygon(garage).map(p=>[p[0],p[1]] as P2));
+  if(commonWallFt>EPS)adjacent.push({roomId:room.id,garageId:garage.id,commonWallFt});
+ }
+ return {status:adjacent.length?'ADJACENCY_ONLY' as const:'UNVERIFIED' as const,adjacent,
+  limitations:['Garage ownership, fire separation, actual door location, garage access route and code acceptance are NOT validated']};
+}
+
+/** Stair connectivity is only possible when authored ground/upper stair zones
+ * occupy overlapping source XY coordinates. This does NOT prove a stair flight,
+ * elevation, opening, landing, or headroom. */
+export function assessVerticalStairAlignment(d:DesignDocument,ownerId:string){
+ const lower=d.shapes.filter(x=>x.ownerId===ownerId&&x.story==='GROUND'&&x.kind==='STAIR_ZONE');
+ const upper=d.shapes.filter(x=>x.ownerId===ownerId&&x.story==='UPPER'&&x.kind==='STAIR_ZONE');
+ const overlaps:{groundId:string;upperId:string}[]=[];
+ for(const a of lower)for(const b of upper){
+  // An overlapping corner alone is not a stair landing. Require a square
+  // 3 x 3 ft orthogonal clear region within both source-aligned stair zones.
+  const bounds=(poly:P2[])=>({left:Math.min(...poly.map(p=>p[0])),right:Math.max(...poly.map(p=>p[0])),
+   top:Math.min(...poly.map(p=>p[1])),bottom:Math.max(...poly.map(p=>p[1]))});
+  const x=bounds(a.polygon),y=bounds(b.polygon);
+  const left=Math.max(x.left,y.left),right=Math.min(x.right,y.right),top=Math.max(x.top,y.top),bottom=Math.min(x.bottom,y.bottom);
+  if(right-left>=3&&bottom-top>=3&&
+   a.polygon.length===4&&b.polygon.length===4&&
+   [[left,top],[right,top],[right,bottom],[left,bottom]].every(q=>inside(q as P2,a.polygon)&&inside(q as P2,b.polygon)))
+   overlaps.push({groundId:a.id,upperId:b.id});
+ }
+ return {status:overlaps.length?'XY_ALIGNED_UNVERIFIED' as const:'NOT_VALIDATED' as const,overlaps,
+  limitations:['Stair geometry, floor opening, landing sizes, slope, headroom and structural/code acceptance are NOT verified']};
+}
+
+/** Explicit integration gate: geometry may establish room circulation, but
+ * garage and vertical access are separate evidence domains. Never infer
+ * cross-owner garage doors or built stair flights from a common wall or XY.
+ */
+export function assessHomeRouteIntegration(c:CandidateRecord,d:DesignDocument,ownerId:string,stories:('GROUND'|'UPPER'|'OTHER')[]){
+ validateDesignDocument(c,d);
+ const unique=[...new Set(stories)];
+ const floors=unique.map(story=>({story,route:assessAuthoredCirculation(d,ownerId,story)}));
+ const garage=unique.includes('GROUND')?assessGarageServiceConnection(c,d,ownerId,'GROUND'):null;
+ const vertical=assessVerticalStairAlignment(d,ownerId);
+ const garagePresent=sourceBuildingOwners(c).some(x=>x.kind==='garage');
+ const requiresStairs=unique.includes('GROUND')&&unique.includes('UPPER');
+ const blockers=[
+  ...floors.filter(x=>x.route.status!=='DRAFT_ROUTE_CONNECTED').map(x=>'UNVERIFIED_FLOOR_ROUTE:'+x.story),
+  ...(garagePresent?['GARAGE_PASSAGE_UNVERIFIED']:[]),
+  ...(requiresStairs?['STAIR_FLIGHT_AND_LANDINGS_UNVERIFIED']:[])
+ ];
+ return {status:blockers.length?'UNVERIFIED' as const:'DRAFT_FLOOR_ROUTES_ONLY' as const,
+  floors,garage,vertical,blockers,
+  limitations:['No garage-to-home opening is represented by a same-owner room door',
+   'No vertical stair flight, landing clearance, rise/run, or headroom is proven',
+   'Door swings, furniture obstacles, external egress, and AHJ approval remain unverified']};
+}
+
+/** Explicit clearance evidence, separate from the persisted draft schema.
+ * Measurements are input evidence; missing physical dimensions fail closed. */
+export type StairFlightEvidence={
+ groundLanding:P2[];upperLanding:P2[];floorToFloorFt:number;
+ riserCount:number;treadDepthFt:number;clearWidthFt:number;headroomFt:number;
+};
+export function assessStairFlightEvidence(e:StairFlightEvidence){
+ const errors:string[]=[];
+ for(const [key,value] of Object.entries(e))if(typeof value==='number'&&!Number.isFinite(value))errors.push('NONFINITE_'+key);
+ let landingSizeFt=0;
+ const landing=(poly:P2[],tag:string)=>{
+  if(!Array.isArray(poly)||poly.length!==4){errors.push('INVALID_'+tag);return 0;}
+  try{validPolygon(poly,tag);}catch{errors.push('INVALID_'+tag);return 0;}
+  const edges=poly.map((p,i)=>Math.hypot(p[0]-poly[(i+1)%4][0],p[1]-poly[(i+1)%4][1]));
+  const dot=(poly[1][0]-poly[0][0])*(poly[3][0]-poly[0][0])+
+   (poly[1][1]-poly[0][1])*(poly[3][1]-poly[0][1]);
+  if(Math.abs(dot)>1e-5*edges[0]*edges[3]||Math.abs(edges[0]-edges[2])>1e-5||
+   Math.abs(edges[1]-edges[3])>1e-5)errors.push('NONRECTANGULAR_'+tag);
+  return Math.min(...edges);
+ };
+ const lower=landing(e.groundLanding,'GROUND_LANDING'),upper=landing(e.upperLanding,'UPPER_LANDING');
+ landingSizeFt=Math.min(lower,upper);
+ if(!(e.riserCount>=2&&Number.isInteger(e.riserCount)))errors.push('RISER_COUNT');
+ const riseIn=e.riserCount>0?12*e.floorToFloorFt/e.riserCount:Infinity;
+ if(!Number.isFinite(riseIn)||riseIn>7.75||riseIn<=0)errors.push('RISER_HEIGHT');
+ if(!(e.treadDepthFt>=10/12))errors.push('TREAD_DEPTH');
+ if(!(e.clearWidthFt>=3))errors.push('STAIR_WIDTH');
+ if(!(landingSizeFt>=3))errors.push('LANDING_WIDTH');
+ if(!(e.headroomFt>=6+8/12))errors.push('HEADROOM');
+ return {status:errors.length?'UNVERIFIED' as const:'DIMENSIONAL_DRAFT_ONLY' as const,
+  riseIn,treadDepthIn:e.treadDepthFt*12,landingSizeFt,errors,
+  limitations:['Dimensions are supplied evidence, not derived from a physical stair/section model',
+  'Turns, railings, nosings, openings, structural coordination, egress and AHJ approval not established']};
+}
+
+/** Garage entry evidence cannot become a cross-owner door by using the
+ * same-owner room-door schema. Check proposed opening against actual garage
+ * footprint boundary and require a reachable source room. */
+export function assessGaragePassageEvidence(c:CandidateRecord,d:DesignDocument,ownerId:string,
+ roomId:string,garageId:string,center:P2,widthFt:number){
+ validateDesignDocument(c,d);
+ const room=d.shapes.find(x=>x.id===roomId&&x.ownerId===ownerId&&x.story==='GROUND'&&x.kind==='ROOM');
+ const garage=sourceBuildingOwners(c).find(x=>x.id===garageId&&x.kind==='garage');
+ const errors:string[]=[];
+ if(!room)errors.push('MISSING_GROUND_ROOM');
+ if(!garage)errors.push('MISSING_SOURCE_GARAGE');
+ if(!Array.isArray(center)||center.length!==2||!center.every(Number.isFinite)||!Number.isFinite(widthFt)||widthFt<3)
+  errors.push('INVALID_OPENING');
+ if(room&&garage&&errors.length===0&&!hasUsableDoorInterval(room.polygon,
+  placementPolygon(garage).map(p=>[p[0],p[1]] as P2),center,widthFt))
+  errors.push('OPENING_NOT_ON_SHARED_WALL');
+ const route=assessAuthoredCirculation(d,ownerId,'GROUND');
+ if(route.status!=='DRAFT_ROUTE_CONNECTED')errors.push('HOME_ROUTE_UNVERIFIED');
+ if(room&&route.roomsWithoutHallDoor.includes(room.id))errors.push('ENTRY_ROOM_UNREACHABLE');
+ return {status:errors.length?'UNVERIFIED' as const:'OPENING_GEOMETRY_ONLY' as const,errors,
+  limitations:['Garage door swing, door construction, fire separation, garage circulation and code acceptance not established']};
+}
+
+/** Door landing: a minimum-clearance test at each side, requiring a
+ * measured unobstructed disk inside each space. Conservative and fail-closed
+ * for centers near walls; does not validate door swing. */
+export function assessDoorTransitionEnvelope(a:P2[],b:P2[],center:P2,widthFt:number,clearDepthFt=3){
+ const errors:string[]=[];
+ if(!hasUsableDoorInterval(a,b,center,widthFt))errors.push('DOOR_INTERVAL');
+ if(!Number.isFinite(clearDepthFt)||clearDepthFt<3)errors.push('INSUFFICIENT_DEPTH');
+ const clearance=(poly:P2[])=>{
+  const edge=poly.find((p,i)=>onEdge(center,p,poly[(i+1)%poly.length]));
+  if(!edge)return false;
+  const samples=16;
+  // A semicircular approach of radius clearDepth is conservative; a
+  // usable door may need a more detailed rectangle/swing model later.
+  const centroid:P2=[poly.reduce((n,p)=>n+p[0],0)/poly.length,poly.reduce((n,p)=>n+p[1],0)/poly.length];
+  const bearing=Math.atan2(centroid[1]-center[1],centroid[0]-center[0]);
+  for(let i=0;i<=samples;i++){
+   const angle=bearing-Math.PI/2+i*Math.PI/samples;
+   const probe:P2=[center[0]+clearDepthFt*Math.cos(angle),center[1]+clearDepthFt*Math.sin(angle)];
+   if(!inside(probe,poly))return false;
+  }
+  return true;
+ };
+ if(errors.length===0&&(!clearance(a)||!clearance(b)))errors.push('APPROACH_ENVELOPE');
+ return {status:errors.length?'UNVERIFIED' as const:'DRAFT_APPROACH_GEOMETRY' as const,errors,
+  limitations:['Conservative semicircle clearance only; fixtures, door swing, furniture and wheelchair turning are not proven']};
+}
+
+/** Conservative single straight-flight placement test. This does not model
+ * a switchback, floor opening, section headroom or structural support. */
+export function assessStraightStairRunPlacement(e:StairFlightEvidence,flightFootprint:P2[],
+ groundZone:P2[],upperZone:P2[]){
+ const dimensions=assessStairFlightEvidence(e),errors=[...dimensions.errors];
+ const rect=(poly:P2[],name:string)=>{
+  try{
+   validPolygon(poly,name);
+   if(poly.length!==4)throw Error('Not a rectangle');
+   const lengths=poly.map((p,i)=>Math.hypot(p[0]-poly[(i+1)%4][0],p[1]-poly[(i+1)%4][1]));
+   const dot=(poly[1][0]-poly[0][0])*(poly[3][0]-poly[0][0])+
+    (poly[1][1]-poly[0][1])*(poly[3][1]-poly[0][1]);
+   if(Math.abs(dot)>1e-5*lengths[0]*lengths[3]||
+    Math.abs(lengths[0]-lengths[2])>1e-5||Math.abs(lengths[1]-lengths[3])>1e-5)
+    throw Error('Nonrectangular');
+   return {long:Math.max(lengths[0],lengths[1]),short:Math.min(lengths[0],lengths[1])};
+  }catch{errors.push('INVALID_FLIGHT_FOOTPRINT');return null;}
+ };
+ const flight=rect(flightFootprint,'stair-flight');
+ const requiredRunFt=(e.riserCount-1)*e.treadDepthFt;
+ if(!Number.isFinite(requiredRunFt)||requiredRunFt<=0)errors.push('INVALID_REQUIRED_RUN');
+ if(flight&&(flight.long+EPS<requiredRunFt||flight.short+EPS<e.clearWidthFt))
+  errors.push('INSUFFICIENT_FLIGHT_ENVELOPE');
+ if(flight&&!contained(flightFootprint,groundZone))errors.push('FLIGHT_OUTSIDE_GROUND_ZONE');
+ if(flight&&!contained(flightFootprint,upperZone))errors.push('FLIGHT_OUTSIDE_UPPER_ZONE');
+ if(!contained(e.groundLanding,groundZone)||!contained(e.upperLanding,upperZone))
+  errors.push('LANDING_OUTSIDE_STAIR_ZONE');
+ // Mere containment cannot prove a usable flight. Both landing footprints
+ // must meet opposite SHORT END faces across the full clear stair width.
+ if(flight){
+  const edges=flightFootprint.map((p,i)=>({
+   a:p,b:flightFootprint[(i+1)%4],
+   len:Math.hypot(p[0]-flightFootprint[(i+1)%4][0],p[1]-flightFootprint[(i+1)%4][1])
+  }));
+  const ends=edges.filter(x=>Math.abs(x.len-flight.short)<1e-5);
+  if(ends.length!==2)errors.push('FLIGHT_ENDS_AMBIGUOUS');
+  else{
+   // Measure collinear common length directly, including a landing
+   // which terminates exactly at the flight edge.
+   const shared=(landing:P2[],end:{a:P2;b:P2})=>{
+    const line=[end.a,end.b];
+    let longest=0;
+    for(let i=0;i<landing.length;i++){
+     const a=landing[i],b=landing[(i+1)%landing.length];
+     const dx=end.b[0]-end.a[0],dy=end.b[1]-end.a[1],l=Math.hypot(dx,dy);
+     if(l<EPS||Math.abs(cross(end.a,end.b,a))/l>1e-5||
+      Math.abs(cross(end.a,end.b,b))/l>1e-5)continue;
+     const t=(p:P2)=>((p[0]-end.a[0])*dx+(p[1]-end.a[1])*dy)/l;
+     longest=Math.max(longest,Math.max(0,Math.min(l,Math.max(t(a),t(b)))-Math.max(0,Math.min(t(a),t(b)))));
+    }return longest;
+   };
+   const forward=shared(e.groundLanding,ends[0])>=e.clearWidthFt-1e-5&&
+    shared(e.upperLanding,ends[1])>=e.clearWidthFt-1e-5;
+   const reverse=shared(e.groundLanding,ends[1])>=e.clearWidthFt-1e-5&&
+    shared(e.upperLanding,ends[0])>=e.clearWidthFt-1e-5;
+   if(!forward&&!reverse)errors.push('STAIR_LANDINGS_NOT_AT_OPPOSITE_FLIGHT_ENDS');
+  }
+ }
+ return {status:errors.length?'UNVERIFIED' as const:'STRAIGHT_FLIGHT_FOOTPRINT_ONLY' as const,
+  requiredRunFt,flight,errors,
+  limitations:['The rectangular flight envelope and supplied heights are only preliminary dimensions',
+   'Floor opening, intersecting landing geometry, exact riser/nosing arrangement, structural framing and sectional headroom remain unverified']};
+}
+
+/** A conservative continuous route evidence gate. All modeled connections must
+ * attach to the same hall component, and proposed obstacles must not occupy
+ * either a hallway or a supplied landing. This is not a code/egress approval. */
+export type HomeRouteEvidence={
+ garage?:{roomId:string;garageId:string;center:P2;widthFt:number;garageWalkway:P2[]};
+ stairs?:StairFlightEvidence & {groundStairZoneId:string;upperStairZoneId:string};
+ obstacles?:{id:string;story:'GROUND'|'UPPER'|'OTHER';polygon:P2[]}[];
+};
+export function assessContinuousHomeRoute(c:CandidateRecord,d:DesignDocument,ownerId:string,e:HomeRouteEvidence){
+ validateDesignDocument(c,d);
+ const ground=assessAuthoredCirculation(d,ownerId,'GROUND');
+ const errors:string[]=[];
+ if(ground.status!=='DRAFT_ROUTE_CONNECTED')errors.push('GROUND_ROUTE_UNVERIFIED');
+ const groundCorridors=d.shapes.filter(x=>x.ownerId===ownerId&&x.story==='GROUND'&&x.kind==='CIRCULATION');
+ const upperCorridors=d.shapes.filter(x=>x.ownerId===ownerId&&x.story==='UPPER'&&x.kind==='CIRCULATION');
+ const obstacles=e.obstacles??[];
+ const validObstacles:typeof obstacles=[];
+ for(const obstacle of obstacles){
+  try{validPolygon(obstacle.polygon,obstacle.id);}catch{errors.push('INVALID_OBSTACLE:'+obstacle.id);continue;}
+  validObstacles.push(obstacle);
+  const halls=obstacle.story==='GROUND'?groundCorridors:obstacle.story==='UPPER'?upperCorridors:[];
+  if(halls.some(h=>polygonInteriorOverlap(h.polygon,obstacle.polygon)))errors.push('HALL_OBSTRUCTED:'+obstacle.id);
+ }
+ let garage=null;
+ if(e.garage){
+  garage=assessGaragePassageEvidence(c,d,ownerId,e.garage.roomId,e.garage.garageId,e.garage.center,e.garage.widthFt);
+  if(garage.status!=='OPENING_GEOMETRY_ONLY')errors.push('GARAGE_DOOR_UNVERIFIED');
+  const sourceGarage=sourceBuildingOwners(c).find(x=>x.id===e.garage!.garageId&&x.kind==='garage');
+  try{
+   validPolygon(e.garage.garageWalkway,'garage-walkway');
+   if(!sourceGarage||!contained(e.garage.garageWalkway,placementPolygon(sourceGarage).map(p=>[p[0],p[1]] as P2)))
+    errors.push('GARAGE_WALKWAY_OUTSIDE_SOURCE');
+   // Proximity to the garage building alone is not connection to its door:
+   // the modeled garage-side route must actually meet the proposed opening.
+   const entryRoom=d.shapes.find(x=>x.id===e.garage!.roomId&&x.ownerId===ownerId&&x.kind==='ROOM'&&x.story==='GROUND');
+   if(!entryRoom||!hasUsableDoorInterval(entryRoom.polygon,e.garage.garageWalkway,e.garage.center,e.garage.widthFt))
+    errors.push('GARAGE_WALKWAY_DOOR_CLEARANCE');
+  }catch{errors.push('GARAGE_WALKWAY_INVALID');}
+  if(validObstacles.some(o=>o.story==='GROUND'&&polygonInteriorOverlap(o.polygon,e.garage!.garageWalkway)))
+   errors.push('GARAGE_WALKWAY_OBSTRUCTED');
+ }else errors.push('GARAGE_ENTRY_EVIDENCE_MISSING');
+ let stairs=null;
+ if(e.stairs){
+  stairs=assessStairFlightEvidence(e.stairs);
+  if(stairs.status!=='DIMENSIONAL_DRAFT_ONLY')errors.push('STAIR_DIMENSIONS_UNVERIFIED');
+  const lower=d.shapes.find(x=>x.id===e.stairs!.groundStairZoneId&&x.ownerId===ownerId&&x.story==='GROUND'&&x.kind==='STAIR_ZONE');
+  const upper=d.shapes.find(x=>x.id===e.stairs!.upperStairZoneId&&x.ownerId===ownerId&&x.story==='UPPER'&&x.kind==='STAIR_ZONE');
+  if(!lower||!upper||!contained(e.stairs.groundLanding,lower.polygon)||!contained(e.stairs.upperLanding,upper.polygon))
+   errors.push('STAIR_LANDING_OUTSIDE_ZONE');
+  for(const o of validObstacles){
+   if(o.story!=='GROUND'&&o.story!=='UPPER')continue;
+   const landing=o.story==='GROUND'?e.stairs.groundLanding:e.stairs.upperLanding;
+   try{if(polygonInteriorOverlap(o.polygon,landing))errors.push('STAIR_LANDING_OBSTRUCTED:'+o.id);}
+   catch{errors.push('INVALID_STAIR_LANDING_GEOMETRY');}
+  }
+  if(assessAuthoredCirculation(d,ownerId,'UPPER').status!=='DRAFT_ROUTE_CONNECTED')
+   errors.push('UPPER_ROUTE_UNVERIFIED');
+  if(!lower||!groundCorridors.some(h=>overlapBoundary(h.polygon,lower.polygon)>=3))
+   errors.push('GROUND_STAIR_NOT_ON_HALL');
+  if(!upper||!upperCorridors.some(h=>overlapBoundary(h.polygon,upper.polygon)>=3))
+   errors.push('UPPER_STAIR_NOT_ON_HALL');
+ }else errors.push('STAIR_FLIGHT_EVIDENCE_MISSING');
+ return {status:errors.length?'UNVERIFIED' as const:'GEOMETRY_EVIDENCE_ONLY' as const,
+  errors,ground,garage,stairs,limitations:['A shared boundary is not a built opening or a certified unobstructed path',
+  'Door swings, stair run/opening/headroom sections and garage fire separation remain for design review']};
+}
+
+/** Read-only whole-home story inventory. Never derives a story by cloning
+ * another floor; every supported level requires a distinct authored plate. */
+export function assessSupportedStoryProgram(d:DesignDocument,ownerId:string,requiredStories:('GROUND'|'UPPER'|'OTHER')[]){
+ const stories=[...new Set(requiredStories)];
+ return {ownerId,stories:stories.map(story=>{
+  const plates=d.shapes.filter(x=>x.ownerId===ownerId&&x.story===story&&x.kind==='FLOOR_PLATE');
+  const rooms=d.shapes.filter(x=>x.ownerId===ownerId&&x.story===story&&x.kind==='ROOM');
+  const stairs=d.shapes.filter(x=>x.ownerId===ownerId&&x.story===story&&x.kind==='STAIR_ZONE');
+  const access=assessAuthoredCirculation(d,ownerId,story);
+  return {story,plates:plates.length,rooms:rooms.length,stairs:stairs.length,
+   state:plates.length!==1?'MISSING_OR_AMBIGUOUS_PLATE' as const:rooms.length===0?'ROOM_PROGRAM_MISSING' as const:access.status==='UNVERIFIED'?'ACCESS_UNVERIFIED' as const:'DRAFT_REVIEW' as const,
+   access};
+ }),verticalConnections:'NOT_VALIDATED' as const,
+  limitations:['No upper floor is invented from ground-floor geometry','Stair openings, landings and interstory route connectivity require explicit source evidence']};
+}
+
 export function rankDraftRoomLayouts(c:CandidateRecord,d:DesignDocument,plateId:string,labels:string[],axis:'X'|'Y',limit=3):RankedDraftLayout[]{
  if(!Number.isInteger(limit)||limit<1||limit>5)throw Error('Choose 1–5 concept alternatives');
  if(new Set(labels.map(x=>x.trim().toLowerCase())).size!==labels.length)throw Error('Room labels must be unique for relationships');
@@ -377,7 +1012,7 @@ export function rankDraftRoomLayouts(c:CandidateRecord,d:DesignDocument,plateId:
  for(const order of orders){
   const key=order.join('\0');if(seen.has(key))continue;seen.add(key);
   let document:DesignDocument;
-  try{document=packDraftRooms(c,d,plateId,labels,axis,d.updatedAt,order);}catch{continue;}
+  try{document=results.length===0?(d.shapes.find(x=>x.id===plateId)?.polygon.length===6?packLCorridorSeed(c,d,plateId,order):packCorridorSeed(c,d,plateId,order)):results.length%2===0?packTwoDimensionalSeed(c,d,plateId,order,results.length):packDraftRooms(c,d,plateId,labels,axis,d.updatedAt,order);}catch{try{document=packDraftRooms(c,d,plateId,labels,axis,d.updatedAt,order);}catch{continue;}}
   const added=document.shapes.filter(s=>s.kind==='ROOM'&&!d.shapes.some(t=>t.id===s.id));
   const byName=new Map(added.map(x=>[x.label,x]));
   const relationships=rules.map(rule=>{
@@ -386,14 +1021,71 @@ export function rankDraftRoomLayouts(c:CandidateRecord,d:DesignDocument,plateId:
    const satisfied=rule.priority==='SEPARATE'?!touching:touching;
    return {...rule,satisfied};
   });
-  const score=relationships.reduce((n,r)=>n+(r.satisfied?1:0)*(r.priority==='MUST'?35:r.priority==='PREFER'?15:8),0)-relationships.reduce((n,r)=>n+(!r.satisfied&&r.priority==='MUST'?40:0),0);
+  const connectivity=assessDraftRoomConnectivity(document,added[0]?.ownerId??'',added[0]?.story??'GROUND');
+  const relationshipScore=relationships.reduce((n,r)=>n+(r.satisfied?1:0)*(r.priority==='MUST'?35:r.priority==='PREFER'?15:8),0)-relationships.reduce((n,r)=>n+(!r.satisfied&&r.priority==='MUST'?40:0),0);
+  const score=relationshipScore+(connectivity.connected?12:-25*(connectivity.components.length-1))+connectivity.doorCapableEdges*2;
   const assessment:DraftLayoutAssessment={schema:'lotscope-layout-assessment-v1',score,sourceRevision:d.revision,
    relationships,explanations:relationships.filter(r=>r.satisfied).map(r=>r.reason),
-   limitations:['Concept-level shared-wall assessment only; no openings, walkable circulation, garage passage, plumbing or code compliance established','Human architectural review required before reporting a relationship as functional']};
+   limitations:[...connectivity.limitations,...(!connectivity.connected?['Room adjacency graph is disconnected; do not present as walkable']:[]),'No authored doors, guaranteed circulation, garage passage, plumbing or code compliance established','Human architectural review required before reporting a relationship as functional']};
   results.push({document,assessment,order});
  }
  results.sort((a,b)=>b.assessment.score-a.assessment.score||a.order.join('|').localeCompare(b.order.join('|')));
  return results.slice(0,limit);
+}
+
+/** Plans every explicitly supported floor without mutating the saved document.
+ * No guessed upper stories; a human still selects and saves a chosen proposal. */
+export function rankSupportedHomeRoomPrograms(
+ c:CandidateRecord,d:DesignDocument,ownerId:string,
+ programs:{story:'GROUND'|'UPPER'|'OTHER';rooms:string[]}[],limit=3
+){
+ validateDesignDocument(c,d);
+ if(new Set(programs.map(x=>x.story)).size!==programs.length)throw Error('Duplicate story program');
+ return {ownerId,sourceRevision:d.revision,floors:programs.map(program=>{
+  const plates=d.shapes.filter(x=>x.ownerId===ownerId&&x.story===program.story&&x.kind==='FLOOR_PLATE');
+  if(plates.length!==1)return {story:program.story,state:'MISSING_OR_AMBIGUOUS_PLATE' as const,alternatives:[] as RankedDraftLayout[]};
+  if(d.shapes.some(x=>x.ownerId===ownerId&&x.story===program.story&&['ROOM','CIRCULATION','STAIR_ZONE'].includes(x.kind)))
+   return {story:program.story,state:'EXISTING_DESIGN_REQUIRES_RECONCILIATION' as const,alternatives:[] as RankedDraftLayout[]};
+  const alternatives=rankDraftRoomLayouts(c,d,plates[0].id,program.rooms,'X',limit);
+  return {story:program.story,state:alternatives.length?'DRAFT_ALTERNATIVES' as const:'NO_VALID_ALTERNATIVES' as const,alternatives};
+ }),vertical:assessVerticalStairAlignment(d,ownerId),
+  limitations:['Per-story alternatives are not an approved integrated home','No automatic save or replacement of an existing customer selection','Stair travel, garage access and interstory circulation require authored geometry']};
+}
+
+/** Jointly rank draft per-story proposals without claiming complete vertical access.
+ * Does not mutate persistence or infer any missing floor. */
+export function rankWholeHomeCombinations(
+ c:CandidateRecord,d:DesignDocument,ownerId:string,
+ programs:{story:'GROUND'|'UPPER'|'OTHER';rooms:string[]}[],limit=3
+){
+ if(!Number.isInteger(limit)||limit<1||limit>5)throw Error('Choose 1-5 home alternatives');
+ const inventory=rankSupportedHomeRoomPrograms(c,d,ownerId,programs,limit);
+ const missing=inventory.floors.filter(f=>f.state!=='DRAFT_ALTERNATIVES');
+ if(missing.length)return {status:'INCOMPLETE_STORY_PROGRAM' as const,combinations:[],missingStories:missing.map(f=>f.story),
+  vertical:inventory.vertical,sourceRevision:d.revision};
+ const candidates:{stories:{story:'GROUND'|'UPPER'|'OTHER';index:number;document:DesignDocument}[];score:number;limitations:string[]}[]=[];
+ const walk=(i:number,chosen:{story:'GROUND'|'UPPER'|'OTHER';index:number;document:DesignDocument}[],score:number)=>{
+  if(i===inventory.floors.length){
+   const verticalPenalty=programs.length>1&&inventory.vertical.status==='NOT_VALIDATED'?100:0;
+   const wet=chosen.flatMap(x=>x.document.shapes.filter(s=>s.kind==='ROOM'&&s.story===x.story&&
+    /bath|kitchen|laundry|utility/i.test(s.label)).map(room=>({
+    story:x.story,center:[room.polygon.reduce((sum,p)=>sum+p[0],0)/room.polygon.length,
+    room.polygon.reduce((sum,p)=>sum+p[1],0)/room.polygon.length] as P2
+   })));
+   const ground=wet.filter(x=>x.story==='GROUND'),upper=wet.filter(x=>x.story==='UPPER');
+   const wetCorePenalty=ground.length&&upper.length?
+    upper.reduce((sum,room)=>sum+Math.min(...ground.map(other=>Math.hypot(
+     room.center[0]-other.center[0],room.center[1]-other.center[1]))),0):0;
+   candidates.push({stories:chosen,score:score-verticalPenalty-wetCorePenalty,limitations:programs.length>1?
+    ['Cross-floor wet-core distance is a draft preference only; plumbing shafts, stairs and structure remain unverified']:['Garage/entry and egress remain unverified']});
+   return;
+  }
+  const floor=inventory.floors[i];
+  floor.alternatives.forEach((a,index)=>walk(i+1,[...chosen,{story:floor.story,index,document:a.document}],score+a.assessment.score));
+ };
+ walk(0,[],0);
+ candidates.sort((a,b)=>b.score-a.score||a.stories.map(x=>x.index).join(':').localeCompare(b.stories.map(x=>x.index).join(':')));
+ return {status:'DRAFT_COMPARISON_ONLY' as const,combinations:candidates.slice(0,limit),missingStories:[],vertical:inventory.vertical,sourceRevision:d.revision};
 }
 
 /** Translate the two endpoints of an authored wall edge; refuse invalid geometry. */

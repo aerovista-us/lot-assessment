@@ -3,12 +3,10 @@
 import Link from "next/link";
 import { useState, type ChangeEvent } from "react";
 import { CandidatePlan } from "@/components/workbench/CandidatePlan";
-import { createCandidateConceptHtml } from "@/packages/candidates/customer-report";
 import { useCandidateWorkspace } from "@/components/workbench/useCandidateWorkspace";
 import { currentEvaluation, type CandidateRecord, type LotScopePackage } from "@/packages/candidates";
 import {
   createWorkspaceExportPackage,
-  currentWorkspaceDesignDocument,
   isLotScopePackage,
   type ImportMode
 } from "@/packages/candidates/workspace";
@@ -29,7 +27,7 @@ function downloadPackage(pkg: LotScopePackage) {
   anchor.click();
   URL.revokeObjectURL(href);
 }
-function CandidateCard({ candidate, local, onExport, onReport }: { candidate: CandidateRecord; local: boolean; onExport: (candidateId: string) => void; onReport: (candidateId: string) => void }) {
+function CandidateCard({ candidate, local, onExport }: { candidate: CandidateRecord; local: boolean; onExport: (candidateId: string) => void }) {
   const evaluation = currentEvaluation(candidate);
   const failed = evaluation?.gates.filter((gate) => gate.status === "FAIL") ?? [];
   const passed = evaluation?.gates.filter((gate) => gate.status === "PASS" || gate.status === "PASS_TIGHT") ?? [];
@@ -51,23 +49,22 @@ function CandidateCard({ candidate, local, onExport, onReport }: { candidate: Ca
         <Link className="primary-button" href={`/workbench/projects/pondy-lot2/candidates/${candidate.id}`}>Open candidate</Link>
         <button className="secondary-button" type="button" onClick={() => onExport(candidate.id)}>Export .lotscope.json</button>
         <Link className="secondary-button" href={`/workbench/projects/pondy-lot2/candidates/${candidate.id}#universal-design-editor`}>Build / Edit Design</Link>
-        <button className="secondary-button" type="button" onClick={() => onReport(candidate.id)}>Create Customer Report</button>
+        <Link className="secondary-button" href={`/workbench/projects/pondy-lot2/candidates/${candidate.id}#customer-report-preview`}>Preview customer report</Link>
       </div>
     </div>
   </article>;
 }
-function CandidateSection({ title, subtitle, candidates, localIds, onExport, onReport }: {
+function CandidateSection({ title, subtitle, candidates, localIds, onExport }: {
   title: string;
   subtitle: string;
   candidates: CandidateRecord[];
   localIds: Set<string>;
   onExport: (candidateId: string) => void;
-  onReport: (candidateId: string) => void;
 }) {
   return <section className="library-section">
     <div className="library-section-head"><div><p className="eyebrow">{title}</p><h2>{subtitle}</h2></div><span className="mode-pill">{candidates.length}</span></div>
     {candidates.length ? <div className="library-grid">{candidates.map((candidate) =>
-      <CandidateCard key={candidate.id} candidate={candidate} local={localIds.has(candidate.id)} onExport={onExport} onReport={onReport} />
+      <CandidateCard key={candidate.id} candidate={candidate} local={localIds.has(candidate.id)} onExport={onExport} />
     )}</div> : <div className="staff-empty-state wb-panel">No candidates currently occupy this bucket.</div>}
   </section>;
 }
@@ -88,22 +85,6 @@ export function CandidateLibraryWorkspace() {
     downloadPackage(pkg);
     setMessage(`Exported ${pkg.candidate.revisionLabel} with ${pkg.checkpoints.length} checkpoint(s).`);
   }
-  async function createReport(candidateId: string) {
-    const candidate=workspace.registry.candidates.find(item=>item.id===candidateId);
-    if(!candidate)return setMessage("Candidate not found for report.");
-    try{
-      const attached=currentWorkspaceDesignDocument(workspace.workspace,candidate);
-      const report=await createCandidateConceptHtml(candidate,attached);
-      const blob=new Blob([report.html],{type:"text/html;charset=utf-8"});
-      const href=URL.createObjectURL(blob);
-      const anchor=document.createElement("a");
-      anchor.href=href;
-      anchor.download=candidate.id+"-customer-concept.html";
-      document.body.appendChild(anchor);anchor.click();anchor.remove();
-      window.setTimeout(()=>URL.revokeObjectURL(href),30000);
-      setMessage("Downloaded private customer concept report for "+candidate.revisionLabel+". "+report.features.length+" report topics included, plus schematic axon, source shells and four model-direction projections. Missing actual roof/room drawings remain withheld. Open HTML or Print to PDF.");
-    }catch(cause){setMessage(cause instanceof Error?cause.message:"Unable to generate candidate report.");}
-  }
   async function importFile(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     event.target.value = "";
@@ -117,6 +98,8 @@ export function CandidateLibraryWorkspace() {
       setMessage(cause instanceof Error ? cause.message : "Import failed.");
     }
   }
+
+  if (workspace.storageError) return <div className="wb-panel workspace-storage-error" role="alert"><h2>Saved workspace needs attention</h2><p>{workspace.storageError}</p><button type="button" className="secondary-button" onClick={workspace.retryStorage}>Retry saved workspace</button></div>;
 
   return <>
     <section className="wb-panel lifecycle-toolbar">
@@ -133,8 +116,8 @@ export function CandidateLibraryWorkspace() {
     </section>
     {message && <p className="microcopy lifecycle-message">{message}</p>}
     {!workspace.ready && <div className="staff-empty-state wb-panel">Loading local candidate workspace…</div>}
-    <CandidateSection title="RECOMMENDED" subtitle="Passing, high-value options" candidates={recommended} localIds={localIds} onExport={exportCandidate} onReport={createReport} />
-    <CandidateSection title="ACCEPTABLE FOR INTERVENTION" subtitle="Promising partial failures worth staff time" candidates={intervention} localIds={localIds} onExport={exportCandidate} onReport={createReport} />
-    <CandidateSection title="DRAFT / REJECTED / HISTORY" subtitle="Preserved work, imported packages and new branches" candidates={history} localIds={localIds} onExport={exportCandidate} onReport={createReport} />
+    <CandidateSection title="RECOMMENDED" subtitle="Passing, high-value options" candidates={recommended} localIds={localIds} onExport={exportCandidate} />
+    <CandidateSection title="ACCEPTABLE FOR INTERVENTION" subtitle="Promising partial failures worth staff time" candidates={intervention} localIds={localIds} onExport={exportCandidate} />
+    <CandidateSection title="DRAFT / REJECTED / HISTORY" subtitle="Preserved work, imported packages and new branches" candidates={history} localIds={localIds} onExport={exportCandidate} />
   </>;
 }

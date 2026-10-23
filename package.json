@@ -12,12 +12,14 @@
     "test:universal-design": "node --experimental-loader ./scripts/alias-loader.mjs scripts/test-universal-design-document.mjs",
     "test:room-packing": "node scripts/test-room-packing.mjs",
     "test:workspace": "node --experimental-loader ./scripts/alias-loader.mjs scripts/test-candidate-workspace.mjs",
+    "test:design-journey": "node --experimental-loader ./scripts/alias-loader.mjs scripts/test-design-journey.mjs",
     "test:intervention": "node --experimental-loader ./scripts/alias-loader.mjs scripts/test-intervention-editor.mjs",
     "test:authoritative-circulation": "node --experimental-loader ./scripts/alias-loader.mjs scripts/test-authoritative-circulation.mjs",
     "test:roof-inspector": "tsx scripts/test-roof-inspector-workspace.tsx",
     "test:roof": "node --experimental-loader ./scripts/alias-loader.mjs scripts/test-roof-geometry.mjs && node --experimental-loader ./scripts/alias-loader.mjs scripts/test-roof-boundary-audit.mjs && node --experimental-loader ./scripts/alias-loader.mjs scripts/test-gable-extension.mjs && node --experimental-loader ./scripts/alias-loader.mjs scripts/test-crossgable-extension.mjs && node --experimental-loader ./scripts/alias-loader.mjs scripts/test-roof-mesh-audit.mjs && node --experimental-loader ./scripts/alias-loader.mjs scripts/test-roof-drawing-contract.mjs && node --experimental-loader ./scripts/alias-loader.mjs scripts/test-roof-drawing-projection.mjs && node --experimental-loader ./scripts/alias-loader.mjs scripts/test-roof-drawing-spatial.mjs && node --experimental-loader ./scripts/alias-loader.mjs scripts/test-roof-drawing-visibility.mjs && node --experimental-loader ./scripts/alias-loader.mjs scripts/test-roof-drawing-depth.mjs && node --experimental-loader ./scripts/alias-loader.mjs scripts/test-roof-drawing-edge-visibility.mjs && node --experimental-loader ./scripts/alias-loader.mjs scripts/test-roof-elevation-depth.mjs && node --experimental-loader ./scripts/alias-loader.mjs scripts/test-roof-elevation-splits.mjs && node --experimental-loader ./scripts/alias-loader.mjs scripts/test-roof-depth-transitions.mjs && node --experimental-loader ./scripts/alias-loader.mjs scripts/test-roof-axon-visibility.mjs && node --experimental-loader ./scripts/alias-loader.mjs scripts/test-roof-verified-intervals.mjs && node scripts/test-roof-interval-export.mjs && node --experimental-loader ./scripts/alias-loader.mjs scripts/test-roof-valley-sections.mjs && node --experimental-loader ./scripts/alias-loader.mjs scripts/test-cardinal-ray-depth.mjs",
     "export:roof": "node --experimental-loader ./scripts/alias-loader.mjs scripts/export-roof-sot.mjs",
-    "test:roof-touch": "node scripts/test-roof-inspector-touch.mjs"
+    "test:roof-touch": "node scripts/test-roof-inspector-touch.mjs",
+    "test:customer-journey-ui": "node scripts/test-customer-journey-ui.mjs"
   },
   "dependencies": {
     "next": "16.3.2",
@@ -30,6 +32,8 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "typescript": "^5.9.0",
-    "tsx": "^4.20.6"
+    "tsx": "^4.20.6",
+    "jsdom": "26.1.0",
+    "esbuild": "0.28.2"
   }
 }
