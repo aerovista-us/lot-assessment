@@ -16,14 +16,15 @@ const html=await readFile(path.join(fixture,'index.html'));
 const js=await readFile(path.join(fixture,'app.js'));
 const server=createServer((request,response)=>{response.setHeader('Content-Type',request.url==='/app.js'?'text/javascript':'text/html');response.end(request.url==='/app.js'?js:html);});
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
-const browser=await puppeteer.launch({executablePath:process.env.CHROME_BIN,headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
+const browser=await puppeteer.launch({executablePath:process.env.CHROME_BIN,headless:true,timeout:20000,protocolTimeout:20000,args:['--no-sandbox','--disable-dev-shm-usage']});
 const base=`http://127.0.0.1:${server.address().port}`;
 const evidence={sourceSha:execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),scope:'Isolated production components and CSS; no hosted authentication or physical-device claim',cases:[]};
 const routes=[['home','/workbench','.studio-home-hero'],['library','/workbench/projects/pondy-lot2/candidates','.library-discovery'],['design','/workbench/projects/pondy-lot2/candidates/journey-ui-fixture','#universal-design-editor'],['compare','/workbench/projects/pondy-lot2/compare','.compare-evidence-table']];
 try{
  for(const [width,height] of [[390,844],[768,1024],[1440,1000]]){
   for(const [view,route,ready] of routes){
-   const page=await browser.newPage();const errors=[];page.on('pageerror',error=>errors.push(String(error)));
+   console.log(`START ${view} at ${width}px`);
+   const page=await browser.newPage();page.setDefaultTimeout(12000);page.setDefaultNavigationTimeout(12000);const errors=[];page.on('pageerror',error=>errors.push(String(error)));
    await page.setViewport({width,height,deviceScaleFactor:1});
    await page.goto(base+route,{waitUntil:'networkidle0'});await page.waitForSelector(ready);
    const noOverflow=async()=>assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`${view} overflows ${width}px`);
@@ -53,7 +54,7 @@ try{
     await page.click('.layout-option:nth-child(2)');
     await page.waitForFunction(()=>document.querySelectorAll('.layout-option')[1].getAttribute('aria-pressed')==='true');
     await noOverflow();
-    await page.screenshot({path:path.join(out,`comparison-${width}.png`),fullPage:false});
+    await page.screenshot({path:path.join(out,`comparison-${width}.png`),fullPage:false,timeout:15000});
     await page.click('.layout-decision-actions .primary-button');
     await page.waitForSelector('[data-saved-design-document]');
     const selected=await page.$eval('[data-saved-design-document]',e=>e.textContent);
@@ -67,18 +68,22 @@ try{
     fidelity={nonTopSelection:true,reload:true,exactReportDocument:true,rooms:JSON.parse(selected).shapes.filter(s=>s.kind==='ROOM').length};
     await noOverflow();
     await page.$eval('#universal-design-editor',e=>e.scrollIntoView({block:'start',behavior:'instant'}));
-    await page.screenshot({path:path.join(out,`studio-${width}.png`),fullPage:false});
+    await page.screenshot({path:path.join(out,`studio-${width}.png`),fullPage:false,timeout:15000});
    }
    await page.evaluate(()=>scrollTo({top:0,behavior:'instant'}));
-   await page.screenshot({path:path.join(out,`${view}-${width}.png`),fullPage:view==='home'});
+   await page.screenshot({path:path.join(out,`${view}-${width}.png`),fullPage:view==='home',timeout:15000});
    assert.deepEqual(errors,[],`${view} application errors`);
    evidence.cases.push({width,height,view,noHorizontalOverflow:true,mobileMenu:width<960,applicationErrors:errors,...fidelity});
+   await writeFile(path.join(out,'progress.json'),JSON.stringify(evidence,null,2)+'\n');
    console.log(`PASS ${view} at ${width}px${fidelity?' · non-top save/reload/report fidelity':''}`);
    await page.close();
   }
  }
  await writeFile(path.join(out,'results.json'),JSON.stringify(evidence,null,2)+'\n');
 }catch(error){
- for(const [index,page] of (await browser.pages()).entries())await page.screenshot({path:path.join(out,`failure-${index}.png`),fullPage:true}).catch(()=>{});
+ for(const [index,page] of (await browser.pages()).entries())await page.screenshot({path:path.join(out,`failure-${index}.png`),fullPage:true,timeout:10000}).catch(()=>{});
  await writeFile(path.join(out,'failure.json'),JSON.stringify({error:String(error),completedCases:evidence.cases},null,2)+'\n');throw error;
-}finally{await browser.close();await new Promise(resolve=>server.close(resolve));}
+}finally{
+ const timer=setTimeout(()=>browser.process()?.kill('SIGKILL'),5000);
+ try{await browser.close();}finally{clearTimeout(timer);server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}
+}
