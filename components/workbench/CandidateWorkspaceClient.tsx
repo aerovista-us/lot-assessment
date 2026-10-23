@@ -95,6 +95,9 @@ export function CandidateWorkspaceClient({ candidateId }: { candidateId: string 
   const interventionEligible = ["ACCEPTABLE_FOR_INTERVENTION", "PARTIAL_FAIL", "PASS", "PROMOTION_READY"].includes(activeCandidate.status);
 
   const evaluation = currentEvaluation(candidate);
+  const savedDesign=currentWorkspaceDesignDocument(workspace.workspace,activeCandidate);
+  const savedRooms=savedDesign?.shapes.filter(shape=>shape.kind==="ROOM").length??0;
+  const savedHalls=savedDesign?.shapes.filter(shape=>shape.kind==="CIRCULATION").length??0;
   const parent = activeCandidate.lineage.parentCandidateId ? workspace.registry.candidates.find((item) => item.id === activeCandidate.lineage.parentCandidateId) : null;
   const children = workspace.registry.candidates.filter((item) => item.lineage.parentCandidateId === activeCandidate.id);
   const placements = activeCandidate.components.filter((item) => item.kind === "home" || item.kind === "garage");
@@ -197,6 +200,11 @@ export function CandidateWorkspaceClient({ candidateId }: { candidateId: string 
           <a className="secondary-button" href="#candidate-validation">4. Review validation ↓</a>
           <a className="secondary-button" href="#candidate-drawings">5. Review available drawings ↓</a>
           <button type="button" className="primary-button" onClick={createCustomerReport}>6. Create conditional concept report →</button>
+        </div>
+        <div role="status" aria-live="polite" className="wb-panel" style={{padding:12,marginBlock:12}}>
+          <strong>{savedDesign?`Saved design revision ${savedDesign.revision} · ${savedRooms} rooms · ${savedHalls} circulation areas`:"No saved room design attached yet"}</strong>
+          <p className="microcopy">{savedDesign?"This is the design document currently attached to this candidate and used for report generation. Reopen this candidate after saving to confirm it persisted.":"Generate alternatives below and save the selected concept before exporting the report."}</p>
+          {savedDesign&&<button type="button" className="secondary-button" onClick={createCustomerReport}>Generate report from saved revision {savedDesign.revision} →</button>}
         </div>
         <p className="microcopy">Missing circulation, structural, roof, print and AHJ evidence stays unresolved. Create Customer Report never means permit-ready or publicly published.</p>
       </nav>
