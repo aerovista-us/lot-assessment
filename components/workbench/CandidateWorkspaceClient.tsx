@@ -159,7 +159,7 @@ export function CandidateWorkspaceClient({ candidateId }: { candidateId: string 
       anchor.click();
       anchor.remove();
       window.setTimeout(()=>URL.revokeObjectURL(href),30000);
-      setMessage("Created visual customer concept report: 22 categories, exact site/shell plans, illustrative axon and four model-direction profiles. Actual roof/room/section authority stays clearly gated. Open the downloaded HTML or Print → Save PDF.");
+      setMessage("Downloaded this candidate's digital concept report with 22 report categories and source-bound drawings where supported. Review the saved room selection and coordinates in the HTML before sharing. Digital verification is not field or construction approval.");
     }catch(cause){setMessage(cause instanceof Error?cause.message:"Customer report generation failed.");}
   }
 
@@ -181,6 +181,15 @@ export function CandidateWorkspaceClient({ candidateId }: { candidateId: string 
         <p className="eyebrow">DESIGN JOURNEY · GUIDED CONCEPT WORKFLOW</p>
         <h2>Generate → Compare → Refine → Validate → Drawings → Report</h2>
         <p className="microcopy">These actions operate on your current candidate. The engine only produces supported draft geometry and conditional concept drawings; it cannot automatically complete all floors, circulation, roof junctions or professional sign-offs yet.</p>
+        <div className="wb-panel" role="note" aria-label="Design readiness levels" style={{padding:14,marginBlock:12}}>
+          <p className="eyebrow">DESIGN READINESS · THREE DISTINCT LEVELS</p>
+          <ol className="microcopy">
+            <li><strong>Digital concept — current report classification:</strong> Generated source-bound geometry and preliminary alternatives. Save your preferred layout before reporting.</li>
+            <li><strong>Digitally validated:</strong> Applicable software checks are documented individually. A passing gate cannot establish approvals that were not tested.</li>
+            <li><strong>Construction approved:</strong> Requires independent field measurements, architectural/engineering details, code review and the relevant authority's approval. Never inferred from this software.</li>
+          </ol>
+          <p className="microcopy"><strong>Next:</strong> Choose and save a layout, then inspect the regenerated report. Digital validation is not permission to build.</p>
+        </div>
         <div className="hero-actions">
           <a className="primary-button" href="#universal-design-editor">1. Generate supported floor concepts ↓</a>
           <Link className="secondary-button" href={`/workbench/projects/pondy-lot2/compare?left=${activeCandidate.id}`}>2. Compare designs ↗</Link>
