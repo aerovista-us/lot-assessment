@@ -848,6 +848,37 @@ export function assessStraightStairRunPlacement(e:StairFlightEvidence,flightFoot
  if(flight&&!contained(flightFootprint,upperZone))errors.push('FLIGHT_OUTSIDE_UPPER_ZONE');
  if(!contained(e.groundLanding,groundZone)||!contained(e.upperLanding,upperZone))
   errors.push('LANDING_OUTSIDE_STAIR_ZONE');
+ // Mere containment cannot prove a usable flight. Both landing footprints
+ // must meet opposite SHORT END faces across the full clear stair width.
+ if(flight){
+  const edges=flightFootprint.map((p,i)=>({
+   a:p,b:flightFootprint[(i+1)%4],
+   len:Math.hypot(p[0]-flightFootprint[(i+1)%4][0],p[1]-flightFootprint[(i+1)%4][1])
+  }));
+  const ends=edges.filter(x=>Math.abs(x.len-flight.short)<1e-5);
+  if(ends.length!==2)errors.push('FLIGHT_ENDS_AMBIGUOUS');
+  else{
+   // Measure collinear common length directly, including a landing
+   // which terminates exactly at the flight edge.
+   const shared=(landing:P2[],end:{a:P2;b:P2})=>{
+    const line=[end.a,end.b];
+    let longest=0;
+    for(let i=0;i<landing.length;i++){
+     const a=landing[i],b=landing[(i+1)%landing.length];
+     const dx=end.b[0]-end.a[0],dy=end.b[1]-end.a[1],l=Math.hypot(dx,dy);
+     if(l<EPS||Math.abs(cross(end.a,end.b,a))/l>1e-5||
+      Math.abs(cross(end.a,end.b,b))/l>1e-5)continue;
+     const t=(p:P2)=>((p[0]-end.a[0])*dx+(p[1]-end.a[1])*dy)/l;
+     longest=Math.max(longest,Math.max(0,Math.min(l,Math.max(t(a),t(b)))-Math.max(0,Math.min(t(a),t(b)))));
+    }return longest;
+   };
+   const forward=shared(e.groundLanding,ends[0])>=e.clearWidthFt-1e-5&&
+    shared(e.upperLanding,ends[1])>=e.clearWidthFt-1e-5;
+   const reverse=shared(e.groundLanding,ends[1])>=e.clearWidthFt-1e-5&&
+    shared(e.upperLanding,ends[0])>=e.clearWidthFt-1e-5;
+   if(!forward&&!reverse)errors.push('STAIR_LANDINGS_NOT_AT_OPPOSITE_FLIGHT_ENDS');
+  }
+ }
  return {status:errors.length?'UNVERIFIED' as const:'STRAIGHT_FLIGHT_FOOTPRINT_ONLY' as const,
   requiredRunFt,flight,errors,
   limitations:['The rectangular flight envelope and supplied heights are only preliminary dimensions',
