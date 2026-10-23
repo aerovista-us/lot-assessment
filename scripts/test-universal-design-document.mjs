@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {pondyCandidateRegistry as registry} from '../projects/pondy-lot2/candidate-registry.ts';
 import {placementPolygon} from '../packages/roof-geometry/index.ts';
-import {emptyDesignDocument,addDesignShape,addOwnerFootprintShape,removeDesignShape,updateDesignShapePolygon,snapDesignPoint,partitionDesignShape,packDraftRooms,packLCorridorSeed,rankDraftRoomLayouts,assessDraftRoomConnectivity,assessAuthoredCirculation,assessSupportedStoryProgram,assessGarageServiceConnection,assessHomeRouteIntegration,assessStairFlightEvidence,assessGaragePassageEvidence,assessContinuousHomeRoute,assessDoorTransitionEnvelope,assessVerticalStairAlignment,rankSupportedHomeRoomPrograms,rankWholeHomeCombinations,moveDesignWall,validateDesignDocument,designSourceSignature} from '../packages/candidates/design-document.ts';
+import {emptyDesignDocument,addDesignShape,addOwnerFootprintShape,removeDesignShape,updateDesignShapePolygon,snapDesignPoint,partitionDesignShape,packDraftRooms,packLCorridorSeed,rankDraftRoomLayouts,assessDraftRoomConnectivity,assessAuthoredCirculation,assessSupportedStoryProgram,assessGarageServiceConnection,assessHomeRouteIntegration,assessStairFlightEvidence,assessStraightStairRunPlacement,assessGaragePassageEvidence,assessContinuousHomeRoute,assessDoorTransitionEnvelope,assessVerticalStairAlignment,rankSupportedHomeRoomPrograms,rankWholeHomeCombinations,moveDesignWall,validateDesignDocument,designSourceSignature} from '../packages/candidates/design-document.ts';
 import {renderDesignDocumentAttachment} from '../packages/candidates/design-report-attachment.ts';
 import {createCandidateConceptHtml} from '../packages/candidates/customer-report.ts';
 import {emptyCandidateWorkspace,saveWorkspaceDesignDocument,currentWorkspaceDesignDocument,createWorkspaceExportPackage,importWorkspacePackage} from '../packages/candidates/workspace.ts';
@@ -96,6 +96,19 @@ for(const c of cases){
    floorToFloorFt:10,riserCount:16,treadDepthFt:11/12,clearWidthFt:3.5,headroomFt:7
   });
   assert.equal(goodFlight.status,'DIMENSIONAL_DRAFT_ONLY');
+  const straightStair={groundLanding:[[0,0],[4,0],[4,4],[0,4]],
+   upperLanding:[[0,0],[4,0],[4,4],[0,4]],
+   floorToFloorFt:10,riserCount:16,treadDepthFt:11/12,clearWidthFt:3.5,headroomFt:7};
+  const stairZone=[[0,0],[20,0],[20,8],[0,8]];
+  const fittingRun=assessStraightStairRunPlacement(straightStair,
+   [[4,0],[19,0],[19,4],[4,4]],stairZone,stairZone);
+  assert.equal(fittingRun.status,'STRAIGHT_FLIGHT_FOOTPRINT_ONLY');
+  assert(assessStraightStairRunPlacement(straightStair,
+   [[4,0],[10,0],[10,4],[4,4]],stairZone,stairZone).errors.includes('INSUFFICIENT_FLIGHT_ENVELOPE'));
+  assert(assessStraightStairRunPlacement(straightStair,
+   [[4,0],[19,0],[19,4],[4,4]],[[0,0],[12,0],[12,8],[0,8]],stairZone)
+   .errors.includes('FLIGHT_OUTSIDE_GROUND_ZONE'));
+
   assert(assessStairFlightEvidence({
    groundLanding:[[0,0],[2,0],[2,2],[0,2]],upperLanding:[[0,0],[4,0],[4,4],[0,4]],
    floorToFloorFt:10,riserCount:12,treadDepthFt:.6,clearWidthFt:2.5,headroomFt:6
