@@ -5,6 +5,8 @@ editor. Both the round drag handle and the precision Rotation deg field use the
 same angle normalization. Negative values and values greater than 360° wrap;
 360° is the same orientation as 0°. The drag begins relative to the pointer's
 actual grab point, so a previously rotated building does not jump on pickup.
+The wrapping plan toolbar sits above the canvas, keeping rotation handles
+reachable after Fit selection at phone, tablet and desktop widths.
 
 Solver template `rotationLimitDeg` values remain in source records but no longer
 clamp an explicit manual placement edit. Locked components remain protected.
