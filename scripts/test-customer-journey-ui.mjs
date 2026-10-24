@@ -118,11 +118,21 @@ app.window.close();app=await open(raw,'http://fixture.test/workbench');doc=app.w
 assert.equal(doc.querySelector('[data-continue-design]').getAttribute('data-continue-design'),'journey-ui-fixture','Home must resume actual saved work rather than the registry default');
 assert.match(doc.querySelector('[data-continue-design]').getAttribute('href'),/journey-ui-fixture$/);
 assert.match(doc.querySelector('.workbench-resume').textContent,/5 rooms/);
+const journeyLinks=()=>[...doc.querySelectorAll('.studio-journey-card')].slice(1).map(link=>link.getAttribute('href'));
+assert.deepEqual(journeyLinks(),[
+ '/workbench/projects/pondy-lot2/candidates/journey-ui-fixture#universal-design-editor',
+ '/workbench/projects/pondy-lot2/candidates/journey-ui-fixture#customer-report-preview'
+],'Home studio/report shortcuts must follow the same saved design as Continue');
 app.window.localStorage.setItem(key,'{broken');app.window.dispatchEvent(new app.window.Event('storage'));
 await waitFor(()=>doc.querySelector('.resume-error'),'resume storage error');
 assert(!doc.querySelector('[data-continue-design]'),'Unreadable saved work must not silently become a default design');
+assert.equal(journeyLinks().length,0,'Unreadable saved work must not send journey shortcuts to another design');
 app.window.localStorage.setItem(key,raw);[...doc.querySelectorAll('button')].find(button=>button.textContent==='Retry saved workspace').click();
 await waitFor(()=>doc.querySelector('[data-continue-design]'),'resume storage retry');
+assert.deepEqual(journeyLinks(),[
+ '/workbench/projects/pondy-lot2/candidates/journey-ui-fixture#universal-design-editor',
+ '/workbench/projects/pondy-lot2/candidates/journey-ui-fixture#customer-report-preview'
+],'Storage retry must restore both shortcuts to the saved design');
 assert.equal(errors.length,0,errors.join('\n'));
 app.window.close();
 if(process.env.WORKBENCH_UI_FIXTURE_DIR){

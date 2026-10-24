@@ -3,6 +3,21 @@ import {pondyCandidateRegistry as registry} from '../projects/pondy-lot2/candida
 import {createCandidateConceptHtml,REPORT_FEATURE_IDS} from '../packages/candidates/customer-report.ts';
 import {getReportFootprints,drawShellElevation,drawSchematicAxon,drawBuildingShellPlan,drawAccessPlan} from '../packages/candidates/customer-report-views.ts';
 
+function verifySiteCoordinates(candidate,html){
+ const rendered=new Map([...html.matchAll(/<(?:polygon|polyline)\b[^>]*data-component="([^"]+)"[^>]*points="([^"]+)"/g)].map(match=>[match[1],match[2].split(/\s+/).map(pair=>pair.split(',').map(Number))]));
+ const footprints=new Map(getReportFootprints(candidate).map(foot=>[foot.id,foot.points]));
+ for(const component of candidate.components){
+  const source=['parcel','envelope','pavement'].includes(component.kind)?component.polygon:
+   ['home','garage'].includes(component.kind)?footprints.get(component.id):
+   ['driveway','route'].includes(component.kind)?component.points:null;
+  if(!source)continue;
+  const points=rendered.get(component.id);
+  assert(points,`Missing source site geometry ${component.id}`);
+  assert.equal(points.length,source.length,`Changed vertex count for ${component.id}`);
+  source.forEach((point,index)=>point.forEach((value,axis)=>assert(Math.abs(value-points[index][axis])<=.001,`${candidate.id}/${component.id}: rendered site coordinate exceeds 0.001 ft tolerance`)));
+ }
+}
+
 assert.equal(REPORT_FEATURE_IDS.length,22);
 assert.equal(new Set(REPORT_FEATURE_IDS).size,22);
 const locked=registry.candidates.find(c=>c.id==='pondy-d4');
@@ -16,7 +31,7 @@ assert.equal((report.html.match(/data-report-feature="/g)||[]).length,22);
 assert(report.html.includes('CONCEPT ONLY — NOT FOR CONSTRUCTION'));
 assert(report.html.includes('data-component="parcel"'));
 assert(report.html.includes('data-component="home-b"'));
-assert(report.html.includes('points="0,0 148,0 148,50 125.14,43.02 84.81,43.02 0,57.01"'),'Parcel +Y down and jog preserved');
+verifySiteCoordinates(locked,report.html);
 assert(report.html.includes('SHA-256 '+report.sha));
 for(const [id,state] of [['axon','ILLUSTRATIVE'],['elevations','ILLUSTRATIVE'],['sections','WITHHELD']]){
  assert(report.html.includes('data-report-feature="'+id+'" data-feature-state="'+state+'"'));
@@ -36,6 +51,7 @@ assert(report.html.includes('Model-direction projection studies'));
 
 for(const alternate of registry.candidates){
  const r=await createCandidateConceptHtml(alternate);
+ verifySiteCoordinates(alternate,r.html);
  assert.equal((r.html.match(/data-report-feature="/g)||[]).length,22,alternate.id);
  const footprintIds=getReportFootprints(alternate).map(x=>x.id);
  for(const id of footprintIds){
@@ -91,4 +107,4 @@ await assert.rejects(()=>createCandidateConceptHtml(flipped),/Invalid/);
 const badPlacement=structuredClone(draft);
 badPlacement.components.find(x=>x.kind==='home').rotationDeg=Infinity;
 await assert.rejects(()=>createCandidateConceptHtml(badPlacement),/Invalid placement|Invalid source point/);
-console.log('PASS: two layout families, all 22 features, four source-projection views, schematic axon and shell, correct parcel handedness, false roofs never render, label escaping and source hash');
+console.log('PASS: two layout families, all 22 features, four source-projection views, schematic axon and shell, site coordinates within 0.001 ft with correct parcel handedness, false roofs never render, label escaping and source hash');
