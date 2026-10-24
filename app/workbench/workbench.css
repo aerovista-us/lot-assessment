@@ -715,3 +715,34 @@
 .design-room-key li { display:flex; gap:8px; align-items:center; min-width:0; line-height:1.4; }
 .design-room-key li>span:first-child { flex-shrink:0; display:grid; place-items:center; width:20px; height:20px; border-radius:50%; background:#244b5b; color:#fff; font-size:10px; }
 .layout-option .layout-room-key { font-size:11px; line-height:1.6; color:#a5bdc9; }
+
+/* Resume real browser work and edit the plan without leaving the canvas. */
+.workbench-resume { margin-top:24px; padding:20px; border:1px solid #83cbbf2b; border-radius:13px; background:linear-gradient(125deg,#1c343740,#111b28); }
+.resume-heading { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; }
+#workbench-content .resume-heading h2 { font-size:23px; }
+.resume-heading>span { color:#9abbb6; font-size:11px; }
+.resume-description { color:#b1c4d0; font-size:13px; line-height:1.6; margin:10px 0 16px; }
+.resume-storage-note { color:#91a6b9; font-size:11px; line-height:1.5; margin:13px 0 0; }
+.resume-loading { color:#a6bdcd; font-size:13px; min-height:130px; display:flex; align-items:center; }
+.resume-error { border-color:#e6be7a60; }.resume-error strong { font-size:14px; }.resume-error p { color:#bfcbda; font-size:12px; line-height:1.6; }
+.plan-view-controls { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; padding:8px 16px 12px; color:#476675; }
+.plan-view-controls>span { font-size:11px; }
+.plan-view-controls>div { display:flex; align-items:center; gap:5px; }
+.plan-view-controls button,.plan-editing-actions button { min-width:40px; padding:7px 11px; border:1px solid #7293a13b; border-radius:7px; background:#fff9; color:#315766; font:inherit; font-size:12px; cursor:pointer; }
+.plan-view-controls output { min-width:43px; text-align:center; font-size:11px; font-variant-numeric:tabular-nums; }
+#workbench-content .design-floor-canvas:focus-visible { outline:3px solid #2b7e83; outline-offset:-3px; }
+.design-floor-canvas [data-saved-shape] { cursor:pointer; }
+.design-floor-canvas [data-saved-shape][data-active="true"],.design-floor-canvas [data-saved-shape]:focus-visible { stroke:#0e6873; stroke-width:1.1; stroke-dasharray:none; fill-opacity:.65; }
+.design-room-key li { display:block; }
+.design-room-key button { width:100%; display:flex; gap:8px; align-items:center; text-align:left; padding:8px; background:transparent; color:#385867; border:1px solid transparent; border-radius:8px; cursor:pointer; font:inherit; line-height:1.4; }
+.design-room-key button:hover { background:#244b5b09; border-color:#244b5b33; }
+.design-room-key button[aria-pressed="true"] { background:#244b5b; color:#fff; }
+.design-room-key button>span:first-child { display:grid; flex-shrink:0; place-items:center; width:20px; height:20px; border-radius:50%; color:#fff; background:#244b5b; border:1px solid #fff5; font-size:10px; }
+.plan-editing-context { padding:14px 18px; border-top:1px solid #78909e22; color:#3d6070; background:#e4edf166; }
+.plan-editing-context>p { margin:0; font-size:12px; line-height:1.6; }
+.plan-editing-context strong { display:block; font-size:13px; margin-bottom:5px; }
+.plan-editing-context small { display:block; font-size:11px; line-height:1.6; }
+.plan-editing-actions { display:flex; align-items:end; gap:10px; margin-top:12px; }
+.plan-editing-actions label { flex:1; max-width:160px; font-size:11px; }
+.design-editor .plan-editing-actions select { margin:4px 0 0; background:#fff9; color:#315766; border-color:#7293a13b; min-height:44px; padding:8px; }
+@media(max-width:760px) { .workbench-resume { padding:16px; }.workbench-resume .hero-actions>* { flex:1 1 100%; }.plan-view-controls { padding-inline:12px; }.plan-editing-actions { flex-wrap:wrap; }.design-room-key { padding:12px; gap:5px; } }

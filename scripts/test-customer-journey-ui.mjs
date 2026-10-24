@@ -27,7 +27,7 @@ async function open(raw,url='http://fixture.test/workbench/projects/pondy-lot2/c
  dom.window.structuredClone=structuredClone;dom.window.TextEncoder=TextEncoder;dom.window.URL.createObjectURL=()=> 'blob:local-test';dom.window.URL.revokeObjectURL=()=>{};
  if(raw)dom.window.localStorage.setItem(key,raw);
  dom.window.eval(script);
- await waitFor(()=>dom.window.document.querySelector('#universal-design-editor,.library-discovery,.compare-selector-panel'),'workspace ready');
+ await waitFor(()=>dom.window.document.querySelector('#universal-design-editor,.library-discovery,.compare-selector-panel,[data-continue-design]'),'workspace ready');
  return dom;
 }
 let app=await open();let doc=app.window.document;
@@ -48,14 +48,43 @@ assert.equal(selected.shapes.filter(s=>s.kind==='ROOM').length,5);
 const raw=app.window.localStorage.getItem(key);
 app.window.close();app=await open(raw);doc=app.window.document;
 assert.deepEqual(JSON.parse(doc.querySelector('[data-saved-design-document]').textContent),selected,'Reload changed selected UI document');
+const savedNames=selected.shapes.filter(shape=>shape.kind==='ROOM').map(shape=>shape.label).join(', ');
+assert.equal(doc.querySelector('[aria-label="Room layout generator"] input').value,savedNames,'Reload must restore the saved room program');
+const floor=doc.querySelector('#design-story');floor.value='UPPER';floor.dispatchEvent(new app.window.Event('change',{bubbles:true}));
+await new Promise(resolve=>setTimeout(resolve,20));
+floor.value='GROUND';floor.dispatchEvent(new app.window.Event('change',{bubbles:true}));
+await waitFor(()=>doc.querySelector('[aria-label="Room layout generator"] input').value===savedNames,'returning to ground restores its saved program');
+assert.deepEqual(JSON.parse(doc.querySelector('[data-saved-design-document]').textContent),selected,'Floor inspection must not mutate the document');
+
+const canvas=doc.querySelector('.design-floor-canvas');const fittedView=canvas.getAttribute('viewBox');
+const firstRoom=selected.shapes.find(shape=>shape.kind==='ROOM');
+doc.querySelector('[data-room-select="'+firstRoom.id+'"]').click();
+await waitFor(()=>canvas.getAttribute('data-active-shape')===firstRoom.id,'room selected directly from key');
+assert.match(doc.querySelector('.plan-editing-context').textContent,new RegExp('Editing '+firstRoom.label));
+doc.querySelector('button[aria-label="Zoom in"]').click();
+await waitFor(()=>canvas.getAttribute('viewBox')!==fittedView,'plan zoom');
+assert.deepEqual(JSON.parse(doc.querySelector('[data-saved-design-document]').textContent),selected,'Inspection must not change saved geometry');
+[...doc.querySelectorAll('button')].find(button=>button.textContent==='Fit plan').click();
+await waitFor(()=>canvas.getAttribute('viewBox')===fittedView,'fit plan');
+canvas.dispatchEvent(new app.window.KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
+await waitFor(()=>canvas.getAttribute('data-active-shape')==='','finish keyboard editing');
+assert.equal(doc.activeElement,canvas,'Ending keyboard editing returns focus to the plan');
+doc.querySelector('[data-room-select="'+firstRoom.id+'"]').click();
+await waitFor(()=>canvas.getAttribute('data-active-shape')===firstRoom.id,'selected room restored for comparison');
+
+
 [...doc.querySelectorAll('#customer-report-preview button')].find(b=>b.textContent==='Create Customer Report').click();
 await waitFor(()=>doc.querySelector('#customer-report-preview iframe'),'report preview');
 const reportHtml=doc.querySelector('#customer-report-preview iframe').getAttribute('srcdoc');
 const reportDoc=new JSDOM(reportHtml).window.document;
 assert.deepEqual(JSON.parse(reportDoc.querySelector('[data-report-design-document]').textContent),selected,'Report preview changed actual UI selection');
 assert(doc.querySelector('#customer-report-preview a[download]'),'Current report must be downloadable');
+assert.equal(doc.querySelector('[data-open-report]').getAttribute('href'),doc.querySelector('#customer-report-preview a[download]').getAttribute('href'),'Full-page report must use the same report');
 button('Generate room layout alternatives').click();
-await waitFor(()=>doc.querySelectorAll('.layout-option').length>=3,'replacement alternatives');
+await waitFor(()=>doc.querySelectorAll('.layout-option').length>=3,'replacement alternatives with room selected');
+doc.querySelectorAll('[data-room-select]')[1].click();
+await waitFor(()=>doc.querySelectorAll('.layout-option').length>=3,'room inspection preserves comparison');
+assert(![...doc.querySelectorAll('.candidate-warning-box')].some(node=>node.textContent.includes('Previous alternatives are stale')),'Selecting a room must not invalidate the comparison');
 button('Cancel comparison').click();
 await waitFor(()=>doc.querySelectorAll('.layout-option').length===0,'comparison cancelled');
 assert.deepEqual(JSON.parse(doc.querySelector('[data-saved-design-document]').textContent),selected,'Cancelling comparison changed saved design');
@@ -64,6 +93,7 @@ assert(customShapes.parentElement.open,'Manual shape tools must be reachable');
 button('Create shape from owner footprint').click();
 await waitFor(()=>!doc.querySelector('#customer-report-preview a[download]'),'stale report download blocked');
 assert(doc.querySelector('#customer-report-preview [role="alert"]').textContent.includes('Regenerate'));
+assert(!doc.querySelector('[data-open-report]'),'Stale report must not remain openable');
 assert.equal(doc.querySelector('nav a[aria-current="page"]').textContent,'Designs');
 assert.equal(errors.length,0,errors.join('\n'));
 const menu=doc.querySelector('.workbench-menu-toggle');
@@ -84,6 +114,16 @@ await waitFor(()=>!doc.querySelector('.library-no-results')&&search.value==='','
 [...doc.querySelectorAll('.library-filter-row button')].find(b=>b.textContent==='Local drafts').click();
 await waitFor(()=>doc.querySelectorAll('.library-candidate-card').length===1,'local draft filter');
 assert.equal(errors.length,0,errors.join('\n'));
+app.window.close();app=await open(raw,'http://fixture.test/workbench');doc=app.window.document;
+assert.equal(doc.querySelector('[data-continue-design]').getAttribute('data-continue-design'),'journey-ui-fixture','Home must resume actual saved work rather than the registry default');
+assert.match(doc.querySelector('[data-continue-design]').getAttribute('href'),/journey-ui-fixture$/);
+assert.match(doc.querySelector('.workbench-resume').textContent,/5 rooms/);
+app.window.localStorage.setItem(key,'{broken');app.window.dispatchEvent(new app.window.Event('storage'));
+await waitFor(()=>doc.querySelector('.resume-error'),'resume storage error');
+assert(!doc.querySelector('[data-continue-design]'),'Unreadable saved work must not silently become a default design');
+app.window.localStorage.setItem(key,raw);[...doc.querySelectorAll('button')].find(button=>button.textContent==='Retry saved workspace').click();
+await waitFor(()=>doc.querySelector('[data-continue-design]'),'resume storage retry');
+assert.equal(errors.length,0,errors.join('\n'));
 app.window.close();
 if(process.env.WORKBENCH_UI_FIXTURE_DIR){
  const out=path.resolve(process.env.WORKBENCH_UI_FIXTURE_DIR);await mkdir(out,{recursive:true});
@@ -91,4 +131,4 @@ if(process.env.WORKBENCH_UI_FIXTURE_DIR){
  await writeFile(path.join(out,'app.js'),script);
  await writeFile(path.join(out,'index.html'),'<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>'+css+'</style></head><body><div id="root"></div><script src="/app.js"></script></body></html>');
 }
-console.log('PASS actual React components: compare three layouts, choose non-top, save, fresh mount/reload, exact report preview, download enable/staleness, cancel replacement without mutation, active/mobile navigation, library search, no-results recovery and local draft filter; router/download APIs are local test doubles; no hosted authentication or pixel-layout claim');
+console.log('PASS actual React components: compare three layouts, choose non-top, save, fresh mount/reload, exact report preview, download enable/staleness, cancel replacement without mutation, active/mobile navigation, library filters, direct room selection, non-mutating zoom, saved room program, full-page report staleness and real saved-work resume/error recovery; router/download APIs are local test doubles; no hosted authentication or pixel-layout claim');

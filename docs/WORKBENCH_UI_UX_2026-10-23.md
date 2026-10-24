@@ -21,3 +21,13 @@ The local container lacks the private App Adapter package, so full TypeScript/bu
 ## Release
 
 Release requires green exact-head CI, screenshot review and production build verification. The live Design 4 non-top round trip and responsive visual evidence remain tracked in issue #132 until explicitly demonstrated. The previously published baseline smoke test is documented in `CUSTOMER_JOURNEY_ACCEPTANCE_2026-10-22.md`.
+
+## Workflow follow-up
+
+The next usability pass resumes the most recently updated local candidate or current saved design from Home, instead of sending every customer to a fixed registry example. Browser storage errors require retry and cannot silently turn the resume action into a different design.
+
+The room generator initializes from the saved room names for the selected building/floor and restores them when returning to that context. Inspecting a room is separate from choosing a floor plate for generation, so selecting an existing room does not invalidate comparisons or accidentally become a floor seed.
+
+Rooms can be selected directly on the plan or from the room key. The selected room exposes existing wall/vertex controls and snap size beside the canvas; Escape returns focus to the plan. Zoom and Fit are display operations and do not update saved geometry. A full-page report link uses the same current report as preview/download and is removed when the report becomes stale.
+
+Component regressions cover saved-program restoration, context switching, direct selection, keyboard focus recovery, display-only zoom, saved-work resume/storage recovery and stale full-report links. The responsive browser workflow additionally opens the real blob report in a separate page and compares its complete saved design with the selected revision at phone, tablet and desktop widths. These are isolated component checks, not authenticated live Design 4 acceptance.

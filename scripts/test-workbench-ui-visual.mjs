@@ -28,6 +28,13 @@ try{
    await page.setViewport({width,height,deviceScaleFactor:1});
    await page.goto(base+route,{waitUntil:'networkidle0'});await page.waitForSelector(ready);
    const noOverflow=async()=>assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`${view} overflows ${width}px`);
+   // Native scroll-into-view can stop a partly visible control beneath the
+   // sticky header. Center the target instantly and verify the actual hit.
+   const clickPlanControl=async selector=>{
+    await page.$eval(selector,element=>element.scrollIntoView({block:'center',behavior:'instant'}));
+    assert(await page.$eval(selector,element=>{const box=element.getBoundingClientRect();return element.contains(document.elementFromPoint(box.x+box.width/2,box.y+box.height/2));}),`Plan control is obscured: ${selector}`);
+    await page.click(selector);
+   };
    await noOverflow();
    if(width<960){
     await page.click('.workbench-menu-toggle');
@@ -63,12 +70,31 @@ try{
     const selected=await page.$eval('[data-saved-design-document]',e=>e.textContent);
     await page.reload({waitUntil:'networkidle0'});await page.waitForSelector('[data-saved-design-document]');
     assert.deepEqual(JSON.parse(await page.$eval('[data-saved-design-document]',e=>e.textContent)),JSON.parse(selected));
+    const roomNames=JSON.parse(selected).shapes.filter(shape=>shape.kind==='ROOM').map(shape=>shape.label).join(', ');
+    assert.equal(await page.$eval('[aria-label="Room layout generator"] input',e=>e.value),roomNames,'Saved room program must survive reload');
+    const fitted=await page.$eval('.design-floor-canvas',e=>e.getAttribute('viewBox'));
+    await clickPlanControl('.design-room-key button');
+    await page.waitForFunction(()=>Boolean(document.querySelector('.design-floor-canvas').getAttribute('data-active-shape')));
+    await clickPlanControl('button[aria-label="Zoom in"]');
+    assert.notEqual(await page.$eval('.design-floor-canvas',e=>e.getAttribute('viewBox')),fitted);
+    await noOverflow();
+    assert.deepEqual(JSON.parse(await page.$eval('[data-saved-design-document]',e=>e.textContent)),JSON.parse(selected),'Zoom and room selection must not edit geometry');
+    await clickPlanControl('.plan-view-controls button:last-child');
+    assert.equal(await page.$eval('.design-floor-canvas',e=>e.getAttribute('viewBox')),fitted);
+
     await page.click('#customer-report-preview button.primary-button');
     await page.waitForSelector('#customer-report-preview iframe');
     await page.waitForFunction(()=>document.querySelector('#customer-report-preview iframe')?.contentDocument?.querySelector('[data-report-design-document]'));
     const reported=await page.$eval('#customer-report-preview iframe',frame=>frame.contentDocument.querySelector('[data-report-design-document]').textContent);
     assert.deepEqual(JSON.parse(reported),JSON.parse(selected),'Report changed the non-top selected design');
-    fidelity={nonTopSelection:true,reload:true,exactReportDocument:true,rooms:JSON.parse(selected).shapes.filter(s=>s.kind==='ROOM').length};
+    const reportHref=await page.$eval('[data-open-report]',e=>e.href);
+    const [fullTarget]=await Promise.all([browser.waitForTarget(target=>target.url()===reportHref,{timeout:12000}),page.click('[data-open-report]')]);
+    const fullReport=await fullTarget.page();assert(fullReport,'Full report must open as a page');
+    await fullReport.waitForSelector('[data-report-design-document]');
+    assert.deepEqual(JSON.parse(await fullReport.$eval('[data-report-design-document]',e=>e.textContent)),JSON.parse(selected),'Full-page report must preserve the same design');
+    await fullReport.close();
+
+    fidelity={nonTopSelection:true,reload:true,exactReportDocument:true,fullPageReport:true,roomSelectionAndZoom:true,savedProgram:true,rooms:JSON.parse(selected).shapes.filter(s=>s.kind==='ROOM').length};
     await noOverflow();
     await page.$eval('#universal-design-editor',e=>e.scrollIntoView({block:'start',behavior:'instant'}));
     await page.screenshot({path:path.join(out,`studio-${width}.png`),fullPage:false,timeout:15000});
