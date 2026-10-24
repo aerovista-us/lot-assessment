@@ -1,0 +1,55 @@
+name: Workbench responsive UI QA
+on:
+  pull_request:
+    paths:
+      - 'app/workbench/**'
+      - 'app/globals.css'
+      - 'components/workbench/**'
+      - 'packages/candidates/**'
+      - 'scripts/test-customer-journey-ui.mjs'
+      - 'scripts/test-workbench-ui-visual.mjs'
+      - '.github/workflows/workbench-ui-qa.yml'
+  workflow_dispatch:
+concurrency:
+  group: workbench-ui-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  responsive-components:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+      - name: Verify source revision
+        env:
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+      - name: Install isolated public UI dependencies
+        run: |
+          npm install --prefix "$RUNNER_TEMP/workbench-ui-qa" --registry=https://registry.npmjs.org --no-package-lock --ignore-scripts --no-audit --no-fund react@19.2.8 react-dom@19.2.8 esbuild@0.28.2 jsdom@26.1.0 puppeteer-core@25.12.0
+          ln -s "$RUNNER_TEMP/workbench-ui-qa/node_modules" node_modules
+      - name: Customer interactions and production component fixture
+        env:
+          WORKBENCH_UI_FIXTURE_DIR: ${{ runner.temp }}/workbench-ui-fixture
+        run: node scripts/test-customer-journey-ui.mjs
+      - name: Home, library, studio and comparison at phone, tablet and desktop sizes
+        env:
+          CHROME_BIN: /usr/bin/google-chrome
+          WORKBENCH_QA_MODULES: ${{ runner.temp }}/workbench-ui-qa/node_modules
+          WORKBENCH_UI_FIXTURE_DIR: ${{ runner.temp }}/workbench-ui-fixture
+          WORKBENCH_QA_OUTPUT: ${{ runner.temp }}/workbench-ui-evidence
+        run: node scripts/test-workbench-ui-visual.mjs
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: workbench-ui-${{ github.event.pull_request.head.sha || github.sha }}
+          path: ${{ runner.temp }}/workbench-ui-evidence/
+          retention-days: 21
+          if-no-files-found: warn
