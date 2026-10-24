@@ -710,3 +710,8 @@
 .design-journey-guide>summary { cursor:pointer; min-height:36px; padding-block:10px 0; }
 .design-journey-guide .journey-readiness { margin-top:10px; }
 @media(max-width:760px) { #workbench-content .design-journey { padding:16px; } .workspace-page-head .workspace-storage-note { font-size:11px; } }
+
+.design-room-key { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr)); gap:10px 14px; list-style:none; margin:0; padding:16px 20px; border-top:1px solid #78909e22; color:#385867; font-size:12px; }
+.design-room-key li { display:flex; gap:8px; align-items:center; min-width:0; line-height:1.4; }
+.design-room-key li>span:first-child { flex-shrink:0; display:grid; place-items:center; width:20px; height:20px; border-radius:50%; background:#244b5b; color:#fff; font-size:10px; }
+.layout-option .layout-room-key { font-size:11px; line-height:1.6; color:#a5bdc9; }

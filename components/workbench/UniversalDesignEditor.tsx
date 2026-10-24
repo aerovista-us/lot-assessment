@@ -229,6 +229,8 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
  const xs=shell.map(p=>p[0]),ys=shell.map(p=>p[1]);
  const bb=xs.length?[Math.min(...xs)-3,Math.min(...ys)-3,Math.max(...xs)-Math.min(...xs)+6,Math.max(...ys)-Math.min(...ys)+6]:[0,0,100,100];
  const pts=(polygon:ReadonlyArray<readonly[number,number]>)=>polygon.map(p=>p[0]+","+p[1]).join(" ");
+ const visibleShapes=base.shapes.filter(s=>s.ownerId===ownerId&&(s.story===story||s.story===null));
+ const visibleRooms=visibleShapes.filter(s=>s.kind==="ROOM");
  return <section id="universal-design-editor" className="wb-panel design-editor" data-universal-design-editor="v1">
   <div className="section-heading"><div><p className="eyebrow">LAYOUT STUDIO</p><h2>Give every room a place.</h2></div><span className="mode-pill">{base.shapes.length} DRAFT SHAPES</span></div>
   <p className="microcopy">Start with the rooms you need. Explore alternatives on the source footprint, then save the layout you prefer.</p>
@@ -244,7 +246,7 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
    <div className="design-canvas-panel"><div className="design-canvas-heading"><span>YOUR FLOOR PLAN</span><small>{activeOwner?.label} · {story.toLowerCase()} floor</small></div>
     <svg viewBox={bb.join(" ")} role="img" aria-label="Source building owner polygon with draft floor and roof zones" className="design-floor-canvas">
      {shell.length>0&&<polygon points={pts(shell)} fill="#dce7ed" stroke="#31566d" strokeWidth={.6}/>}
-     {!stale&&base.shapes.filter(s=>s.ownerId===ownerId&&(s.story===story||s.story===null)).map((s,shapeIndex)=>{
+     {!stale&&visibleShapes.map((s,shapeIndex)=>{
       const poly=s.polygon.map((p,i)=>{
        if(drag?.shapeId===s.id&&drag.index===i)return drag.point;
        if(wallDrag?.shapeId===s.id&&(i===wallDrag.index||i===(wallDrag.index+1)%s.polygon.length))
@@ -253,7 +255,7 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
       });
       return <g key={s.id}>
        <polygon data-saved-shape={s.id} data-shape-kind={s.kind} points={pts(poly)} fill={s.story===null?"#e9bc81":s.kind==="CIRCULATION"?"#f4ce7c":s.kind==="ROOM"?["#9dcfc7","#b4c8e2","#c8c3e2","#b9d0a5","#e1c7ab"][shapeIndex%5]:"#95c3cb"} fillOpacity={.35} stroke={s.story===null?"#a16f35":"#326b84"} strokeDasharray="1.8 1" strokeWidth={.7}><title>{s.label} · {s.kind} · draft</title></polygon>
-       {s.kind==="ROOM"&&<text x={poly.reduce((n,p)=>n+p[0],0)/poly.length} y={poly.reduce((n,p)=>n+p[1],0)/poly.length} textAnchor="middle" dominantBaseline="middle" fontSize={2.2} fill="#204654" pointerEvents="none">{s.label.length>20?s.label.slice(0,18)+"…":s.label}</text>}
+       {s.kind==="ROOM"&&<g pointerEvents="none"><circle cx={poly.reduce((n,p)=>n+p[0],0)/poly.length} cy={poly.reduce((n,p)=>n+p[1],0)/poly.length} r={.85} fill="#244b5b"/><text x={poly.reduce((n,p)=>n+p[0],0)/poly.length} y={poly.reduce((n,p)=>n+p[1],0)/poly.length} textAnchor="middle" dominantBaseline="central" fontSize={1.05} fontWeight={700} fill="#fff">{visibleRooms.findIndex(room=>room.id===s.id)+1}</text></g>}
        {editingShapeId===s.id&&poly.map((p,i)=><line key={"wall-"+i} x1={p[0]} y1={p[1]}
         x2={poly[(i+1)%poly.length][0]} y2={poly[(i+1)%poly.length][1]}
         stroke="#175a7e" strokeOpacity={0.4} strokeWidth={1.1} style={{cursor:"move",touchAction:"none"}}
@@ -268,6 +270,7 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
      {!stale&&(base.doors??[]).filter(d=>d.story===story&&base.shapes.some(s=>s.ownerId===ownerId&&(s.id===d.fromRoomId||s.id===d.toRoomId))).map(d=><circle key={d.id} cx={d.center[0]} cy={d.center[1]} r={0.5} fill="#a12750"><title>Proposed door · {d.widthFt} ft</title></circle>)}
     </svg>
     <div className="design-canvas-legend" aria-label="Plan legend"><span><i className="legend-room"/>Rooms</span><span><i className="legend-hall"/>Hallways</span><span><i className="legend-door"/>Proposed doors</span></div>
+    {!stale&&visibleRooms.length>0&&<ol className="design-room-key" aria-label="Rooms in this plan">{visibleRooms.map((room,index)=><li key={room.id}><span aria-hidden="true">{index+1}</span><span>{room.label}</span></li>)}</ol>}
     <p className="microcopy design-canvas-caption">{base.shapes.some(s=>s.ownerId===ownerId&&s.kind==="ROOM"&&s.story===story)?"Your saved geometry. Generate alternatives to explore another arrangement.":"Your source footprint. Add room names to explore possible layouts."}</p>
    </div>
    <aside className="design-program-panel" aria-label="Room layout generator"><p className="eyebrow">YOUR ROOM PROGRAM</p><h3>What belongs here?</h3><p className="microcopy">Separate each room name with a comma. Include the rooms that matter to this floor.</p>
@@ -296,9 +299,10 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
         <svg viewBox={bb.join(" ")} role="img" aria-label={`Draft floor plan for concept ${index+1}`} className="layout-option-plan">
          {shell.length>0&&<polygon points={pts(shell)} fill="#dce7ed" stroke="#31566d" strokeWidth={.6}/>}
          {halls.map(hall=><polygon key={hall.id} data-proposed-shape={hall.id} points={pts(hall.polygon)} fill="#f4ce7c" stroke="#946a20" strokeWidth={.5}><title>{hall.label} · draft hallway</title></polygon>)}
-         {rooms.map(room=>{const center=room.polygon.reduce((sum,p)=>[sum[0]+p[0]/room.polygon.length,sum[1]+p[1]/room.polygon.length] as P2,[0,0] as P2);return <g key={room.id}><polygon points={pts(room.polygon)} fill="#95c3cb" fillOpacity={.65} stroke="#326b84" strokeWidth={.5}><title>{room.label}</title></polygon><text x={center[0]} y={center[1]} textAnchor="middle" fontSize={2.4} fill="#123e52" pointerEvents="none">{room.label.length>18?room.label.slice(0,16)+"…":room.label}</text></g>;})}
+         {rooms.map((room,roomIndex)=>{const center=room.polygon.reduce((sum,p)=>[sum[0]+p[0]/room.polygon.length,sum[1]+p[1]/room.polygon.length] as P2,[0,0] as P2);return <g key={room.id}><polygon points={pts(room.polygon)} fill="#95c3cb" fillOpacity={.65} stroke="#326b84" strokeWidth={.5}><title>{room.label}</title></polygon><circle cx={center[0]} cy={center[1]} r={.9} fill="#244b5b"/><text x={center[0]} y={center[1]} textAnchor="middle" dominantBaseline="central" fontSize={1.1} fontWeight={700} fill="#fff" pointerEvents="none">{roomIndex+1}</text></g>;})}
          {doors.map(door=><circle key={door.id} cx={door.center[0]} cy={door.center[1]} r={.55} fill="#a12750"><title>Proposed doorway · {door.widthFt} ft</title></circle>)}
         </svg>
+        <small className="layout-room-key">{rooms.map((room,i)=>`${i+1} ${room.label}`).join(" · ")}</small>
         <span>Score {option.assessment.score} · {checks.filter(r=>r.satisfied).length}/{checks.length} preferences</span>
         <small>{rooms.length} rooms · {halls.length} hallways · {doors.length} proposed doors</small>
         {selectedLayout===index&&<b className="layout-selection-label">Selected for inspection · not saved</b>}
