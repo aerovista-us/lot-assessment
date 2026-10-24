@@ -135,8 +135,8 @@ try{
     const wrapped=await dragPoint(270);await page.mouse.move(wrapped.x,wrapped.y,{steps:4});await page.mouse.up();
     await page.waitForFunction(()=>document.querySelector('.direct-manipulation-plan [data-component-id="garage-b"]').getAttribute('transform')?.startsWith('rotate(270 '));
     await page.$eval('.intervention-precision',element=>{element.open=true;});
-    const rotation=await page.$('label.intervention-field:has(input[step="1"]) input');
-    await rotation.click();await page.keyboard.down('Control');await page.keyboard.press('KeyA');await page.keyboard.up('Control');await page.keyboard.type('-90');
+    await clickPlanControl('label.intervention-field:has(input[step="1"]) input');
+    await page.keyboard.down('Control');await page.keyboard.press('KeyA');await page.keyboard.up('Control');await page.keyboard.type('-90');
     await clickPlanControl('.intervention-actions button:first-child');
     assert.match(await page.$eval('.direct-manipulation-plan [data-component-id="garage-b"]',element=>element.getAttribute('transform')),/^rotate\(270 /,'Negative numeric rotation must wrap');
     await noOverflow();
