@@ -24,3 +24,19 @@ Verification covers narrow plates requiring X or Y, mixed seeds, global score
 ranking, geometry deduplication, source immutability, typed/radio synchronization,
 custom names, the room limit, stale comparisons, save/reload/report fidelity and
 native radio keyboard operation at phone/tablet/desktop sizes.
+
+## Room-program polish
+
+The room list now uses a wrapping, resizable text area with a visible room-count
+badge. Inline guidance explains too few rooms, the eight-room limit and duplicate
+names (ignoring capitalization and repeated spaces), before generation. Native
+Include/Skip radios retain keyboard behavior and have 44-pixel label targets,
+with a stronger visual state for included rooms. The studio stacks its plan and
+program at tablet widths; room options use two columns when space permits.
+
+Seed guidance is associated with the direction select for assistive technology.
+Generating layouts focuses and scrolls to the new comparison below the sticky
+navigation. Selecting a concept updates a visible save summary identifying the
+concept, building and floor. Cards keep a stable selection row, and save/cancel
+return keyboard focus to the generator. These changes keep the existing explicit
+save, stale-input blocking, room/door geometry and report persistence contracts.

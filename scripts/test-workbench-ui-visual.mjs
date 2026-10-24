@@ -59,14 +59,15 @@ try{
    let fidelity;
    if(view==='design'){
     assert.equal(await page.$eval('.design-tool-panel',e=>e.open),false,'Advanced tools start collapsed');
+    assert(await page.$$eval('.room-option-row label',labels=>labels.every(label=>label.getBoundingClientRect().height>=44)),'Room radio labels need touch-friendly targets');
     assert.deepEqual(await page.$$eval('[aria-label="Room layout generator"] select option',options=>options.map(option=>option.value)),['BEST_FIT','X','Y']);
     await clickPlanControl('[data-room-option="office"] input[value="include"]');
-    await page.waitForFunction(()=>document.querySelector('[aria-label="Room layout generator"] input').value.includes('Office'));
+    await page.waitForFunction(()=>document.querySelector('[data-room-program-input]').value.includes('Office'));
     await page.keyboard.press('ArrowRight');
     await page.waitForFunction(()=>document.querySelector('[data-room-option="office"] input[value="skip"]').checked);
-    assert(!(await page.$eval('[aria-label="Room layout generator"] input',element=>element.value)).includes('Office'),'Native radio keyboard navigation must remove only the selected suggestion');
-    const generator=await page.$('[aria-label="Room layout generator"] input');
-    await clickPlanControl('[aria-label="Room layout generator"] > label input');await page.keyboard.down('Control');await page.keyboard.press('KeyA');await page.keyboard.up('Control');
+    assert(!(await page.$eval('[data-room-program-input]',element=>element.value)).includes('Office'),'Native radio keyboard navigation must remove only the selected suggestion');
+    const generator=await page.$('[data-room-program-input]');
+    await clickPlanControl('[data-room-program-input]');await page.keyboard.down('Control');await page.keyboard.press('KeyA');await page.keyboard.up('Control');
     const program='Laundry, Kitchen, Living, Primary Bedroom, Primary Bath';
     await page.keyboard.type(program);
     assert.equal(await generator.evaluate(e=>e.value),program,'Room program must replace the prior input');
@@ -77,8 +78,11 @@ try{
     await page.screenshot({path:path.join(out,`room-program-${width}.png`),fullPage:false,timeout:15000});
     await clickPlanControl('[aria-label="Room layout generator"] button');
     await page.waitForSelector('.layout-option:nth-child(3)');
-    await page.click('.layout-option:nth-child(2)');
+    assert(await page.$eval('.layout-comparison-heading h3',element=>element===document.activeElement),'Generation must focus the comparison');
+    assert(await page.$eval('.layout-comparison-heading h3',element=>element.getBoundingClientRect().top>=70),'Comparison heading must clear the sticky header');
+    await clickPlanControl('.layout-option:nth-child(2)');
     await page.waitForFunction(()=>document.querySelectorAll('.layout-option')[1].getAttribute('aria-pressed')==='true');
+    assert((await page.$eval('.layout-save-summary',element=>element.textContent)).includes('Concept 2'));
     await noOverflow();
     await page.screenshot({path:path.join(out,`comparison-${width}.png`),fullPage:false,timeout:15000});
     await page.click('.layout-decision-actions .primary-button');
@@ -87,7 +91,7 @@ try{
     await page.reload({waitUntil:'networkidle0'});await page.waitForSelector('[data-saved-design-document]');
     assert.deepEqual(JSON.parse(await page.$eval('[data-saved-design-document]',e=>e.textContent)),JSON.parse(selected));
     const roomNames=JSON.parse(selected).shapes.filter(shape=>shape.kind==='ROOM').map(shape=>shape.label).join(', ');
-    assert.equal(await page.$eval('[aria-label="Room layout generator"] input',e=>e.value),roomNames,'Saved room program must survive reload');
+    assert.equal(await page.$eval('[data-room-program-input]',e=>e.value),roomNames,'Saved room program must survive reload');
     const fitted=await page.$eval('.design-floor-canvas',e=>e.getAttribute('viewBox'));
     await clickPlanControl('.design-room-key button');
     await page.waitForFunction(()=>Boolean(document.querySelector('.design-floor-canvas').getAttribute('data-active-shape')));
@@ -110,7 +114,7 @@ try{
     assert.deepEqual(JSON.parse(await fullReport.$eval('[data-report-design-document]',e=>e.textContent)),JSON.parse(selected),'Full-page report must preserve the same design');
     await fullReport.close();
 
-    fidelity={nonTopSelection:true,reload:true,exactReportDocument:true,fullPageReport:true,roomSelectionAndZoom:true,savedProgram:true,commonRoomRadios:true,nativeRadioKeyboard:true,bestFitSeed:true,rooms:JSON.parse(selected).shapes.filter(s=>s.kind==='ROOM').length};
+    fidelity={nonTopSelection:true,reload:true,exactReportDocument:true,fullPageReport:true,roomSelectionAndZoom:true,savedProgram:true,commonRoomRadios:true,nativeRadioKeyboard:true,bestFitSeed:true,comparisonFocus:true,selectedSaveSummary:true,rooms:JSON.parse(selected).shapes.filter(s=>s.kind==='ROOM').length};
     await noOverflow();
     await page.$eval('#universal-design-editor',e=>e.scrollIntoView({block:'start',behavior:'instant'}));
     await page.screenshot({path:path.join(out,`studio-${width}.png`),fullPage:false,timeout:15000});

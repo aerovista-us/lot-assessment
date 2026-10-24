@@ -26,6 +26,9 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
  const firstOwnerId=owners[0]?.id??"";
  const previousCandidate=useRef(candidate.id);
  const canvasRef=useRef<SVGSVGElement>(null);
+ const comparisonHeadingRef=useRef<HTMLHeadingElement>(null);
+ const generateButtonRef=useRef<HTMLButtonElement>(null);
+ const focusComparison=useRef(false);
  const [zoom,setZoom]=useState(1);
  const [ownerId,setOwnerId]=useState(owners[0]?.id??"");
  const [kind,setKind]=useState<DesignShape["kind"]>("FLOOR_PLATE");
@@ -42,7 +45,8 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
  const roomOptionsId=useId();
  const roomNames=roomNamesFrom(roomLabels);
  const includedRoomNames=new Set(roomNames.map(roomNameKey));
- const roomCountValid=roomNames.length>=2&&roomNames.length<=8;
+ const roomProgramIssue=roomNames.length<2?"Add at least 2 rooms to generate layouts.":roomNames.length>8?`Remove ${roomNames.length-8} ${roomNames.length===9?"room":"rooms"} to use the 8-room limit.`:includedRoomNames.size!==roomNames.length?"Give each room a unique name, such as Bedroom 1 and Bedroom 2.":"";
+ const roomProgramValid=!roomProgramIssue;
  const [layoutOptions,setLayoutOptions]=useState<RankedDraftLayout[]>([]);
  const [selectedLayout,setSelectedLayout]=useState(0);
  const [layoutSource,setLayoutSource]=useState("");
@@ -76,6 +80,12 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
  const sourceKey=JSON.stringify([candidate.id,base.sourceSignature,base.revision,base.updatedAt,ownerId,story,floorSelectionId,roomLabels,packAxis]);
  const alternativesCurrent=layoutOptions.length>0&&!stale&&layoutSource===sourceKey;
  const activeLayout=alternativesCurrent?layoutOptions[selectedLayout]:undefined;
+ useEffect(()=>{
+  if(!focusComparison.current||!alternativesCurrent)return;
+  focusComparison.current=false;
+  comparisonHeadingRef.current?.focus({preventScroll:true});
+  comparisonHeadingRef.current?.scrollIntoView?.({block:"start",behavior:"instant"});
+ },[alternativesCurrent,layoutOptions,layoutSource]);
  const solution=stale?null:solveUniversalDesign(candidate,base);
  const walls=solution?.floors.filter(f=>f.ownerId===ownerId&&f.story===story).flatMap(f=>f.wallSegments)??[];
  const wall=walls[wallIndex]??walls[0];
@@ -149,6 +159,7 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
  function packRooms(){
   try{
    if(stale)throw Error("Design source changed; packing unavailable");
+   if(!roomProgramValid)throw Error(roomProgramIssue);
    if(!activeOwner||activeOwner.kind!=="home")throw Error("Select a home building owner to generate a floor plan");
    const labels=roomNamesFrom(roomLabels);
    const selected=base.shapes.find(x=>x.id===floorSelectionId);
@@ -178,8 +189,9 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
    }
    const alternatives=rankDraftRoomLayouts(candidate,candidateDoc,resolvedPlate.id,labels,packAxis);
    if(!alternatives.length)throw Error("No safe draft room layouts found; refine geometry or labels.");
+   focusComparison.current=true;
    setLayoutOptions(alternatives);setSelectedLayout(0);setLayoutSource(sourceKey);
-   setNote(`Generated ${alternatives.length} unsaved room concepts for ${activeOwner.label} / ${story} from its exact footprint. Compare and Save selected layout. This is a room-geometry draft, not verified circulation, stairs or architectural acceptance.`);
+   setNote("");
   }catch(error){setNote(error instanceof Error?error.message:"Unable to generate draft floor plan");}
  }
  function saveSelectedLayout(){
@@ -188,6 +200,7 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
    validateDesignDocument(candidate,activeLayout.document);
    onSave(activeLayout.document);setLayoutOptions([]);setLayoutSource("");setEditingShapeId("");
    setNote(`Saved selected draft concept ${selectedLayout+1} (proximity score ${activeLayout.assessment.score}). Door access, circulation and garage connectivity remain unverified.`);
+   generateButtonRef.current?.focus();
   }catch(error){setNote(error instanceof Error?error.message:"Cannot save selected layout");}
  }
  function pointerPoint(e:React.PointerEvent<SVGCircleElement|SVGLineElement>):P2|null{
@@ -320,24 +333,25 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
     <div className="plan-editing-context" id="plan-editing-help">{selectedShape&&!stale?<><div><strong>Editing {selectedShape.label}</strong><small>Drag a highlighted wall or vertex. Arrow keys move a focused vertex; Escape finishes editing.</small></div><div className="plan-editing-actions"><label htmlFor="design-snap">Snap<select id="design-snap" value={snapGrid} onChange={e=>setSnapGrid(e.target.value)}><option value="0.25">0.25 ft</option><option value="0.5">0.5 ft</option><option value="1">1 ft</option></select></label><button type="button" onClick={doneEditing}>Done editing</button></div></>:<p>Select a room on the plan or in the room key to refine its walls and vertices.</p>}</div>
     <p className="microcopy design-canvas-caption">{base.shapes.some(s=>s.ownerId===ownerId&&s.kind==="ROOM"&&s.story===story)?"Your saved geometry. Generate alternatives to explore another arrangement.":"Your source footprint. Add room names to explore possible layouts."}</p>
    </div>
-   <aside className="design-program-panel" aria-label="Room layout generator"><p className="eyebrow">YOUR ROOM PROGRAM</p><h3>What belongs here?</h3><p className="microcopy">Choose common rooms below, or enter custom room names separated by commas. Include the rooms that matter to this floor.</p>
-    <label className="microcopy">Room names (comma separated)<input aria-describedby={`${roomOptionsId}-count`} aria-invalid={!roomCountValid} value={roomLabels} onChange={e=>setRoomLabels(e.target.value)} /></label>
+   <aside className="design-program-panel" aria-label="Room layout generator"><p className="eyebrow">YOUR ROOM PROGRAM</p><div className="room-program-heading"><h3>What belongs here?</h3><span className="room-count-badge" data-valid={roomProgramValid}>{roomNames.length} / 8 rooms</span></div><p className="microcopy">Start with your room names, then use Include or Skip to tailor this floor.</p>
+    <label className="microcopy">Room names (comma separated)<textarea data-room-program-input rows={3} aria-describedby={`${roomOptionsId}-help ${roomOptionsId}-count`} aria-invalid={!roomProgramValid} value={roomLabels} onChange={e=>setRoomLabels(e.target.value)} /></label>
+    <p className="microcopy room-program-help" id={`${roomOptionsId}-help`}>Separate names with commas. Custom room names are welcome.</p>
+    <p className={`microcopy room-program-count${roomProgramValid?"":" room-program-count-invalid"}`} id={`${roomOptionsId}-count`} role="status" aria-atomic="true">{roomProgramIssue||(roomNames.length===8?"All 8 rooms selected. Skip a room or edit the list to make space.":`${roomNames.length} rooms selected · add up to ${8-roomNames.length} more.`)}</p>
     <fieldset className="room-options" aria-describedby={`${roomOptionsId}-count`}>
      <legend>Additional room options</legend>
      <div className="room-options-list">{commonRoomOptions.map(option=>{
       const included=includedRoomNames.has(roomNameKey(option.label));
       return <div key={option.id} className="room-option-row" role="group" aria-label={option.label} data-room-option={option.id} data-included={included}>
        <span>{option.label}</span>
-       <label><input type="radio" name={`${roomOptionsId}-${option.id}`} value="include" checked={included} disabled={!included&&roomNames.length>=8} onChange={()=>chooseCommonRoom(option.label,true)}/><span>Include</span></label>
-       <label><input type="radio" name={`${roomOptionsId}-${option.id}`} value="skip" checked={!included} onChange={()=>chooseCommonRoom(option.label,false)}/><span>Skip</span></label>
+       <div className="room-option-choices"><label><input type="radio" name={`${roomOptionsId}-${option.id}`} value="include" checked={included} disabled={!included&&roomNames.length>=8} onChange={()=>chooseCommonRoom(option.label,true)}/><span>Include</span></label>
+       <label><input type="radio" name={`${roomOptionsId}-${option.id}`} value="skip" checked={!included} onChange={()=>chooseCommonRoom(option.label,false)}/><span>Skip</span></label></div>
       </div>;
      })}</div>
     </fieldset>
-    <p className={`microcopy room-program-count${roomCountValid?"":" room-program-count-invalid"}`} id={`${roomOptionsId}-count`}>{roomNames.length} of 8 rooms · choose 2–8 rooms for this floor.</p>
-    <label className="microcopy">Room seed direction<select value={packAxis} onChange={e=>setPackAxis(e.target.value as RoomSeedDirection)}><option value="BEST_FIT">Best fit · X + Y</option><option value="X">Across X</option><option value="Y">Across Y</option></select></label>
-    {packAxis==="BEST_FIT"&&<p className="microcopy">Best fit compares X, Y and mixed layouts, then ranks the feasible options.</p>}
-    <p className="microcopy">Generate options for this building and floor, compare them, then save your choice. Your current saved layout stays intact while you explore.</p>
-    <button className="primary-button" type="button" onClick={packRooms} disabled={stale||activeOwner?.kind!=="home"||!roomCountValid}>Generate room layout alternatives</button>
+    <div className="room-seed-control"><label className="microcopy" htmlFor={`${roomOptionsId}-seed`}>Room seed direction</label><select id={`${roomOptionsId}-seed`} aria-describedby={`${roomOptionsId}-seed-help`} value={packAxis} onChange={e=>setPackAxis(e.target.value as RoomSeedDirection)}><option value="BEST_FIT">Best fit · X + Y</option><option value="X">Across X</option><option value="Y">Across Y</option></select>
+     <p className="microcopy" id={`${roomOptionsId}-seed-help`}>{packAxis==="BEST_FIT"?"Let the footprint guide the layout. Compares X, Y and mixed seeds, then ranks feasible options.":`Start seeds along the plan’s ${packAxis} axis. Choose Best fit to explore both directions together.`}</p></div>
+    <button ref={generateButtonRef} className="primary-button" type="button" onClick={packRooms} disabled={stale||activeOwner?.kind!=="home"||!roomProgramValid}>Generate room layout alternatives</button>
+    <p className="microcopy room-save-reassurance">Compare first, save when ready. Generating options keeps your saved layout intact.</p>
 
     {activeOwner?.kind!=="home"&&<p className="microcopy">Choose a home in Building owner to generate room alternatives. Garage and roof geometry can be edited with the refinement tools below.</p>}
    </aside>
@@ -345,8 +359,8 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
   {note&&<p role="status" className="microcopy lifecycle-message">{note}</p>}
     {layoutOptions.length>0&&!alternativesCurrent&&<p role="status" className="candidate-warning-box">Layout inputs or source design changed. Previous alternatives are stale; generate new ones before saving.</p>}
     {alternativesCurrent&&<section aria-label="Compare draft room layouts" className="layout-comparison" data-layout-comparison="draft">
-     <h3>Compare {layoutOptions.length} draft layouts</h3>
-     <p className="microcopy">Proximity scores compare planning preferences, not overall quality or code compliance. Hallways are amber; proposed doors are pink. Saving replaces rooms and hallways for this building and floor. Other floors stay attached, and your saved design is untouched until Save selected layout.</p>
+     <div className="layout-comparison-heading"><div><p className="eyebrow">EXPLORE YOUR OPTIONS</p><h3 ref={comparisonHeadingRef} tabIndex={-1}>Compare {layoutOptions.length} draft layouts</h3></div><span className="mode-pill">UNSAVED OPTIONS</span></div>
+     <p className="microcopy">Select a concept to inspect its planning preferences. Scores compare proximity preferences; circulation, stairs and code compliance remain unverified. Hallways are amber and proposed doors are pink.</p>
      <div className="layout-options-grid">
       {layoutOptions.map((option,index)=>{
        const rooms=option.document.shapes.filter(s=>s.kind==="ROOM"&&s.ownerId===ownerId&&s.story===story);
@@ -355,7 +369,7 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
        const doors=(option.document.doors??[]).filter(d=>addedIds.has(d.fromRoomId)||addedIds.has(d.toRoomId));
        const checks=option.assessment.relationships;
        return <button key={index} type="button" className="layout-option" aria-pressed={selectedLayout===index} onClick={()=>setSelectedLayout(index)}>
-        <strong>Concept {index+1}{index===0?" · highest score":""}</strong>
+        <span className="layout-option-heading"><strong>Concept {index+1}</strong>{index===0&&<span className="layout-rank-label">Highest score</span>}</span>
         {option.seedDirection&&<span className="layout-seed-label">{option.seedDirection==="MIXED"?"Mixed X + Y":`Across ${option.seedDirection}`}</span>}
         <svg viewBox={bb.join(" ")} role="img" aria-label={`Draft floor plan for concept ${index+1}`} className="layout-option-plan">
          {shell.length>0&&<polygon points={pts(shell)} fill="#dce7ed" stroke="#31566d" strokeWidth={.6}/>}
@@ -366,17 +380,18 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
         <small className="layout-room-key">{rooms.map((room,i)=>`${i+1} ${room.label}`).join(" · ")}</small>
         <span>Score {option.assessment.score} · {checks.filter(r=>r.satisfied).length}/{checks.length} preferences</span>
         <small>{rooms.length} rooms · {halls.length} hallways · {doors.length} proposed doors</small>
-        {selectedLayout===index&&<b className="layout-selection-label">Selected for inspection · not saved</b>}
+        <b className="layout-selection-label">{selectedLayout===index?"✓ Selected · not saved":"Select this concept"}</b>
        </button>;
       })}
      </div>
-     {activeLayout&&<div aria-live="polite" style={{marginTop:10}}>
+     {activeLayout&&<div aria-live="polite" className="layout-concept-details">
       <strong>Concept {selectedLayout+1} details</strong>
       <p className="microcopy">Room order: {activeLayout.order.join(" → ")}</p>
       {activeLayout.assessment.relationships.length===0?<p className="microcopy">No applicable proximity preferences identified for these room names.</p>:activeLayout.assessment.relationships.map((r,i)=><p key={i} className="microcopy">{r.satisfied?"Met":"Not met"} · {r.priority}: {r.a} / {r.b} — {r.reason}</p>)}
       {activeLayout.assessment.limitations.map((warning,i)=><p className="microcopy" key={i}>{warning}</p>)}
      </div>}
-     <div className="hero-actions layout-decision-actions"><button type="button" className="primary-button" onClick={saveSelectedLayout}>Save selected layout</button><button type="button" className="secondary-button" onClick={()=>{setLayoutOptions([]);setLayoutSource("");setNote("Layout comparison cancelled; saved design unchanged.");}}>Cancel comparison</button></div>
+     <div className="layout-save-summary" aria-live="polite"><strong>Ready to save Concept {selectedLayout+1}?</strong><p className="microcopy">Save replaces rooms and hallways for {activeOwner?.label} · {story.toLowerCase()} floor. Other floors stay attached. Your saved layout stays intact until you save.</p></div>
+     <div className="hero-actions layout-decision-actions"><button type="button" className="primary-button" onClick={saveSelectedLayout}>Save selected layout</button><button type="button" className="secondary-button" onClick={()=>{setLayoutOptions([]);setLayoutSource("");setNote("Layout comparison cancelled; saved design unchanged.");generateButtonRef.current?.focus();}}>Cancel comparison</button></div>
     </section>}
 
   <div className="design-advanced-heading"><h3>Refine your design</h3><p>Open the tools you need. Each saved change updates the design revision.</p></div>
