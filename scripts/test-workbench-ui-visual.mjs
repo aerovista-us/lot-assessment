@@ -119,8 +119,9 @@ try{
     const currentHandlePoint=async()=>page.$eval('[data-rotation-component="garage-b"] circle',knob=>{
      const box=knob.getBoundingClientRect();return {x:box.x+box.width/2,y:box.y+box.height/2};
     });
+    const centerRotationHandle=async()=>page.$eval('[data-rotation-component="garage-b"] circle',knob=>knob.scrollIntoView({block:'center',behavior:'instant'}));
     const assertHandleReachable=async point=>assert(await page.evaluate(point=>document.elementFromPoint(point.x,point.y)?.matches('[data-rotation-component="garage-b"] circle'),point),'Rotation handle must be visible and unobscured after Fit selection');
-    const start=await currentHandlePoint();await assertHandleReachable(start);await page.mouse.move(start.x,start.y);await page.mouse.down();
+    await centerRotationHandle();const start=await currentHandlePoint();await assertHandleReachable(start);await page.mouse.move(start.x,start.y);await page.mouse.down();
     for(const angle of [90,180,270,359,1,359,315,225]){
      const point=await dragPoint(angle);await page.mouse.move(point.x,point.y,{steps:4});
      await page.waitForFunction(angle=>document.querySelector('.direct-manipulation-plan [data-component-id="garage-b"]').getAttribute('transform')?.startsWith(`rotate(${angle} `),{},angle);
@@ -130,7 +131,7 @@ try{
     await page.select('.intervention-select-label select','garage-b');
     await page.waitForFunction(()=>document.querySelector('.direct-manipulation-plan [data-component-id="garage-b"]').getAttribute('transform')?.startsWith('rotate(225 '));
     await clickPlanControl('.direct-plan-toolbar button:nth-child(4)');
-    const resumed=await currentHandlePoint();await assertHandleReachable(resumed);await page.mouse.move(resumed.x,resumed.y);await page.mouse.down();
+    await centerRotationHandle();const resumed=await currentHandlePoint();await assertHandleReachable(resumed);await page.mouse.move(resumed.x,resumed.y);await page.mouse.down();
     const wrapped=await dragPoint(270);await page.mouse.move(wrapped.x,wrapped.y,{steps:4});await page.mouse.up();
     await page.waitForFunction(()=>document.querySelector('.direct-manipulation-plan [data-component-id="garage-b"]').getAttribute('transform')?.startsWith('rotate(270 '));
     await page.$eval('.intervention-precision',element=>{element.open=true;});
