@@ -32,16 +32,26 @@ async function open(raw,url='http://fixture.test/workbench/projects/pondy-lot2/c
 }
 let app=await open();let doc=app.window.document;
 const label=[...doc.querySelectorAll('label')].find(l=>l.textContent.includes('Room names (comma separated)'));
-const input=label.querySelector('input');
+const input=label.querySelector('textarea');
 const button=text=>[...doc.querySelectorAll('button')].find(b=>b.textContent===text);
 const roomRadio=(id,value)=>doc.querySelector(`[data-room-option="${id}"] input[value="${value}"]`);
 async function setRoomText(value){
- Object.getOwnPropertyDescriptor(app.window.HTMLInputElement.prototype,'value').set.call(input,value);
+ Object.getOwnPropertyDescriptor(app.window.HTMLTextAreaElement.prototype,'value').set.call(input,value);
  input.dispatchEvent(new app.window.Event('input',{bubbles:true}));await new Promise(resolve=>setTimeout(resolve,20));
 }
 const beforeRoomChoices=app.window.localStorage.getItem(key);
 assert.equal(doc.querySelector('[aria-label="Room layout generator"] select').value,'BEST_FIT');
 assert.equal(doc.querySelectorAll('.room-options input[type="radio"]').length,16);
+assert.equal(input.tagName,'TEXTAREA','Long room programs must wrap visibly');
+await setRoomText('Kitchen');
+assert(button('Generate room layout alternatives').disabled);
+assert(doc.querySelector('.room-program-count').textContent.includes('at least 2'));
+assert.equal(input.getAttribute('aria-invalid'),'true');
+await setRoomText('Kitchen, kitchen');
+assert(button('Generate room layout alternatives').disabled,'Duplicate names should be explained before generation');
+assert(doc.querySelector('.room-program-count').textContent.includes('unique name'));
+await setRoomText('Primary Bedroom, Primary   Bedroom');
+assert(button('Generate room layout alternatives').disabled,'Whitespace-normalized duplicate names need actionable feedback');
 await setRoomText('Living, Kitchen, office, Studio');
 assert(roomRadio('office','include').checked,'Typed room names must synchronize the radios without case-sensitive duplicates');
 roomRadio('office','skip').click();await waitFor(()=>!input.value.toLowerCase().includes('office'),'skip removes only the chosen room');
@@ -60,28 +70,35 @@ assert.equal(input.value,'Kitchen, Living, Laundry, Primary Bedroom, Primary Bat
 assert.equal(app.window.localStorage.getItem(key),beforeRoomChoices,'Room option and seed edits must stay unsaved until explicit layout save');
 button('Generate room layout alternatives').click();
 await waitFor(()=>doc.querySelectorAll('.layout-option').length>=3,'three alternatives');
+await waitFor(()=>doc.activeElement===doc.querySelector('.layout-comparison-heading h3'),'generation focuses the new comparison');
 const seedDirection=doc.querySelector('[aria-label="Room layout generator"] select');
 seedDirection.value='Y';seedDirection.dispatchEvent(new app.window.Event('change',{bubbles:true}));
 await waitFor(()=>!button('Save selected layout'),'changing seed direction invalidates previous alternatives');
 assert.equal(app.window.localStorage.getItem(key),beforeRoomChoices);
 seedDirection.value='BEST_FIT';seedDirection.dispatchEvent(new app.window.Event('change',{bubbles:true}));
 await waitFor(()=>doc.querySelectorAll('.layout-option').length>=3,'restoring identical best-fit inputs restores comparison');
+input.focus();
+button('Generate room layout alternatives').click();
+await waitFor(()=>doc.activeElement===doc.querySelector('.layout-comparison-heading h3'),'regenerating the same program focuses the refreshed comparison');
 const second=doc.querySelectorAll('.layout-option')[1];second.click();
 await waitFor(()=>second.getAttribute('aria-pressed')==='true','non-top selection');
+assert(doc.querySelector('.layout-save-summary').textContent.includes('Concept 2'));
+assert(doc.querySelector('.layout-save-summary').textContent.includes('ground floor'));
 button('Save selected layout').click();
 await waitFor(()=>doc.querySelector('[data-saved-design-document]'),'saved document visible');
+assert.equal(doc.activeElement,button('Generate room layout alternatives'),'Saving returns focus to the generator');
 const selected=JSON.parse(doc.querySelector('[data-saved-design-document]').textContent);
 assert.equal(selected.shapes.filter(s=>s.kind==='ROOM').length,5);
 const raw=app.window.localStorage.getItem(key);
 app.window.close();app=await open(raw);doc=app.window.document;
 assert.deepEqual(JSON.parse(doc.querySelector('[data-saved-design-document]').textContent),selected,'Reload changed selected UI document');
 const savedNames=selected.shapes.filter(shape=>shape.kind==='ROOM').map(shape=>shape.label).join(', ');
-assert.equal(doc.querySelector('[aria-label="Room layout generator"] input').value,savedNames,'Reload must restore the saved room program');
+assert.equal(doc.querySelector('[data-room-program-input]').value,savedNames,'Reload must restore the saved room program');
 assert(roomRadio('laundry','include').checked&&roomRadio('primary-bath','include').checked,'Saved room names must restore the room-option radios');
 const floor=doc.querySelector('#design-story');floor.value='UPPER';floor.dispatchEvent(new app.window.Event('change',{bubbles:true}));
 await new Promise(resolve=>setTimeout(resolve,20));
 floor.value='GROUND';floor.dispatchEvent(new app.window.Event('change',{bubbles:true}));
-await waitFor(()=>doc.querySelector('[aria-label="Room layout generator"] input').value===savedNames,'returning to ground restores its saved program');
+await waitFor(()=>doc.querySelector('[data-room-program-input]').value===savedNames,'returning to ground restores its saved program');
 assert.deepEqual(JSON.parse(doc.querySelector('[data-saved-design-document]').textContent),selected,'Floor inspection must not mutate the document');
 
 const canvas=doc.querySelector('.design-floor-canvas');const fittedView=canvas.getAttribute('viewBox');
@@ -115,6 +132,7 @@ await waitFor(()=>doc.querySelectorAll('.layout-option').length>=3,'room inspect
 assert(![...doc.querySelectorAll('.candidate-warning-box')].some(node=>node.textContent.includes('Previous alternatives are stale')),'Selecting a room must not invalidate the comparison');
 button('Cancel comparison').click();
 await waitFor(()=>doc.querySelectorAll('.layout-option').length===0,'comparison cancelled');
+assert.equal(doc.activeElement,button('Generate room layout alternatives'),'Cancel returns focus to the generator');
 assert.deepEqual(JSON.parse(doc.querySelector('[data-saved-design-document]').textContent),selected,'Cancelling comparison changed saved design');
 const customShapes=[...doc.querySelectorAll('summary')].find(e=>e.textContent.includes('Create custom shapes'));customShapes.click();
 assert(customShapes.parentElement.open,'Manual shape tools must be reachable');
