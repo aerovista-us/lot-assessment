@@ -521,7 +521,8 @@ export type DraftLayoutAssessment={
  relationships:{a:string;b:string;priority:'MUST'|'PREFER'|'SEPARATE';satisfied:boolean;reason:string}[];
  explanations:string[];limitations:string[];
 };
-export type RankedDraftLayout={document:DesignDocument;assessment:DraftLayoutAssessment;order:string[]};
+export type RoomSeedDirection='X'|'Y'|'BEST_FIT';
+export type RankedDraftLayout={document:DesignDocument;assessment:DraftLayoutAssessment;order:string[];seedDirection?:'X'|'Y'|'MIXED'};
 function overlapBoundary(a:P2[],b:P2[]):number{
  let shared=0;
  for(let i=0;i<a.length;i++)for(let j=0;j<b.length;j++){
@@ -989,9 +990,7 @@ export function assessSupportedStoryProgram(d:DesignDocument,ownerId:string,requ
   limitations:['No upper floor is invented from ground-floor geometry','Stair openings, landings and interstory route connectivity require explicit source evidence']};
 }
 
-export function rankDraftRoomLayouts(c:CandidateRecord,d:DesignDocument,plateId:string,labels:string[],axis:'X'|'Y',limit=3):RankedDraftLayout[]{
- if(!Number.isInteger(limit)||limit<1||limit>5)throw Error('Choose 1–5 concept alternatives');
- if(new Set(labels.map(x=>x.trim().toLowerCase())).size!==labels.length)throw Error('Room labels must be unique for relationships');
+function draftRoomLayoutCandidates(c:CandidateRecord,d:DesignDocument,plateId:string,labels:string[],axis:'X'|'Y'):RankedDraftLayout[]{
  const role=(name:string)=>{const n=name.toLowerCase();return /primary|master/.test(n)&&/bath/.test(n)?'ENSUITE':/primary|master/.test(n)?'PRIMARY':/bath|powder/.test(n)?'BATH':/laundry|mud|utility/.test(n)?'SERVICE':/kitchen/.test(n)?'KITCHEN':/living|family|great room/.test(n)?'LIVING':/dining/.test(n)?'DINING':/bed|guest/.test(n)?'BED':'OTHER'};
  const roles=labels.map(label=>({label,role:role(label)}));
  const rules:{a:string;b:string;priority:'MUST'|'PREFER'|'SEPARATE';reason:string}[]=[];
@@ -1012,7 +1011,14 @@ export function rankDraftRoomLayouts(c:CandidateRecord,d:DesignDocument,plateId:
  for(const order of orders){
   const key=order.join('\0');if(seen.has(key))continue;seen.add(key);
   let document:DesignDocument;
-  try{document=results.length===0?(d.shapes.find(x=>x.id===plateId)?.polygon.length===6?packLCorridorSeed(c,d,plateId,order):packCorridorSeed(c,d,plateId,order)):results.length%2===0?packTwoDimensionalSeed(c,d,plateId,order,results.length):packDraftRooms(c,d,plateId,labels,axis,d.updatedAt,order);}catch{try{document=packDraftRooms(c,d,plateId,labels,axis,d.updatedAt,order);}catch{continue;}}
+  let seedDirection:'X'|'Y'|'MIXED'=axis;
+  try{
+   if(results.length===0){
+    document=d.shapes.find(x=>x.id===plateId)?.polygon.length===6?packLCorridorSeed(c,d,plateId,order):packCorridorSeed(c,d,plateId,order);
+    seedDirection='MIXED';
+   }else if(results.length%2===0){document=packTwoDimensionalSeed(c,d,plateId,order,results.length);seedDirection='MIXED';}
+   else document=packDraftRooms(c,d,plateId,labels,axis,d.updatedAt,order);
+  }catch{try{document=packDraftRooms(c,d,plateId,labels,axis,d.updatedAt,order);seedDirection=axis;}catch{continue;}}
   const added=document.shapes.filter(s=>s.kind==='ROOM'&&!d.shapes.some(t=>t.id===s.id));
   const byName=new Map(added.map(x=>[x.label,x]));
   const relationships=rules.map(rule=>{
@@ -1027,10 +1033,35 @@ export function rankDraftRoomLayouts(c:CandidateRecord,d:DesignDocument,plateId:
   const assessment:DraftLayoutAssessment={schema:'lotscope-layout-assessment-v1',score,sourceRevision:d.revision,
    relationships,explanations:relationships.filter(r=>r.satisfied).map(r=>r.reason),
    limitations:[...connectivity.limitations,...(!connectivity.connected?['Room adjacency graph is disconnected; do not present as walkable']:[]),'No authored doors, guaranteed circulation, garage passage, plumbing or code compliance established','Human architectural review required before reporting a relationship as functional']};
-  results.push({document,assessment,order});
+  results.push({document,assessment,order,seedDirection});
  }
- results.sort((a,b)=>b.assessment.score-a.assessment.score||a.order.join('|').localeCompare(b.order.join('|')));
- return results.slice(0,limit);
+ return results;
+}
+
+/** Compare feasible X/Y and mixed seeds without saving or changing a source plate. */
+export function rankDraftRoomLayouts(c:CandidateRecord,d:DesignDocument,plateId:string,labels:string[],axis:RoomSeedDirection,limit=3):RankedDraftLayout[]{
+ if(!Number.isInteger(limit)||limit<1||limit>5)throw Error('Choose 1–5 concept alternatives');
+ if(!['X','Y','BEST_FIT'].includes(axis))throw Error('Choose X, Y or Best fit seed direction');
+ if(labels.length<2||labels.length>8||labels.some(label=>!label.trim()))throw Error('Specify 2 to 8 named rooms');
+ if(new Set(labels.map(x=>x.trim().toLowerCase())).size!==labels.length)throw Error('Room labels must be unique for relationships');
+ const results=axis==='BEST_FIT'
+  ?[...draftRoomLayoutCandidates(c,d,plateId,labels,'X'),...draftRoomLayoutCandidates(c,d,plateId,labels,'Y')]
+  :draftRoomLayoutCandidates(c,d,plateId,labels,axis);
+ results.sort((a,b)=>b.assessment.score-a.assessment.score||a.order.join('|').localeCompare(b.order.join('|'))||
+  (a.seedDirection??'').localeCompare(b.seedDirection??''));
+ if(axis!=='BEST_FIT')return results.slice(0,limit);
+ const sourceShapes=new Set(d.shapes.map(shape=>shape.id)),sourceDoors=new Set((d.doors??[]).map(door=>door.id));
+ const seen=new Set<string>();
+ const roundPoint=(point:P2)=>point.map(value=>Math.round(value*1e6)/1e6);
+ return results.filter(option=>{
+  const names=new Map(option.document.shapes.map(shape=>[shape.id,[shape.ownerId,shape.story,shape.kind,shape.label]]));
+  const shapes=option.document.shapes.filter(shape=>!sourceShapes.has(shape.id)).map(shape=>
+   JSON.stringify([shape.ownerId,shape.story,shape.kind,shape.label,shape.polygon.map(roundPoint)])).sort();
+  const doors=(option.document.doors??[]).filter(door=>!sourceDoors.has(door.id)).map(door=>
+   JSON.stringify([names.get(door.fromRoomId),names.get(door.toRoomId),door.story,door.widthFt,roundPoint(door.center)])).sort();
+  const key=JSON.stringify([shapes,doors]);
+  if(seen.has(key))return false;seen.add(key);return true;
+ }).slice(0,limit);
 }
 
 /** Plans every explicitly supported floor without mutating the saved document.

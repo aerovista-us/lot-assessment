@@ -398,4 +398,29 @@ for(const c of cases){
  assert.equal(cleaned.revision,4);
  inspected++;
 }
-console.log('PASS universal design documents for '+inspected+' unrelated candidate layouts, source owner polygons, floor/roof draft attachment, 22-feature report, export-import rebinding, stale geometry and unsupported authority gates');
+// Best fit must switch axes when one direction cannot produce practical rooms.
+for(const [width,depth,workingAxis] of [[40,8,'X'],[8,40,'Y'],[40,30,'MIXED']]){
+ const candidate=structuredClone(registry.candidates[0]);
+ const owner=candidate.components.find(x=>x.kind==='home');
+ Object.assign(owner,{x:0,y:0,widthFt:width,depthFt:depth,rotationDeg:0,polygon:[[0,0],[width,0],[width,depth],[0,depth]]});
+ const draft=addOwnerFootprintShape(candidate,emptyDesignDocument(candidate),{ownerId:owner.id,label:'Best fit source plate',kind:'FLOOR_PLATE',story:'GROUND'});
+ const before=JSON.stringify(draft);
+ const rooms=workingAxis==='MIXED'?['Laundry','Kitchen','Living','Primary Bedroom','Primary Bath']:['Living','Kitchen','Bedroom'];
+ const x=rankDraftRoomLayouts(candidate,draft,draft.shapes[0].id,rooms,'X',5);
+ const y=rankDraftRoomLayouts(candidate,draft,draft.shapes[0].id,rooms,'Y',5);
+ const best=rankDraftRoomLayouts(candidate,draft,draft.shapes[0].id,rooms,'BEST_FIT',5);
+ assert(best.length>0,'Best fit must find the feasible direction for '+width+' x '+depth);
+ assert.equal(best[0].assessment.score,Math.max(...x.concat(y).map(option=>option.assessment.score)),'Best fit must compare both complete candidate pools before selecting');
+ if(workingAxis!=='MIXED'){
+  assert.equal((workingAxis==='X'?y:x).length,0,'Adversarial fixture must actually reject the other direction');
+  assert(best.every(option=>option.seedDirection===workingAxis),'Best fit must report the feasible seed direction');
+ }else assert(best.some(option=>option.seedDirection==='MIXED'),'Best fit must keep feasible mixed X/Y layouts in its comparison');
+ const keys=best.map(option=>JSON.stringify(option.document.shapes.filter(shape=>shape.kind!=='FLOOR_PLATE').map(shape=>({label:shape.label,polygon:shape.polygon.map(point=>point.map(value=>Number(value.toFixed(6))))})).sort((a,b)=>a.label.localeCompare(b.label))));
+ assert.equal(new Set(keys).size,keys.length,'Best fit must remove duplicate geometry from the X/Y pools');
+ for(const option of best){
+  assert.equal(validateDesignDocument(candidate,option.document).valid,true);
+  assert.deepEqual(option.document.shapes.filter(shape=>shape.kind==='ROOM').map(shape=>shape.label).sort(),[...rooms].sort());
+ }
+ assert.equal(JSON.stringify(draft),before,'Best fit must not save or mutate source geometry');
+}
+console.log('PASS universal design documents for '+inspected+' unrelated candidate layouts, source owner polygons, floor/roof draft attachment, 22-feature report, export-import rebinding, stale geometry, best-fit X/Y/mixed ranking and unsupported authority gates');

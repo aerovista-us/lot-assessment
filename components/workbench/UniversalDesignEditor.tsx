@@ -1,15 +1,23 @@
 "use client";
-import {useEffect,useMemo,useRef,useState} from "react";
+import {useEffect,useId,useMemo,useRef,useState} from "react";
 import type {CandidateRecord} from "@/packages/candidates";
 import {placementPolygon} from "@/packages/roof-geometry";
 import {
  addDesignShape,addOwnerFootprintShape,emptyDesignDocument,removeDesignShape,addDraftDoor,setDraftRoofParameters,
- sourceBuildingOwners,validateDesignDocument,updateDesignShapePolygon,snapDesignPoint,partitionDesignShape,prepareDraftRoomAlternatives,rankDraftRoomLayouts,moveDesignWall,type RankedDraftLayout,type DesignDocument,type DesignShape,type P2
+ sourceBuildingOwners,validateDesignDocument,updateDesignShapePolygon,snapDesignPoint,partitionDesignShape,prepareDraftRoomAlternatives,rankDraftRoomLayouts,moveDesignWall,type RoomSeedDirection,type RankedDraftLayout,type DesignDocument,type DesignShape,type P2
 } from "@/packages/candidates/design-document";
 import {solveUniversalDesign} from "@/packages/candidates/design-solving";
 type Props={candidate:CandidateRecord;document?:DesignDocument;onSave:(doc:DesignDocument)=>void};
 type Story="GROUND"|"UPPER"|"OTHER";
 const defaultRoomProgram="Living, Kitchen, Bedroom";
+const commonRoomOptions=[
+ {id:"laundry",label:"Laundry"},{id:"primary-bedroom",label:"Primary Bedroom"},
+ {id:"primary-bath",label:"Primary Bath"},{id:"full-bath",label:"Full Bath"},
+ {id:"dining",label:"Dining Room"},{id:"office",label:"Office"},
+ {id:"pantry",label:"Pantry"},{id:"mudroom",label:"Mudroom"}
+] as const;
+const roomNamesFrom=(value:string)=>value.split(",").map(name=>name.trim()).filter(Boolean);
+const roomNameKey=(name:string)=>name.trim().replace(/\s+/g," ").toLowerCase();
 function savedRoomProgram(document:DesignDocument|undefined,ownerId:string,story:Story){
  return document?.shapes.filter(shape=>shape.ownerId===ownerId&&shape.story===story&&shape.kind==="ROOM").map(shape=>shape.label).join(", ")||defaultRoomProgram;
 }
@@ -30,7 +38,11 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
  const [partitionAxis,setPartitionAxis]=useState<"X"|"Y">("X");
  const [partitionOffset,setPartitionOffset]=useState("");
  const [roomLabels,setRoomLabels]=useState(()=>savedRoomProgram(document,firstOwnerId,"GROUND"));
- const [packAxis,setPackAxis]=useState<"X"|"Y">("X");
+ const [packAxis,setPackAxis]=useState<RoomSeedDirection>("BEST_FIT");
+ const roomOptionsId=useId();
+ const roomNames=roomNamesFrom(roomLabels);
+ const includedRoomNames=new Set(roomNames.map(roomNameKey));
+ const roomCountValid=roomNames.length>=2&&roomNames.length<=8;
  const [layoutOptions,setLayoutOptions]=useState<RankedDraftLayout[]>([]);
  const [selectedLayout,setSelectedLayout]=useState(0);
  const [layoutSource,setLayoutSource]=useState("");
@@ -74,6 +86,13 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
  function doneEditing(){setEditingShapeId("");setDrag(null);setWallDrag(null);canvasRef.current?.focus();}
  function chooseOwner(id:string){setOwnerId(id);setRoomLabels(savedRoomProgram(document,id,story));setEditingShapeId("");setDrag(null);setWallDrag(null);setZoom(1);setLayoutOptions([]);setLayoutSource("");}
  function chooseStory(next:Story){setStory(next);setRoomLabels(savedRoomProgram(document,ownerId,next));setEditingShapeId("");setDrag(null);setWallDrag(null);setZoom(1);setLayoutOptions([]);setLayoutSource("");}
+ function chooseCommonRoom(name:string,include:boolean){
+  setRoomLabels(current=>{
+   const names=roomNamesFrom(current),key=roomNameKey(name);
+   if(include&&names.length>=8&&!names.some(item=>roomNameKey(item)===key))return current;
+   return (include?(names.some(item=>roomNameKey(item)===key)?names:[...names,name]):names.filter(item=>roomNameKey(item)!==key)).join(", ");
+  });
+ }
  function putDoor(){
   try{
    if(stale||!wall)throw Error("No shared wall. Create two adjacent room/circulation shapes first.");
@@ -131,7 +150,7 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
   try{
    if(stale)throw Error("Design source changed; packing unavailable");
    if(!activeOwner||activeOwner.kind!=="home")throw Error("Select a home building owner to generate a floor plan");
-   const labels=roomLabels.split(",").map(x=>x.trim()).filter(Boolean);
+   const labels=roomNamesFrom(roomLabels);
    const selected=base.shapes.find(x=>x.id===floorSelectionId);
    if(selected&&(selected.ownerId!==ownerId||selected.story!==story||selected.kind!=="FLOOR_PLATE"))throw Error("Selected shape is not a floor plate for this home and story");
    const existing=base.shapes.filter(x=>x.ownerId===ownerId&&x.story===story&&x.kind==="FLOOR_PLATE");
@@ -301,11 +320,24 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
     <div className="plan-editing-context" id="plan-editing-help">{selectedShape&&!stale?<><div><strong>Editing {selectedShape.label}</strong><small>Drag a highlighted wall or vertex. Arrow keys move a focused vertex; Escape finishes editing.</small></div><div className="plan-editing-actions"><label htmlFor="design-snap">Snap<select id="design-snap" value={snapGrid} onChange={e=>setSnapGrid(e.target.value)}><option value="0.25">0.25 ft</option><option value="0.5">0.5 ft</option><option value="1">1 ft</option></select></label><button type="button" onClick={doneEditing}>Done editing</button></div></>:<p>Select a room on the plan or in the room key to refine its walls and vertices.</p>}</div>
     <p className="microcopy design-canvas-caption">{base.shapes.some(s=>s.ownerId===ownerId&&s.kind==="ROOM"&&s.story===story)?"Your saved geometry. Generate alternatives to explore another arrangement.":"Your source footprint. Add room names to explore possible layouts."}</p>
    </div>
-   <aside className="design-program-panel" aria-label="Room layout generator"><p className="eyebrow">YOUR ROOM PROGRAM</p><h3>What belongs here?</h3><p className="microcopy">Separate each room name with a comma. Include the rooms that matter to this floor.</p>
-    <label className="microcopy">Room names (comma separated)<input value={roomLabels} onChange={e=>setRoomLabels(e.target.value)} /></label>
-    <label className="microcopy">Room seed direction<select value={packAxis} onChange={e=>setPackAxis(e.target.value as "X"|"Y")}><option value="X">Across X</option><option value="Y">Across Y</option></select></label>
+   <aside className="design-program-panel" aria-label="Room layout generator"><p className="eyebrow">YOUR ROOM PROGRAM</p><h3>What belongs here?</h3><p className="microcopy">Choose common rooms below, or enter custom room names separated by commas. Include the rooms that matter to this floor.</p>
+    <label className="microcopy">Room names (comma separated)<input aria-describedby={`${roomOptionsId}-count`} aria-invalid={!roomCountValid} value={roomLabels} onChange={e=>setRoomLabels(e.target.value)} /></label>
+    <fieldset className="room-options" aria-describedby={`${roomOptionsId}-count`}>
+     <legend>Additional room options</legend>
+     <div className="room-options-list">{commonRoomOptions.map(option=>{
+      const included=includedRoomNames.has(roomNameKey(option.label));
+      return <div key={option.id} className="room-option-row" role="group" aria-label={option.label} data-room-option={option.id} data-included={included}>
+       <span>{option.label}</span>
+       <label><input type="radio" name={`${roomOptionsId}-${option.id}`} value="include" checked={included} disabled={!included&&roomNames.length>=8} onChange={()=>chooseCommonRoom(option.label,true)}/><span>Include</span></label>
+       <label><input type="radio" name={`${roomOptionsId}-${option.id}`} value="skip" checked={!included} onChange={()=>chooseCommonRoom(option.label,false)}/><span>Skip</span></label>
+      </div>;
+     })}</div>
+    </fieldset>
+    <p className={`microcopy room-program-count${roomCountValid?"":" room-program-count-invalid"}`} id={`${roomOptionsId}-count`}>{roomNames.length} of 8 rooms · choose 2–8 rooms for this floor.</p>
+    <label className="microcopy">Room seed direction<select value={packAxis} onChange={e=>setPackAxis(e.target.value as RoomSeedDirection)}><option value="BEST_FIT">Best fit · X + Y</option><option value="X">Across X</option><option value="Y">Across Y</option></select></label>
+    {packAxis==="BEST_FIT"&&<p className="microcopy">Best fit compares X, Y and mixed layouts, then ranks the feasible options.</p>}
     <p className="microcopy">Generate options for this building and floor, compare them, then save your choice. Your current saved layout stays intact while you explore.</p>
-    <button className="primary-button" type="button" onClick={packRooms} disabled={stale||activeOwner?.kind!=="home"}>Generate room layout alternatives</button>
+    <button className="primary-button" type="button" onClick={packRooms} disabled={stale||activeOwner?.kind!=="home"||!roomCountValid}>Generate room layout alternatives</button>
 
     {activeOwner?.kind!=="home"&&<p className="microcopy">Choose a home in Building owner to generate room alternatives. Garage and roof geometry can be edited with the refinement tools below.</p>}
    </aside>
@@ -324,6 +356,7 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
        const checks=option.assessment.relationships;
        return <button key={index} type="button" className="layout-option" aria-pressed={selectedLayout===index} onClick={()=>setSelectedLayout(index)}>
         <strong>Concept {index+1}{index===0?" · highest score":""}</strong>
+        {option.seedDirection&&<span className="layout-seed-label">{option.seedDirection==="MIXED"?"Mixed X + Y":`Across ${option.seedDirection}`}</span>}
         <svg viewBox={bb.join(" ")} role="img" aria-label={`Draft floor plan for concept ${index+1}`} className="layout-option-plan">
          {shell.length>0&&<polygon points={pts(shell)} fill="#dce7ed" stroke="#31566d" strokeWidth={.6}/>}
          {halls.map(hall=><polygon key={hall.id} data-proposed-shape={hall.id} points={pts(hall.polygon)} fill="#f4ce7c" stroke="#946a20" strokeWidth={.5}><title>{hall.label} · draft hallway</title></polygon>)}
