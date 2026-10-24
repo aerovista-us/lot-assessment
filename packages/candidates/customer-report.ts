@@ -43,7 +43,7 @@ const catalog=[
 ] as const;
 export const REPORT_FEATURE_IDS=catalog.map(c=>c[0]);
 const esc=(s:unknown)=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
-const fmt=(n:number)=>Number.isFinite(n)?Number(n.toFixed(2)):0;
+const fmt=(n:number)=>Number.isFinite(n)?Number(n.toFixed(3)):0;
 const xy=(p:readonly[number,number])=>{if(!Number.isFinite(p[0])||!Number.isFinite(p[1]))throw Error('Invalid source point');return fmt(p[0])+','+fmt(p[1]);};
 function shape(c:PlacementComponent):ReadonlyArray<readonly[number,number]>{
  if(!(c.widthFt>0&&c.depthFt>0))throw Error('Invalid building footprint');
