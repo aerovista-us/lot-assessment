@@ -28,6 +28,13 @@ try{
    await page.setViewport({width,height,deviceScaleFactor:1});
    await page.goto(base+route,{waitUntil:'networkidle0'});await page.waitForSelector(ready);
    const noOverflow=async()=>assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`${view} overflows ${width}px`);
+   // Native scroll-into-view can stop a partly visible control beneath the
+   // sticky header. Center the target instantly and verify the actual hit.
+   const clickPlanControl=async selector=>{
+    await page.$eval(selector,element=>element.scrollIntoView({block:'center',behavior:'instant'}));
+    assert(await page.$eval(selector,element=>{const box=element.getBoundingClientRect();return element.contains(document.elementFromPoint(box.x+box.width/2,box.y+box.height/2));}),`Plan control is obscured: ${selector}`);
+    await page.click(selector);
+   };
    await noOverflow();
    if(width<960){
     await page.click('.workbench-menu-toggle');
@@ -66,13 +73,13 @@ try{
     const roomNames=JSON.parse(selected).shapes.filter(shape=>shape.kind==='ROOM').map(shape=>shape.label).join(', ');
     assert.equal(await page.$eval('[aria-label="Room layout generator"] input',e=>e.value),roomNames,'Saved room program must survive reload');
     const fitted=await page.$eval('.design-floor-canvas',e=>e.getAttribute('viewBox'));
-    await page.click('.design-room-key button');
+    await clickPlanControl('.design-room-key button');
     await page.waitForFunction(()=>Boolean(document.querySelector('.design-floor-canvas').getAttribute('data-active-shape')));
-    await page.click('button[aria-label="Zoom in"]');
+    await clickPlanControl('button[aria-label="Zoom in"]');
     assert.notEqual(await page.$eval('.design-floor-canvas',e=>e.getAttribute('viewBox')),fitted);
     await noOverflow();
     assert.deepEqual(JSON.parse(await page.$eval('[data-saved-design-document]',e=>e.textContent)),JSON.parse(selected),'Zoom and room selection must not edit geometry');
-    const fit=await page.$('.plan-view-controls button:last-child');await fit.click();
+    await clickPlanControl('.plan-view-controls button:last-child');
     assert.equal(await page.$eval('.design-floor-canvas',e=>e.getAttribute('viewBox')),fitted);
 
     await page.click('#customer-report-preview button.primary-button');
