@@ -8,7 +8,26 @@
 
 **Can I Build That Here?** — an AeroVista Local early-feasibility utility backed by the same deterministic geometry stack used by the internal Workbench.
 
-## Two surfaces, one engine
+## Product tiers and client repositories — upgrade plan (2026-10-24)
+
+- **LotScope (free/public):** guided lot assessment, information-confidence states and limited concept preview.
+- **LotScope Advanced (paid/customer):** authenticated design alternatives, refinement, saved revisions, comparisons and client-facing concept reports.
+- **LotScope Workspace (internal only):** authorized staff engineering, exact interventions, validation, evidence review and client project administration. A hidden UI or feature flag is never authorization.
+- **Client repositories:** Pondy Flats is one client/one lot, not the shared reporting backend. Every new client project gets its own independent repository and deliverables. Reusable design, drawing and report-generation engines belong to LotScope; project-specific report artifacts and approvals belong in that client's repository.
+
+### Upgrade sequence and acceptance
+
+1. Inventory existing routes, Identity Gateway roles/capabilities, persistence, deployments and report/export ownership; distinguish deployed behavior from proposed tiers.
+2. Implement server-side deny-by-default free/paid/staff authorization for pages **and** APIs, with anonymous, unpaid, paid, staff and founder permission-matrix tests.
+3. Preserve parcel data and provenance across free preview → paid onboarding; avoid changing project identity or losing source geometry.
+4. Prove paid Generate → Compare → Select non-top → Save → Reload → Exact Report, including polygons, doors, corridors, orientation, hashes, and 0.001-model-unit coordinate tolerance.
+5. Keep internal geometry interventions and project provisioning staff-only; stale dependent evidence must be invalidated after edits.
+6. Define versioned, source-bound per-client export and private-repository provisioning with isolation/rollback tests; use Pondy as its own client case and reusable-regression fixture.
+7. Gate promotion on exact-head CI, authenticated live browser acceptance (issue #132), responsive QA, deployed SHA and rollback proof. Digital acceptance is not structural, code, or AHJ approval.
+
+**Status:** This is a product contract and implementation plan, not evidence that subscriptions, server-side entitlements, internal route isolation or automated repository provisioning already exist. No access is granted by this document.
+
+## Existing routes (historical two-surface inventory)
 
 - `/` — **Public LotScope v2 Guided Assessment**: grouped LOT / RULES / PROJECT / ACCESS facts, Quick Rectangle or honest Custom Lot Facts approximation, separate feasibility and information-confidence results, and explicit assumptions to verify.
 - `/workbench` — **LotScope Workbench**: internal solver/staff surface for ranked topology search, candidate triage, lifecycle management, constrained intervention, mobility screening, program feasibility and evidence review.
