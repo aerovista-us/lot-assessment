@@ -241,7 +241,7 @@ export function CandidateWorkspaceClient({ candidateId }: { candidateId: string 
       {report && !reportCurrent ? <p role="alert" className="candidate-warning-box">The saved design changed after this preview was created. Regenerate the report before downloading.</p> : null}
       <div className="hero-actions">
         <button type="button" className="primary-button" disabled={reportBusy} onClick={createCustomerReport}>{reportBusy ? "Building report…" : report ? "Regenerate saved report" : "Create Customer Report"}</button>
-        {report && reportCurrent ? <a className="secondary-button" href={report.href} download={report.filename}>Download this report</a> : null}
+        {report && reportCurrent ? <><a className="secondary-button" href={report.href} target="_blank" rel="noopener noreferrer" data-open-report>Open full report <span aria-hidden="true">↗</span></a><a className="secondary-button" href={report.href} download={report.filename}>Download this report</a></> : null}
         <button type="button" className="secondary-button" onClick={exportCurrent}>Export design backup</button>
       </div>
       {report ? <><p className="microcopy">{report.revision !== undefined ? `Report design revision ${report.revision}` : "Candidate-only report · no saved room design"}. Open the downloaded HTML to print or save as PDF.</p>

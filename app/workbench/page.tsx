@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { CandidatePlan } from "@/components/workbench/CandidatePlan";
+import { WorkbenchResume } from "@/components/workbench/WorkbenchResume";
 import { pondyCandidateRegistry } from "@/projects/pondy-lot2/candidate-registry";
 
 const project = pondyCandidateRegistry.projects[0];
@@ -18,7 +19,7 @@ export default function WorkbenchHome() {
     <section className="studio-home-hero">
       <div className="studio-home-intro"><p className="eyebrow">LOTSCOPE · DESIGN WORKBENCH</p><h1>From a lot of possibilities<br />to a plan of your own.</h1>
         <p className="lede">Explore the site. Make space for the rooms that matter. Keep your chosen design connected to its drawings and report.</p>
-        <div className="hero-actions"><Link className="primary-button" href={`/workbench/projects/pondy-lot2/candidates/${featured.id}`}>Continue Pondy Lot 2 <span aria-hidden="true">↗</span></Link><Link className="secondary-button" href="/workbench/projects/pondy-lot2/candidates">Browse designs</Link></div>
+        <WorkbenchResume defaultCandidateId={featured.id} />
         <p className="studio-home-note"><span aria-hidden="true">◈</span> Digital concepts, with clear validation and review boundaries.</p>
       </div>
       <Link className="studio-project-preview" href="/workbench/projects/pondy-lot2"><div className="studio-project-caption"><span>ACTIVE PROJECT</span><span>01 <span aria-hidden="true">↗</span></span></div><CandidatePlan candidate={featured}/><div className="studio-project-footer"><div><h2>{project.label}</h2><p>Explore, compare and refine your next direction.</p></div><span aria-hidden="true">→</span></div></Link>

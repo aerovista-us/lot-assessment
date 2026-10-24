@@ -1,5 +1,5 @@
 "use client";
-import {useEffect,useMemo,useState} from "react";
+import {useEffect,useMemo,useRef,useState} from "react";
 import type {CandidateRecord} from "@/packages/candidates";
 import {placementPolygon} from "@/packages/roof-geometry";
 import {
@@ -8,8 +8,17 @@ import {
 } from "@/packages/candidates/design-document";
 import {solveUniversalDesign} from "@/packages/candidates/design-solving";
 type Props={candidate:CandidateRecord;document?:DesignDocument;onSave:(doc:DesignDocument)=>void};
+type Story="GROUND"|"UPPER"|"OTHER";
+const defaultRoomProgram="Living, Kitchen, Bedroom";
+function savedRoomProgram(document:DesignDocument|undefined,ownerId:string,story:Story){
+ return document?.shapes.filter(shape=>shape.ownerId===ownerId&&shape.story===story&&shape.kind==="ROOM").map(shape=>shape.label).join(", ")||defaultRoomProgram;
+}
 export function UniversalDesignEditor({candidate,document,onSave}:Props){
  const owners=sourceBuildingOwners(candidate);
+ const firstOwnerId=owners[0]?.id??"";
+ const previousCandidate=useRef(candidate.id);
+ const canvasRef=useRef<SVGSVGElement>(null);
+ const [zoom,setZoom]=useState(1);
  const [ownerId,setOwnerId]=useState(owners[0]?.id??"");
  const [kind,setKind]=useState<DesignShape["kind"]>("FLOOR_PLATE");
  const [story,setStory]=useState<"GROUND"|"UPPER"|"OTHER">("GROUND");
@@ -20,7 +29,7 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
  const [snapGrid,setSnapGrid]=useState("0.5");
  const [partitionAxis,setPartitionAxis]=useState<"X"|"Y">("X");
  const [partitionOffset,setPartitionOffset]=useState("");
- const [roomLabels,setRoomLabels]=useState("Living, Kitchen, Bedroom");
+ const [roomLabels,setRoomLabels]=useState(()=>savedRoomProgram(document,firstOwnerId,"GROUND"));
  const [packAxis,setPackAxis]=useState<"X"|"Y">("X");
  const [layoutOptions,setLayoutOptions]=useState<RankedDraftLayout[]>([]);
  const [selectedLayout,setSelectedLayout]=useState(0);
@@ -37,14 +46,22 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
  const [fasciaDepth,setFasciaDepth]=useState("");
  const [fasciaThickness,setFasciaThickness]=useState("");
  const [ridgeDirection,setRidgeDirection]=useState<"LONG_AXIS"|"SHORT_AXIS">("LONG_AXIS");
- useEffect(()=>{setOwnerId(owners[0]?.id??"");setNote("");setLayoutOptions([]);setLayoutSource("");},[candidate.id]);
+ useEffect(()=>{
+  if(previousCandidate.current===candidate.id)return;
+  previousCandidate.current=candidate.id;
+  setOwnerId(firstOwnerId);setStory("GROUND");setRoomLabels(savedRoomProgram(document,firstOwnerId,"GROUND"));
+  setEditingShapeId("");setZoom(1);setNote("");setLayoutOptions([]);setLayoutSource("");
+ },[candidate.id,firstOwnerId,document]);
  const activeOwner=owners.find(o=>o.id===ownerId);
  const roof=kind==="ROOF_ZONE"||kind==="GABLE_ZONE";
  // Unsaved alternatives are source-bound too. A fresh empty document on each
  // render changes updatedAt and instantly invalidates a generated comparison.
  const base=useMemo(()=>document??emptyDesignDocument(candidate),[document,candidate]);
  const stale=Boolean(document&&(()=>{try{validateDesignDocument(candidate,document);return false}catch{return true}})());
- const sourceKey=JSON.stringify([candidate.id,base.sourceSignature,base.revision,base.updatedAt,ownerId,story,editingShapeId,roomLabels,packAxis]);
+ const selectedShape=base.shapes.find(shape=>shape.id===editingShapeId);
+ // Inspecting a room must not become a different floor seed or invalidate a comparison.
+ const floorSelectionId=selectedShape?.kind==="FLOOR_PLATE"?selectedShape.id:"";
+ const sourceKey=JSON.stringify([candidate.id,base.sourceSignature,base.revision,base.updatedAt,ownerId,story,floorSelectionId,roomLabels,packAxis]);
  const alternativesCurrent=layoutOptions.length>0&&!stale&&layoutSource===sourceKey;
  const activeLayout=alternativesCurrent?layoutOptions[selectedLayout]:undefined;
  const solution=stale?null:solveUniversalDesign(candidate,base);
@@ -53,6 +70,10 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
  const roofShapes=base.shapes.filter(s=>s.ownerId===ownerId&&s.kind==="GABLE_ZONE");
  const chosenRoof=roofShapes.find(s=>s.id===selectedRoofId)??roofShapes[0];
  const preview=solution?.roofs.find(r=>r.ownerId===ownerId);
+ function selectShape(id:string){if(stale)return;setEditingShapeId(id);setDrag(null);setWallDrag(null);}
+ function doneEditing(){setEditingShapeId("");setDrag(null);setWallDrag(null);canvasRef.current?.focus();}
+ function chooseOwner(id:string){setOwnerId(id);setRoomLabels(savedRoomProgram(document,id,story));setEditingShapeId("");setDrag(null);setWallDrag(null);setZoom(1);setLayoutOptions([]);setLayoutSource("");}
+ function chooseStory(next:Story){setStory(next);setRoomLabels(savedRoomProgram(document,ownerId,next));setEditingShapeId("");setDrag(null);setWallDrag(null);setZoom(1);setLayoutOptions([]);setLayoutSource("");}
  function putDoor(){
   try{
    if(stale||!wall)throw Error("No shared wall. Create two adjacent room/circulation shapes first.");
@@ -111,7 +132,7 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
    if(stale)throw Error("Design source changed; packing unavailable");
    if(!activeOwner||activeOwner.kind!=="home")throw Error("Select a home building owner to generate a floor plan");
    const labels=roomLabels.split(",").map(x=>x.trim()).filter(Boolean);
-   const selected=base.shapes.find(x=>x.id===editingShapeId);
+   const selected=base.shapes.find(x=>x.id===floorSelectionId);
    if(selected&&(selected.ownerId!==ownerId||selected.story!==story||selected.kind!=="FLOOR_PLATE"))throw Error("Selected shape is not a floor plate for this home and story");
    const existing=base.shapes.filter(x=>x.ownerId===ownerId&&x.story===story&&x.kind==="FLOOR_PLATE");
    // Reject distinct same-story plates: one source story must not be silently discarded.
@@ -228,6 +249,11 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
  const coords=shell.flatMap(p=>[p[0],p[1]]);
  const xs=shell.map(p=>p[0]),ys=shell.map(p=>p[1]);
  const bb=xs.length?[Math.min(...xs)-3,Math.min(...ys)-3,Math.max(...xs)-Math.min(...xs)+6,Math.max(...ys)-Math.min(...ys)+6]:[0,0,100,100];
+ const center=selectedShape?[
+  (Math.min(...selectedShape.polygon.map(p=>p[0]))+Math.max(...selectedShape.polygon.map(p=>p[0])))/2,
+  (Math.min(...selectedShape.polygon.map(p=>p[1]))+Math.max(...selectedShape.polygon.map(p=>p[1])))/2
+ ]:[bb[0]+bb[2]/2,bb[1]+bb[3]/2];
+ const planView=zoom===1?bb:[center[0]-bb[2]/zoom/2,center[1]-bb[3]/zoom/2,bb[2]/zoom,bb[3]/zoom];
  const pts=(polygon:ReadonlyArray<readonly[number,number]>)=>polygon.map(p=>p[0]+","+p[1]).join(" ");
  const visibleShapes=base.shapes.filter(s=>s.ownerId===ownerId&&(s.story===story||s.story===null));
  const visibleRooms=visibleShapes.filter(s=>s.kind==="ROOM");
@@ -237,14 +263,15 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
   {stale&&<div className="candidate-warning-box"><strong>Source revision changed</strong><p>Attached shapes are stale. Reconcile against the new footprint before reuse. The customer report will refuse stale geometry.</p></div>}
   <div className="design-context-bar">
    <div>    <label className="microcopy" htmlFor="design-owner">Building owner</label>
-    <select id="design-owner" value={ownerId} onChange={e=>{setOwnerId(e.target.value);setEditingShapeId("");setLayoutOptions([]);}}>{owners.map(o=><option key={o.id} value={o.id}>{o.label} · {o.kind}</option>)}</select>
-</div><div>    <label className="microcopy" htmlFor="design-story">Floor</label><select id="design-story" value={story} onChange={e=>{setStory(e.target.value as typeof story);setEditingShapeId("");setLayoutOptions([]);}}><option value="GROUND">Ground</option><option value="UPPER">Upper</option><option value="OTHER">Other level</option></select>
+    <select id="design-owner" value={ownerId} onChange={e=>chooseOwner(e.target.value)}>{owners.map(o=><option key={o.id} value={o.id}>{o.label} · {o.kind}</option>)}</select>
+</div><div>    <label className="microcopy" htmlFor="design-story">Floor</label><select id="design-story" value={story} onChange={e=>chooseStory(e.target.value as Story)}><option value="GROUND">Ground</option><option value="UPPER">Upper</option><option value="OTHER">Other level</option></select>
 </div>
    <span className="design-context-note">Changes apply to the selected building and floor.</span>
   </div>
   <div className="design-studio-grid">
-   <div className="design-canvas-panel"><div className="design-canvas-heading"><span>YOUR FLOOR PLAN</span><small>{activeOwner?.label} · {story.toLowerCase()} floor</small></div>
-    <svg viewBox={bb.join(" ")} role="img" aria-label="Source building owner polygon with draft floor and roof zones" className="design-floor-canvas">
+   <div className="design-canvas-panel" onKeyDown={e=>{if(e.key==="Escape"&&editingShapeId&&!(e.target as Element).closest("input,select,textarea")){e.preventDefault();e.stopPropagation();doneEditing();}}}><div className="design-canvas-heading"><span>YOUR FLOOR PLAN</span><small>{activeOwner?.label} · {story.toLowerCase()} floor</small></div>
+    <div className="plan-view-controls" aria-label="Plan view controls"><span>Inspect your layout</span><div><button type="button" aria-label="Zoom out" disabled={zoom<=1} onClick={()=>setZoom(current=>Math.max(1,current-.5))}>−</button><output aria-label="Plan zoom">{Math.round(zoom*100)}%</output><button type="button" aria-label="Zoom in" disabled={zoom>=3} onClick={()=>setZoom(current=>Math.min(3,current+.5))}>+</button><button type="button" onClick={()=>setZoom(1)}>Fit plan</button></div></div>
+    <svg ref={canvasRef} viewBox={planView.join(" ")} role="group" tabIndex={0} aria-label="Interactive floor plan" aria-describedby="plan-editing-help" data-active-shape={editingShapeId} className="design-floor-canvas">
      {shell.length>0&&<polygon points={pts(shell)} fill="#dce7ed" stroke="#31566d" strokeWidth={.6}/>}
      {!stale&&visibleShapes.map((s,shapeIndex)=>{
       const poly=s.polygon.map((p,i)=>{
@@ -254,7 +281,7 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
        return p;
       });
       return <g key={s.id}>
-       <polygon data-saved-shape={s.id} data-shape-kind={s.kind} points={pts(poly)} fill={s.story===null?"#e9bc81":s.kind==="CIRCULATION"?"#f4ce7c":s.kind==="ROOM"?["#9dcfc7","#b4c8e2","#c8c3e2","#b9d0a5","#e1c7ab"][shapeIndex%5]:"#95c3cb"} fillOpacity={.35} stroke={s.story===null?"#a16f35":"#326b84"} strokeDasharray="1.8 1" strokeWidth={.7}><title>{s.label} · {s.kind} · draft</title></polygon>
+       <polygon data-saved-shape={s.id} data-shape-kind={s.kind} data-active={editingShapeId===s.id} role="button" tabIndex={0} aria-label={`Edit ${s.label}`} aria-pressed={editingShapeId===s.id} onClick={()=>selectShape(s.id)} onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();selectShape(s.id);}}} points={pts(poly)} fill={s.story===null?"#e9bc81":s.kind==="CIRCULATION"?"#f4ce7c":s.kind==="ROOM"?["#9dcfc7","#b4c8e2","#c8c3e2","#b9d0a5","#e1c7ab"][shapeIndex%5]:"#95c3cb"} fillOpacity={.35} stroke={s.story===null?"#a16f35":"#326b84"} strokeDasharray="1.8 1" strokeWidth={.7}><title>{s.label} · {s.kind} · draft</title></polygon>
        {s.kind==="ROOM"&&<g pointerEvents="none"><circle cx={poly.reduce((n,p)=>n+p[0],0)/poly.length} cy={poly.reduce((n,p)=>n+p[1],0)/poly.length} r={.85} fill="#244b5b"/><text x={poly.reduce((n,p)=>n+p[0],0)/poly.length} y={poly.reduce((n,p)=>n+p[1],0)/poly.length} textAnchor="middle" dominantBaseline="central" fontSize={1.05} fontWeight={700} fill="#fff">{visibleRooms.findIndex(room=>room.id===s.id)+1}</text></g>}
        {editingShapeId===s.id&&poly.map((p,i)=><line key={"wall-"+i} x1={p[0]} y1={p[1]}
         x2={poly[(i+1)%poly.length][0]} y2={poly[(i+1)%poly.length][1]}
@@ -270,7 +297,8 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
      {!stale&&(base.doors??[]).filter(d=>d.story===story&&base.shapes.some(s=>s.ownerId===ownerId&&(s.id===d.fromRoomId||s.id===d.toRoomId))).map(d=><circle key={d.id} cx={d.center[0]} cy={d.center[1]} r={0.5} fill="#a12750"><title>Proposed door · {d.widthFt} ft</title></circle>)}
     </svg>
     <div className="design-canvas-legend" aria-label="Plan legend"><span><i className="legend-room"/>Rooms</span><span><i className="legend-hall"/>Hallways</span><span><i className="legend-door"/>Proposed doors</span></div>
-    {!stale&&visibleRooms.length>0&&<ol className="design-room-key" aria-label="Rooms in this plan">{visibleRooms.map((room,index)=><li key={room.id}><span aria-hidden="true">{index+1}</span><span>{room.label}</span></li>)}</ol>}
+    {!stale&&visibleRooms.length>0&&<ol className="design-room-key" aria-label="Rooms in this plan">{visibleRooms.map((room,index)=><li key={room.id}><button type="button" data-room-select={room.id} aria-pressed={editingShapeId===room.id} onClick={()=>selectShape(room.id)}><span aria-hidden="true">{index+1}</span><span>{room.label}</span></button></li>)}</ol>}
+    <div className="plan-editing-context" id="plan-editing-help">{selectedShape&&!stale?<><div><strong>Editing {selectedShape.label}</strong><small>Drag a highlighted wall or vertex. Arrow keys move a focused vertex; Escape finishes editing.</small></div><div className="plan-editing-actions"><label htmlFor="design-snap">Snap<select id="design-snap" value={snapGrid} onChange={e=>setSnapGrid(e.target.value)}><option value="0.25">0.25 ft</option><option value="0.5">0.5 ft</option><option value="1">1 ft</option></select></label><button type="button" onClick={doneEditing}>Done editing</button></div></>:<p>Select a room on the plan or in the room key to refine its walls and vertices.</p>}</div>
     <p className="microcopy design-canvas-caption">{base.shapes.some(s=>s.ownerId===ownerId&&s.kind==="ROOM"&&s.story===story)?"Your saved geometry. Generate alternatives to explore another arrangement.":"Your source footprint. Add room names to explore possible layouts."}</p>
    </div>
    <aside className="design-program-panel" aria-label="Room layout generator"><p className="eyebrow">YOUR ROOM PROGRAM</p><h3>What belongs here?</h3><p className="microcopy">Separate each room name with a comma. Include the rooms that matter to this floor.</p>
@@ -336,13 +364,9 @@ export function UniversalDesignEditor({candidate,document,onSave}:Props){
    </div></details>
    <details className="design-tool-panel"><summary><span>Edit walls &amp; vertices</span><small>Move, snap and divide saved shapes</small></summary><div className="design-tool-body">
     <label className="microcopy" htmlFor="design-edit-shape">Drag vertices on source XY grid</label>
-    <select id="design-edit-shape" value={editingShapeId} onChange={e=>{setEditingShapeId(e.target.value);setDrag(null);}}>
+    <select id="design-edit-shape" value={editingShapeId} disabled={stale} onChange={e=>selectShape(e.target.value)}>
      <option value="">Choose a draft shape to edit</option>
      {base.shapes.filter(s=>s.ownerId===ownerId&&(s.story===story||s.story===null)).map(s=><option value={s.id} key={s.id}>{s.label} · {s.story??"ROOF"}</option>)}
-    </select>
-    <label className="microcopy" htmlFor="design-snap">Grid snapping (ft)</label>
-    <select id="design-snap" value={snapGrid} onChange={e=>setSnapGrid(e.target.value)}>
-     <option value="0.25">0.25 ft</option><option value="0.5">0.5 ft</option><option value="1">1 ft</option>
     </select>
     <div className="grid" style={{gridTemplateColumns:"1fr 1fr",gap:8}}>
      <label className="microcopy">Partition axis<select value={partitionAxis} onChange={e=>setPartitionAxis(e.target.value as "X"|"Y")}><option value="X">Vertical cut (X)</option><option value="Y">Horizontal cut (Y)</option></select></label>
