@@ -31,3 +31,11 @@ The room generator initializes from the saved room names for the selected buildi
 Rooms can be selected directly on the plan or from the room key. The selected room exposes existing wall/vertex controls and snap size beside the canvas; Escape returns focus to the plan. Zoom and Fit are display operations and do not update saved geometry. A full-page report link uses the same current report as preview/download and is removed when the report becomes stale.
 
 Component regressions cover saved-program restoration, context switching, direct selection, keyboard focus recovery, display-only zoom, saved-work resume/storage recovery and stale full-report links. The responsive browser workflow additionally opens the real blob report in a separate page and compares its complete saved design with the selected revision at phone, tablet and desktop widths. These are isolated component checks, not authenticated live Design 4 acceptance.
+
+## QA follow-up — Home journey consistency
+
+A live QA pass against production `4fe7c0d5350526dbfef86d794ba5963856803fcc` found that Continue correctly resumed the browser's saved Design 6 while the layout/report journey cards still linked to the registry's Design 4. A regression assertion reproduced both incorrect destinations.
+
+Home now resolves its resume card and journey cards through one shared browser-workspace subscription. Continue, Enter layout studio and Preview a report use the same candidate, including after storage retry or a workspace-change event. Until saved work is readable, the journey cards do not fall back to another design. The project preview and registry overview remain project-level context.
+
+Component coverage checks both destination anchors, unreadable-storage behavior and retry. Responsive QA checks destination consistency at all three existing widths. Hosted save/reload/report acceptance and any remaining limitations are recorded separately from these component checks.
