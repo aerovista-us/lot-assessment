@@ -48,7 +48,7 @@ try{
    if(view==='design'){
     assert.equal(await page.$eval('.design-tool-panel',e=>e.open),false,'Advanced tools start collapsed');
     const generator=await page.$('[aria-label="Room layout generator"] input');
-    await generator.click();await page.keyboard.press('Control+A');
+    await generator.click();await page.keyboard.down('Control');await page.keyboard.press('KeyA');await page.keyboard.up('Control');
     const program='Laundry, Kitchen, Living, Primary Bedroom, Primary Bath';
     await page.keyboard.type(program);
     assert.equal(await generator.evaluate(e=>e.value),program,'Room program must replace the prior input');

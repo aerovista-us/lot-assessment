@@ -189,24 +189,26 @@ export function CandidateWorkspaceClient({ candidateId }: { candidateId: string 
       <div className="workspace-title-row"><div><p className="eyebrow">YOUR DESIGN WORKSPACE</p><h1>{activeCandidate.revisionLabel}</h1><p className="lede">{activeCandidate.label}</p></div><span className="mode-pill">Digital concept</span></div>
       <section className="wb-panel design-journey" aria-label="Complete design journey" id="design-journey">
         <div className="section-heading"><div><p className="eyebrow">YOUR DESIGN JOURNEY</p>
-          <h2>{savedDesign ? "Review your saved layout, then create its report" : "Generate options and choose a layout"}</h2></div>
-          <span className="mode-pill">DIGITAL CONCEPT</span></div>
+          <h2>{savedDesign ? "Your saved layout is ready to review" : "Start with a room layout"}</h2></div>
+          </div>
+        <div className="saved-design-status" role="status" aria-live="polite" data-saved-design-revision={savedDesign?.revision}>
+          <strong>{savedDesign ? `Saved in this browser · revision ${savedDesign.revision}` : "No saved room layout attached"}</strong>
+          <p>{savedDesign ? `${savedRooms} rooms · ${savedHalls} circulation areas · ${savedDesign.doors?.length ?? 0} proposed doors. This revision supplies the report.` : "Compare alternatives below and use Save selected layout to attach your choice."}</p>
+          <p className="microcopy">Drafts stay in this browser on this site. Export a package to keep a portable backup.</p>
+        </div>
+        <details className="design-journey-guide"><summary>How the design journey works</summary>
         <div className="journey-steps" aria-label="Design workflow actions">
           <a href="#universal-design-editor"><b>1 · Generate & compare</b><span>Inspect room alternatives</span></a>
           <a href="#universal-design-editor"><b>2 · Choose & save</b><span>{savedDesign ? `Saved revision ${savedDesign.revision}` : "Your choice needs an explicit save"}</span></a>
           <a href="#candidate-validation"><b>3 · Review validation</b><span>Understand checks and open issues</span></a>
           <a href="#customer-report-preview"><b>4 · Preview & report</b><span>{reportCurrent ? "Report matches saved revision" : "Build from your saved design"}</span></a>
         </div>
-        <div className="saved-design-status" role="status" aria-live="polite" data-saved-design-revision={savedDesign?.revision}>
-          <strong>{savedDesign ? `Saved in this browser · revision ${savedDesign.revision}` : "No saved room layout attached"}</strong>
-          <p>{savedDesign ? `${savedRooms} rooms · ${savedHalls} circulation areas · ${savedDesign.doors?.length ?? 0} proposed doors. This revision supplies the report.` : "Compare alternatives below and use Save selected layout to attach your choice."}</p>
-          <p className="microcopy">Drafts stay in this browser on this site. Export a package to keep a portable backup.</p>
-        </div>
         <details className="journey-readiness" aria-label="Design readiness levels"><summary>What does Digital concept mean?</summary>
           <ol><li><strong>Digital concept:</strong> proposed source-bound geometry.</li>
             <li><strong>Digitally validated:</strong> applicable software checks passed, with remaining limitations documented.</li>
             <li><strong>Construction approved:</strong> independent field, professional and jurisdictional acceptance obtained. Never inferred from software.</li></ol>
           <p>Digital validation is not permission to build. Review the actual room selection, unresolved routes and drawing limitations before sharing.</p>
+        </details>
         </details>
       </section>
       <div className="workspace-main-actions"><a className="primary-button" href="#universal-design-editor">Design your layout <span aria-hidden="true">↗</span></a><a className="secondary-button" href="#customer-report-preview">Preview &amp; report</a><Link className="secondary-button" href={`/workbench/projects/pondy-lot2/compare?left=${activeCandidate.id}`}>Compare designs</Link>

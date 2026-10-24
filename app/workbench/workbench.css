@@ -701,3 +701,12 @@
 .workbench-skip-link:focus { clip-path:none; width:auto; height:auto; overflow:visible; padding:12px; }
 .design-editor .lifecycle-message { padding:12px 15px; border-left:3px solid #e9c481; border-radius:0 8px 8px 0; background:#e9c48108; color:#d6dfeb!important; }
 .compare-selectors,.compare-selectors label { min-width:0; }
+
+/* Keep the plan close to the top; detailed workflow guidance is available on demand. */
+#workbench-content .design-journey { margin-block:20px 16px; padding:18px 22px; }
+#workbench-content .design-journey h2 { font-size:20px; }
+.design-journey>.section-heading { margin-bottom:14px; }
+.design-journey-guide { margin-top:8px; color:#96adc1; font-size:12px; }
+.design-journey-guide>summary { cursor:pointer; min-height:36px; padding-block:10px 0; }
+.design-journey-guide .journey-readiness { margin-top:10px; }
+@media(max-width:760px) { #workbench-content .design-journey { padding:16px; } .workspace-page-head .workspace-storage-note { font-size:11px; } }
