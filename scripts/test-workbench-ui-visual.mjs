@@ -139,6 +139,7 @@ try{
     await page.keyboard.down('Control');await page.keyboard.press('KeyA');await page.keyboard.up('Control');await page.keyboard.type('-90');
     await clickPlanControl('.intervention-actions button:first-child');
     assert.match(await page.$eval('.direct-manipulation-plan [data-component-id="garage-b"]',element=>element.getAttribute('transform')),/^rotate\(270 /,'Negative numeric rotation must wrap');
+    await page.waitForFunction(()=>document.querySelector('label.intervention-field:has(input[step="1"]) input').value==='270'&&!document.querySelector('.intervention-actions .primary-button').disabled);
     await noOverflow();
     await page.$eval('.direct-manipulation-wrap',element=>element.scrollIntoView({block:'center',behavior:'instant'}));
     await page.screenshot({path:path.join(out,`rotation-${width}.png`),fullPage:false,timeout:15000});

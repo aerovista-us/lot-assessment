@@ -292,6 +292,7 @@ export function InterventionEditor({ candidate, repairContextCandidate, onSave, 
         }
       }
       if (JSON.stringify(next.components) === JSON.stringify(candidate.components)) {
+        setDraft(initialDraft(selected));
         setMessage("No geometry change detected.");
         return;
       }

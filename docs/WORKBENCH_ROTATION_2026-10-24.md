@@ -13,6 +13,8 @@ clamp an explicit manual placement edit. Locked components remain protected.
 Real geometry changes retain recovery checkpoints, move a garage's dependent
 stalls, stale prior evidence, and unlock owner-bound roofs for revalidation.
 An equivalent full turn does not change geometry, evidence, or checkpoints.
+Saving an equivalent angle restores the normalized field value and clears the
+pending edit, keeping evaluation controls available.
 
 Custom polygon footprints retain their existing geometry contract: rotation is
 baked into authoritative vertices, stable vertex IDs remain attached, and the

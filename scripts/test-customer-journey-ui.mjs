@@ -164,6 +164,7 @@ await setRotation(0);await waitFor(()=>savedComponent('garage-b').rotationDeg===
 const beforeTurn=app.window.localStorage.getItem(key);
 await setRotation(360);await new Promise(resolve=>setTimeout(resolve,10));
 assert.equal(app.window.localStorage.getItem(key),beforeTurn,'360 degrees must preserve geometry, evidence and checkpoints');
+await waitFor(()=>!button('Evaluate exact edit').disabled,'equivalent full turn clears pending precision edit');
 await selectPlacement('home-b');const homeBefore=structuredClone(savedComponent('home-b'));
 await setRotation(270);await waitFor(()=>JSON.stringify(savedComponent('home-b').polygon)!==JSON.stringify(homeBefore.polygon),'custom footprint 270 degree save');
 assert.equal(savedComponent('home-b').rotationDeg,0,'Custom rotation remains baked into vertices');
