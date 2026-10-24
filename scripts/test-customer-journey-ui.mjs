@@ -33,12 +33,39 @@ async function open(raw,url='http://fixture.test/workbench/projects/pondy-lot2/c
 let app=await open();let doc=app.window.document;
 const label=[...doc.querySelectorAll('label')].find(l=>l.textContent.includes('Room names (comma separated)'));
 const input=label.querySelector('input');
-Object.getOwnPropertyDescriptor(app.window.HTMLInputElement.prototype,'value').set.call(input,'Laundry, Kitchen, Living, Primary Bedroom, Primary Bath');
-input.dispatchEvent(new app.window.Event('input',{bubbles:true}));
-await new Promise(r=>setTimeout(r,20));
 const button=text=>[...doc.querySelectorAll('button')].find(b=>b.textContent===text);
+const roomRadio=(id,value)=>doc.querySelector(`[data-room-option="${id}"] input[value="${value}"]`);
+async function setRoomText(value){
+ Object.getOwnPropertyDescriptor(app.window.HTMLInputElement.prototype,'value').set.call(input,value);
+ input.dispatchEvent(new app.window.Event('input',{bubbles:true}));await new Promise(resolve=>setTimeout(resolve,20));
+}
+const beforeRoomChoices=app.window.localStorage.getItem(key);
+assert.equal(doc.querySelector('[aria-label="Room layout generator"] select').value,'BEST_FIT');
+assert.equal(doc.querySelectorAll('.room-options input[type="radio"]').length,16);
+await setRoomText('Living, Kitchen, office, Studio');
+assert(roomRadio('office','include').checked,'Typed room names must synchronize the radios without case-sensitive duplicates');
+roomRadio('office','skip').click();await waitFor(()=>!input.value.toLowerCase().includes('office'),'skip removes only the chosen room');
+assert(input.value.includes('Studio'),'Custom room names must survive radio changes');
+roomRadio('pantry','include').click();await waitFor(()=>input.value.includes('Pantry'),'include appends to custom program');
+await setRoomText('Living, Kitchen, Bedroom, Laundry, Office, Pantry, Dining Room, Mudroom');
+assert(roomRadio('primary-bath','include').disabled,'Stop additional suggestions at the supported eight-room limit');
+assert(!roomRadio('laundry','skip').disabled,'Rooms can still be removed at the limit');
+await setRoomText(input.value+', Studio');
+assert(button('Generate room layout alternatives').disabled,'An oversized typed program must explain its limit before generation');
+await setRoomText('Kitchen, Living');
+for(const id of ['laundry','primary-bedroom','primary-bath']){
+ roomRadio(id,'include').click();await waitFor(()=>roomRadio(id,'include').checked,'include '+id);
+}
+assert.equal(input.value,'Kitchen, Living, Laundry, Primary Bedroom, Primary Bath');
+assert.equal(app.window.localStorage.getItem(key),beforeRoomChoices,'Room option and seed edits must stay unsaved until explicit layout save');
 button('Generate room layout alternatives').click();
 await waitFor(()=>doc.querySelectorAll('.layout-option').length>=3,'three alternatives');
+const seedDirection=doc.querySelector('[aria-label="Room layout generator"] select');
+seedDirection.value='Y';seedDirection.dispatchEvent(new app.window.Event('change',{bubbles:true}));
+await waitFor(()=>!button('Save selected layout'),'changing seed direction invalidates previous alternatives');
+assert.equal(app.window.localStorage.getItem(key),beforeRoomChoices);
+seedDirection.value='BEST_FIT';seedDirection.dispatchEvent(new app.window.Event('change',{bubbles:true}));
+await waitFor(()=>doc.querySelectorAll('.layout-option').length>=3,'restoring identical best-fit inputs restores comparison');
 const second=doc.querySelectorAll('.layout-option')[1];second.click();
 await waitFor(()=>second.getAttribute('aria-pressed')==='true','non-top selection');
 button('Save selected layout').click();
@@ -50,6 +77,7 @@ app.window.close();app=await open(raw);doc=app.window.document;
 assert.deepEqual(JSON.parse(doc.querySelector('[data-saved-design-document]').textContent),selected,'Reload changed selected UI document');
 const savedNames=selected.shapes.filter(shape=>shape.kind==='ROOM').map(shape=>shape.label).join(', ');
 assert.equal(doc.querySelector('[aria-label="Room layout generator"] input').value,savedNames,'Reload must restore the saved room program');
+assert(roomRadio('laundry','include').checked&&roomRadio('primary-bath','include').checked,'Saved room names must restore the room-option radios');
 const floor=doc.querySelector('#design-story');floor.value='UPPER';floor.dispatchEvent(new app.window.Event('change',{bubbles:true}));
 await new Promise(resolve=>setTimeout(resolve,20));
 floor.value='GROUND';floor.dispatchEvent(new app.window.Event('change',{bubbles:true}));
@@ -215,4 +243,4 @@ if(process.env.WORKBENCH_UI_FIXTURE_DIR){
  await writeFile(path.join(out,'app.js'),script);
  await writeFile(path.join(out,'index.html'),'<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>'+css+'</style></head><body><div id="root"></div><script src="/app.js"></script></body></html>');
 }
-console.log('PASS actual React components: compare three layouts, choose non-top, save, fresh mount/reload, exact report preview, download enable/staleness, cancel replacement without mutation, active/mobile navigation, library filters, direct room selection, non-mutating zoom, saved room program, full-page report staleness and real saved-work resume/error recovery, full-circle manual rotation, precision wrapping, preview/commit/cancel, checkpoint Undo/Redo and rotated report vertices; router/download APIs are local test doubles; no hosted authentication or pixel-layout claim');
+console.log('PASS actual React components: compare three layouts, choose non-top, save, fresh mount/reload, exact report preview, download enable/staleness, cancel replacement without mutation, active/mobile navigation, library filters, direct room selection, non-mutating zoom, saved room program, full-page report staleness and real saved-work resume/error recovery, common-room Include/Skip radios, best-fit seed selection, full-circle manual rotation, precision wrapping, preview/commit/cancel, checkpoint Undo/Redo and rotated report vertices; router/download APIs are local test doubles; no hosted authentication or pixel-layout claim');

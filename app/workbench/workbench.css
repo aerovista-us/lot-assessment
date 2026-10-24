@@ -610,6 +610,18 @@
 .design-program-panel { padding:22px; background:#0d1622; border:1px solid #ffffff0f; border-radius:13px; }
 .design-program-panel h3 { color:#ecf1f6; font-weight:600; margin-bottom:10px; }
 .design-program-panel .primary-button { width:100%; margin-top:8px; }
+.room-options { min-width:0; margin:14px 0 0; padding:0; border:0; }
+.room-options legend { padding:0; margin-bottom:6px; color:#d5e1eb; font-size:12px; font-weight:600; }
+.room-options-list { border-top:1px solid #ffffff12; }
+.room-option-row { display:grid; grid-template-columns:minmax(0,1fr) auto auto; align-items:center; gap:8px; padding:2px 4px; border-bottom:1px solid #ffffff12; }
+.room-option-row>span { color:#c2d1df; font-size:12px; line-height:1.4; }
+.room-option-row[data-included="true"] { background:#8bd9c708; }
+.design-editor .room-option-row label { display:inline-flex; align-items:center; gap:5px; min-height:40px; margin:0; color:#a5b9cb; font-size:11px; cursor:pointer; }
+.design-editor .room-option-row input[type="radio"] { appearance:auto; width:15px; height:15px; min-height:0; margin:0; padding:0; flex:0 0 auto; accent-color:#8bd9c7; box-shadow:none; }
+.room-option-row label:has(input:disabled) { opacity:.45; cursor:not-allowed; }
+.room-option-row:focus-within { outline:2px solid #8bd9c7; outline-offset:1px; border-radius:4px; }
+#workbench-content .room-program-count { margin:8px 0 16px; color:#8faabd; font-size:11px; }
+#workbench-content .room-program-count-invalid { color:#efba95; }
 .design-editor :is(input,select,textarea) { border-color:#35455a; background:#0d1621; font-size:13px; }
 .design-editor :is(input,select,textarea):focus { border-color:#8bd9c7; }
 .layout-comparison { margin-top:24px; padding:22px; border-radius:13px; border:1px solid #7cd8c62c; background:#7cd8c604; }
