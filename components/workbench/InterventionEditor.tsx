@@ -292,6 +292,7 @@ export function InterventionEditor({ candidate, repairContextCandidate, onSave, 
         }
       }
       if (JSON.stringify(next.components) === JSON.stringify(candidate.components)) {
+        setDraft(initialDraft(selected));
         setMessage("No geometry change detected.");
         return;
       }
@@ -536,7 +537,7 @@ export function InterventionEditor({ candidate, repairContextCandidate, onSave, 
             else setMessage(component?.locked ? `${component.label} is protected.` : "That component is not editable in Intervention Editor.");
           }} onCommit={commitDirectManipulation} />
         <div className="direct-manipulation-help">
-          <span><b>Move</b> drag a home or garage</span><span><b>Rotate</b> drag the round handle above any selected building</span>
+          <span><b>Move</b> drag a home or garage</span><span><b>Rotate 360°</b> drag the round handle around any selected building</span>
           <span><b>Shape</b> drag wall/corner handles · double-click a wall midpoint to add a point · double-click an extra corner to remove it</span><span><b>Driveway</b> drag the round route points</span><span><b>Pavement</b> select it, then drag a corner</span><span><b>Roof</b> select a ridge line or roof component for exact pitch/ridge controls</span>
         </div>
         <p className="microcopy">Drag/drop saves the geometry immediately with a recovery checkpoint. Parcel and derived envelope geometry stay protected.</p>
@@ -554,6 +555,7 @@ export function InterventionEditor({ candidate, repairContextCandidate, onSave, 
             <Field label="Depth ft" value={draft.depthFt ?? ""} disabled={!selectedEditable.resizable} onChange={(value) => setField("depthFt", value)} />
             <Field label="Rotation deg" value={draft.rotationDeg ?? "0"} step={1} onChange={(value) => setField("rotationDeg", value)} />
           </div>
+          <p className="microcopy">Full 360° rotation. Positive angles turn clockwise; negative angles turn counterclockwise. {selectedEditable.polygon ? "Custom footprints rotate from their current shape; the angle resets to 0° after applying." : "Angles wrap at 0°/360°."}</p>
           <div className="roof-owner-callout">
             <b>Roof geometry</b>
             {selectedBuildingRoof

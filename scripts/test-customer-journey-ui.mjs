@@ -7,7 +7,7 @@ import {mkdir,readFile,writeFile} from 'node:fs/promises';
 // Exercise production components with local navigation/download transports.
 // This is a DOM interaction test, not authentication or pixel-layout acceptance.
 const root=process.cwd();
-const result=await build({stdin:{contents:"import React from 'react';\nimport {createRoot} from 'react-dom/client';\nimport {CandidateWorkspaceClient} from './components/workbench/CandidateWorkspaceClient';\nimport {WorkbenchNavigation} from './components/workbench/WorkbenchNavigation';\nimport {CandidateLibraryWorkspace} from './components/workbench/CandidateLibraryWorkspace';\nimport {CandidateCompareWorkspace} from './components/workbench/CandidateCompareWorkspace';\nimport WorkbenchHome from './app/workbench/page';\nimport {pondyCandidateRegistry} from './projects/pondy-lot2/candidate-registry';\nimport {emptyCandidateWorkspace,upsertWorkspaceCandidate} from './packages/candidates/workspace';\nimport {readBrowserWorkspace,persistBrowserWorkspace} from './packages/candidates/browser-workspace';\nconst id='journey-ui-fixture';\nif(!readBrowserWorkspace(localStorage).candidates.some(c=>c.id===id)){\n const candidate=structuredClone(pondyCandidateRegistry.candidates[0]);\n candidate.id=id;candidate.label='Pondy design journey \u00b7 local UI fixture';candidate.revisionLabel='UI fixture';\n candidate.source='AUTOMATION';candidate.components=candidate.components.filter(c=>c.kind!=='roof');\n const home=candidate.components.find(c=>c.kind==='home')!;\n Object.assign(home,{polygon:[[20,5],[60,5],[60,35],[38,35],[38,27.5],[20,27.5]],x:20,y:5,widthFt:40,depthFt:30,rotationDeg:0});\n persistBrowserWorkspace(localStorage,upsertWorkspaceCandidate(emptyCandidateWorkspace(),candidate));\n}\ncreateRoot(document.getElementById('root')!).render(<><p style={{padding:'10px 20px',margin:0,background:'#49371c'}}>Local fixture verification \u00b7 authentication and hosted deployment are not being tested here.</p><WorkbenchNavigation sourceCommit='local-fixture' environment='review'/><div id='workbench-content'>{window.location.pathname.endsWith('/workbench')?<WorkbenchHome/>:<main className='shell workbench-shell candidate-workspace-shell'>{window.location.pathname.endsWith('/candidates')?<CandidateLibraryWorkspace/>:window.location.pathname.endsWith('/compare')?<CandidateCompareWorkspace/>:<CandidateWorkspaceClient candidateId={id}/>}</main>}</div></>);\n",resolveDir:root,loader:'tsx'},
+const result=await build({stdin:{contents:"import React from 'react';\nimport {createRoot} from 'react-dom/client';\nimport {CandidateWorkspaceClient} from './components/workbench/CandidateWorkspaceClient';\nimport {WorkbenchNavigation} from './components/workbench/WorkbenchNavigation';\nimport {CandidateLibraryWorkspace} from './components/workbench/CandidateLibraryWorkspace';\nimport {CandidateCompareWorkspace} from './components/workbench/CandidateCompareWorkspace';\nimport WorkbenchHome from './app/workbench/page';\nimport {pondyCandidateRegistry} from './projects/pondy-lot2/candidate-registry';\nimport {emptyCandidateWorkspace,upsertWorkspaceCandidate} from './packages/candidates/workspace';\nimport {readBrowserWorkspace,persistBrowserWorkspace} from './packages/candidates/browser-workspace';\nconst id='journey-ui-fixture';\nif(!readBrowserWorkspace(localStorage).candidates.some(c=>c.id===id)){\n const candidate=structuredClone(pondyCandidateRegistry.candidates[0]);\n candidate.id=id;candidate.label='Pondy design journey \u00b7 local UI fixture';candidate.revisionLabel='UI fixture';\n candidate.source='STAFF_INTERVENTION';candidate.components=candidate.components.filter(c=>c.kind!=='roof');\n const home=candidate.components.find(c=>c.kind==='home')!;\n Object.assign(home,{polygon:[[20,5],[60,5],[60,35],[38,35],[38,27.5],[20,27.5]],x:20,y:5,widthFt:40,depthFt:30,rotationDeg:0});\n persistBrowserWorkspace(localStorage,upsertWorkspaceCandidate(emptyCandidateWorkspace(),candidate));\n}\ncreateRoot(document.getElementById('root')!).render(<><p style={{padding:'10px 20px',margin:0,background:'#49371c'}}>Local fixture verification \u00b7 authentication and hosted deployment are not being tested here.</p><WorkbenchNavigation sourceCommit='local-fixture' environment='review'/><div id='workbench-content'>{window.location.pathname.endsWith('/workbench')?<WorkbenchHome/>:<main className='shell workbench-shell candidate-workspace-shell'>{window.location.pathname.endsWith('/candidates')?<CandidateLibraryWorkspace/>:window.location.pathname.endsWith('/compare')?<CandidateCompareWorkspace/>:<CandidateWorkspaceClient candidateId={id}/>}</main>}</div></>);\n",resolveDir:root,loader:'tsx'},
  bundle:true,write:false,platform:'browser',format:'iife',target:'es2022',jsx:'automatic',tsconfig:path.join(root,'tsconfig.json'),
  define:{'process.env.NODE_ENV':'"development"'},logLevel:'error',
  plugins:[{name:'test-router',setup(builder){
@@ -19,7 +19,7 @@ const result=await build({stdin:{contents:"import React from 'react';\nimport {c
 const script=result.outputFiles[0].text;
 const key='lotscope:pondy-lot2:candidate-workspace:v1';
 const errors=[];
-async function waitFor(check,label){for(let i=0;i<80;i++){if(check())return;await new Promise(r=>setTimeout(r,10));}throw Error('Timed out: '+label+' | '+[...doc.querySelectorAll('.lifecycle-message')].map(e=>e.textContent).join(' | '));}
+async function waitFor(check,label){for(let i=0;i<80;i++){if(check())return;await new Promise(r=>setTimeout(r,10));}throw Error('Timed out: '+label+' | '+[...doc.querySelectorAll('.lifecycle-message,.intervention-message')].map(e=>e.textContent).join(' | '));}
 async function open(raw,url='http://fixture.test/workbench/projects/pondy-lot2/candidates/journey-ui-fixture'){
  const console=new VirtualConsole();console.on('error',(...args)=>errors.push(args.join(' ')));
  const dom=new JSDOM('<!doctype html><div id="root"></div>',{url,runScripts:'outside-only',pretendToBeVisual:true,virtualConsole:console});
@@ -101,6 +101,80 @@ assert.equal(menu.getAttribute('aria-expanded'),'false');menu.click();
 await waitFor(()=>menu.getAttribute('aria-expanded')==='true','navigation opened');
 doc.querySelector('nav a[aria-current="page"]').click();
 await waitFor(()=>menu.getAttribute('aria-expanded')==='false','navigation closed after selection');
+// Production intervention controls + persistence. SVG coordinate mapping is an
+// identity test double here; Chrome exercises the real screen matrix separately.
+app.window.close();app=await open(raw);doc=app.window.document;
+const savedCandidate=()=>JSON.parse(app.window.localStorage.getItem(key)).candidates.find(c=>c.id==='journey-ui-fixture');
+const savedComponent=id=>savedCandidate().components.find(c=>c.id===id);
+async function selectPlacement(id){
+ const select=doc.querySelector('.intervention-select-label select');
+ Object.getOwnPropertyDescriptor(app.window.HTMLSelectElement.prototype,'value').set.call(select,id);
+ select.dispatchEvent(new app.window.Event('change',{bubbles:true}));
+ await waitFor(()=>doc.querySelector(`[data-rotation-component="${id}"]`),'selected rotation handle');
+ await new Promise(resolve=>setTimeout(resolve,20));
+}
+async function setRotation(value){
+ const field=[...doc.querySelectorAll('.intervention-field')].find(l=>l.querySelector('span')?.textContent==='Rotation deg').querySelector('input');
+ Object.getOwnPropertyDescriptor(app.window.HTMLInputElement.prototype,'value').set.call(field,String(value));
+ field.dispatchEvent(new app.window.Event('input',{bubbles:true}));
+ await new Promise(resolve=>setTimeout(resolve,10));button('Save edit').click();
+}
+await selectPlacement('garage-b');await setRotation(270);
+await waitFor(()=>savedComponent('garage-b').rotationDeg===270,'numeric 270 degree save');
+assert.equal(savedCandidate().evidenceState,'STALE');
+assert.equal(savedCandidate().currentEvaluationId,null);
+assert(JSON.parse(app.window.localStorage.getItem(key)).checkpoints.length>0,'Rotation must retain a recovery checkpoint');
+button('Undo').click();await waitFor(()=>savedComponent('garage-b').rotationDeg===0,'rotation undo');
+button('Redo').click();await waitFor(()=>savedComponent('garage-b').rotationDeg===270,'rotation redo');
+const rotatedRaw=app.window.localStorage.getItem(key);
+app.window.close();app=await open(rotatedRaw);doc=app.window.document;
+await selectPlacement('garage-b');
+assert.match(doc.querySelector('.direct-manipulation-plan [data-component-id="garage-b"]').getAttribute('transform'),/^rotate\(270 /,'Reload must render the saved angle');
+const svg=doc.querySelector('.direct-manipulation-plan');
+svg.createSVGPoint=()=>({x:0,y:0,matrixTransform(){return {x:this.x,y:this.y};}});
+svg.getScreenCTM=()=>({inverse(){return this;}});svg.setPointerCapture=()=>{};svg.releasePointerCapture=()=>{};
+function pointer(type,target,x,y){
+ const event=new app.window.MouseEvent(type,{bubbles:true,clientX:x,clientY:y,button:0});
+ Object.defineProperty(event,'pointerId',{value:1});target.dispatchEvent(event);
+}
+const handle=doc.querySelector('[data-rotation-component="garage-b"] circle');
+const garage=savedComponent('garage-b'),center=[garage.x+garage.widthFt/2,garage.y+garage.depthFt/2];
+pointer('pointerdown',handle,Number(handle.getAttribute('cx')),Number(handle.getAttribute('cy')));
+const beforeDrag=app.window.localStorage.getItem(key);
+for(const angle of [315,359,0,1,359,315,270,180,90,45]){
+ const radians=(angle-90)*Math.PI/180;
+ pointer('pointermove',svg,center[0]+15*Math.cos(radians),center[1]+15*Math.sin(radians));
+ await waitFor(()=>{
+  const transform=doc.querySelector('.direct-manipulation-plan [data-component-id="garage-b"]').getAttribute('transform');
+  return angle===0 ? transform===null : transform?.startsWith(`rotate(${angle} `);
+ },'unrestricted drag preview '+angle);
+ assert.equal(app.window.localStorage.getItem(key),beforeDrag,'Preview must not save geometry before release');
+}
+pointer('pointerup',svg,0,0);await waitFor(()=>savedComponent('garage-b').rotationDeg===45,'drag release saves edit');
+const beforeCancel=app.window.localStorage.getItem(key);
+const cancelHandle=doc.querySelector('[data-rotation-component="garage-b"] circle');
+pointer('pointerdown',cancelHandle,Number(cancelHandle.getAttribute('cx')),Number(cancelHandle.getAttribute('cy')));
+pointer('pointermove',svg,center[0]-15,center[1]);
+doc.dispatchEvent(new app.window.KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
+pointer('pointerup',svg,0,0);await new Promise(resolve=>setTimeout(resolve,10));
+assert.equal(app.window.localStorage.getItem(key),beforeCancel,'Escape must cancel rotation without saving');
+await setRotation(-90);await waitFor(()=>savedComponent('garage-b').rotationDeg===270,'negative numeric wrap');
+await setRotation(450);await waitFor(()=>savedComponent('garage-b').rotationDeg===90,'multiple-turn numeric wrap');
+await setRotation(0);await waitFor(()=>savedComponent('garage-b').rotationDeg===0,'reset numeric angle');
+const beforeTurn=app.window.localStorage.getItem(key);
+await setRotation(360);await new Promise(resolve=>setTimeout(resolve,10));
+assert.equal(app.window.localStorage.getItem(key),beforeTurn,'360 degrees must preserve geometry, evidence and checkpoints');
+await waitFor(()=>!button('Evaluate exact edit').disabled,'equivalent full turn clears pending precision edit');
+await selectPlacement('home-b');const homeBefore=structuredClone(savedComponent('home-b'));
+await setRotation(270);await waitFor(()=>JSON.stringify(savedComponent('home-b').polygon)!==JSON.stringify(homeBefore.polygon),'custom footprint 270 degree save');
+assert.equal(savedComponent('home-b').rotationDeg,0,'Custom rotation remains baked into vertices');
+const rotatedHome=structuredClone(savedComponent('home-b'));
+[...doc.querySelectorAll('#customer-report-preview button')].find(b=>b.textContent==='Create Customer Report').click();
+await waitFor(()=>doc.querySelector('#customer-report-preview iframe'),'rotated report preview');
+const rotatedReport=doc.querySelector('#customer-report-preview iframe').getAttribute('srcdoc');
+const rotatedReportDom=new app.window.DOMParser().parseFromString(rotatedReport,'text/html');
+assert.equal(rotatedReportDom.querySelector('[data-source-footprint="home-b"]').getAttribute('points'),rotatedHome.polygon.map(point=>point.map(value=>Number(value.toFixed(3))).join(',')).join(' '),'Report must contain rotated custom footprint vertices');
+assert.equal(errors.length,0,errors.join('\n'));
 app.window.close();app=await open(raw,'http://fixture.test/workbench/projects/pondy-lot2/candidates');doc=app.window.document;
 const search=doc.querySelector('input[type="search"]');
 function changeSearch(value){Object.getOwnPropertyDescriptor(app.window.HTMLInputElement.prototype,'value').set.call(search,value);search.dispatchEvent(new app.window.Event('input',{bubbles:true}));}
@@ -141,4 +215,4 @@ if(process.env.WORKBENCH_UI_FIXTURE_DIR){
  await writeFile(path.join(out,'app.js'),script);
  await writeFile(path.join(out,'index.html'),'<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>'+css+'</style></head><body><div id="root"></div><script src="/app.js"></script></body></html>');
 }
-console.log('PASS actual React components: compare three layouts, choose non-top, save, fresh mount/reload, exact report preview, download enable/staleness, cancel replacement without mutation, active/mobile navigation, library filters, direct room selection, non-mutating zoom, saved room program, full-page report staleness and real saved-work resume/error recovery; router/download APIs are local test doubles; no hosted authentication or pixel-layout claim');
+console.log('PASS actual React components: compare three layouts, choose non-top, save, fresh mount/reload, exact report preview, download enable/staleness, cancel replacement without mutation, active/mobile navigation, library filters, direct room selection, non-mutating zoom, saved room program, full-page report staleness and real saved-work resume/error recovery, full-circle manual rotation, precision wrapping, preview/commit/cancel, checkpoint Undo/Redo and rotated report vertices; router/download APIs are local test doubles; no hosted authentication or pixel-layout claim');

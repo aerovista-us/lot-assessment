@@ -103,6 +103,47 @@ try{
     await noOverflow();
     await page.$eval('#universal-design-editor',e=>e.scrollIntoView({block:'start',behavior:'instant'}));
     await page.screenshot({path:path.join(out,`studio-${width}.png`),fullPage:false,timeout:15000});
+
+    // Real pointer capture and SVG screen-to-model conversion, including a
+    // nonzero starting angle and crossing the 0/360 boundary both ways.
+    await page.select('.intervention-select-label select','garage-b');
+    await page.waitForSelector('[data-rotation-component="garage-b"]');
+    await clickPlanControl('.direct-plan-toolbar button:nth-child(4)');
+    const dragPoint=async angle=>page.$eval('[data-rotation-component="garage-b"] circle',(knob,angle)=>{
+     const svg=knob.ownerSVGElement,rect=svg.querySelector('[data-component-id="garage-b"] rect');
+     const cx=Number(rect.getAttribute('x'))+Number(rect.getAttribute('width'))/2,cy=Number(rect.getAttribute('y'))+Number(rect.getAttribute('height'))/2;
+     const radius=Math.hypot(Number(knob.getAttribute('cx'))-cx,Number(knob.getAttribute('cy'))-cy);
+     const point=svg.createSVGPoint();point.x=cx+radius*Math.cos((angle-90)*Math.PI/180);point.y=cy+radius*Math.sin((angle-90)*Math.PI/180);
+     const screen=point.matrixTransform(svg.getScreenCTM());return {x:screen.x,y:screen.y};
+    },angle);
+    const currentHandlePoint=async()=>page.$eval('[data-rotation-component="garage-b"] circle',knob=>{
+     const box=knob.getBoundingClientRect();return {x:box.x+box.width/2,y:box.y+box.height/2};
+    });
+    const centerRotationHandle=async()=>page.$eval('[data-rotation-component="garage-b"] circle',knob=>knob.scrollIntoView({block:'center',behavior:'instant'}));
+    const assertHandleReachable=async point=>assert(await page.evaluate(point=>document.elementFromPoint(point.x,point.y)?.matches('[data-rotation-component="garage-b"] circle'),point),'Rotation handle must be visible and unobscured after Fit selection');
+    await centerRotationHandle();const start=await currentHandlePoint();await assertHandleReachable(start);await page.mouse.move(start.x,start.y);await page.mouse.down();
+    for(const angle of [90,180,270,359,1,359,315,225]){
+     const point=await dragPoint(angle);await page.mouse.move(point.x,point.y,{steps:4});
+     await page.waitForFunction(angle=>document.querySelector('.direct-manipulation-plan [data-component-id="garage-b"]').getAttribute('transform')?.startsWith(`rotate(${angle} `),{},angle);
+    }
+    await page.mouse.up();
+    await page.reload({waitUntil:'networkidle0'});await page.waitForSelector('.intervention-editor-panel');
+    await page.select('.intervention-select-label select','garage-b');
+    await page.waitForFunction(()=>document.querySelector('.direct-manipulation-plan [data-component-id="garage-b"]').getAttribute('transform')?.startsWith('rotate(225 '));
+    await clickPlanControl('.direct-plan-toolbar button:nth-child(4)');
+    await centerRotationHandle();const resumed=await currentHandlePoint();await assertHandleReachable(resumed);await page.mouse.move(resumed.x,resumed.y);await page.mouse.down();
+    const wrapped=await dragPoint(270);await page.mouse.move(wrapped.x,wrapped.y,{steps:4});await page.mouse.up();
+    await page.waitForFunction(()=>document.querySelector('.direct-manipulation-plan [data-component-id="garage-b"]').getAttribute('transform')?.startsWith('rotate(270 '));
+    await page.$eval('.intervention-precision',element=>{element.open=true;});
+    await clickPlanControl('label.intervention-field:has(input[step="1"]) input');
+    await page.keyboard.down('Control');await page.keyboard.press('KeyA');await page.keyboard.up('Control');await page.keyboard.type('-90');
+    await clickPlanControl('.intervention-actions button:first-child');
+    assert.match(await page.$eval('.direct-manipulation-plan [data-component-id="garage-b"]',element=>element.getAttribute('transform')),/^rotate\(270 /,'Negative numeric rotation must wrap');
+    await page.waitForFunction(()=>document.querySelector('label.intervention-field:has(input[step="1"]) input').value==='270'&&!document.querySelector('.intervention-actions .primary-button').disabled);
+    await noOverflow();
+    await page.$eval('.direct-manipulation-wrap',element=>element.scrollIntoView({block:'center',behavior:'instant'}));
+    await page.screenshot({path:path.join(out,`rotation-${width}.png`),fullPage:false,timeout:15000});
+    fidelity.fullCircleRotation={allQuadrants:true,boundaryBothDirections:true,nonzeroResume:true,reload:true,negativePrecisionEdit:true};
    }
    await page.evaluate(()=>scrollTo({top:0,behavior:'instant'}));
    await page.screenshot({path:path.join(out,`${view}-${width}.png`),fullPage:view==='home',timeout:15000});

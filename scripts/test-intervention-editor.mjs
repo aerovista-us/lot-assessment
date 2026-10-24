@@ -5,6 +5,9 @@ import { evaluateInterventionCandidate, exploreInterventionNeighborhood } from "
 import { placementShapeIdentity, placementWallId } from "../packages/candidates/shape-topology.ts";
 import { canonicalizeInterventionGeometry, interventionGeometryHash } from "../packages/canonical/intervention-v3.ts";
 import { canonicalizeInterventionGeometry as canonicalizeInterventionGeometryV2, interventionGeometryHash as interventionGeometryHashV2 } from "../packages/canonical/intervention-v2.ts";
+import { getPlacementFootprint } from "../packages/candidates/customer-report-views.ts";
+import { persistBrowserWorkspace, readBrowserWorkspace } from "../packages/candidates/browser-workspace.ts";
+import { emptyCandidateWorkspace, upsertWorkspaceCandidate } from "../packages/candidates/workspace.ts";
 
 const rules = pondyCandidateRegistry.lots[0].rulesVersion;
 const d4 = pondyCandidateRegistry.candidates.find((candidate) => candidate.id === "pondy-d4");
@@ -35,6 +38,35 @@ assert.notEqual(editedStall.headingDeg, originalStall.headingDeg);
 assert.equal(edited.evidenceState, "STALE");
 assert.equal(edited.currentEvaluationId, null);
 
+// Staff edits must reach every quadrant even when solver templates carry a
+// narrow exploration limit. Compare actual source/report vertices, not labels.
+const garageB = d4.components.find(component => component.id === "garage-b");
+assert(garageB?.kind === "garage");
+const rotateExpected = (point, center, degrees) => {
+  const radians = degrees * Math.PI / 180, x = point[0] - center[0], y = point[1] - center[1];
+  return [center[0] + x * Math.cos(radians) - y * Math.sin(radians), center[1] + x * Math.sin(radians) + y * Math.cos(radians)];
+};
+const closePoints = (actual, expected) => {
+  assert.equal(actual.length, expected.length);
+  actual.forEach((point, index) => point.forEach((value, axis) => assert(Math.abs(value - expected[index][axis]) <= .0011, `Rotation changed vertex ${index}, axis ${axis}: ${value} vs ${expected[index][axis]}`)));
+};
+for (const degrees of [90, 180, 225, 270, 359, -90, 450, -450, 359.125]) {
+  const fullCircle = editPlacementComponent(d4, "garage-b", { rotationDeg: degrees });
+  const placement = fullCircle.components.find(component => component.id === "garage-b");
+  assert.equal(placement.rotationDeg, (degrees % 360 + 360) % 360, "Manual rotation must wrap instead of clamping to a solver exploration limit");
+  const center = [garageB.x + garageB.widthFt / 2, garageB.y + garageB.depthFt / 2];
+  closePoints(getPlacementFootprint(placement), getPlacementFootprint(garageB).map(point => rotateExpected(point, center, degrees - (garageB.rotationDeg ?? 0))));
+  const stall = fullCircle.components.find(component => component.id === "b-south");
+  closePoints([[stall.axleX, stall.axleY]], [rotateExpected([originalStall.axleX, originalStall.axleY], center, degrees - (garageB.rotationDeg ?? 0))]);
+  assert.equal(fullCircle.evidenceState, "STALE");
+  assert.equal(fullCircle.currentEvaluationId, null);
+  const storage = { raw: null, getItem() { return this.raw; }, setItem(_key, value) { this.raw = value; } };
+  persistBrowserWorkspace(storage, upsertWorkspaceCandidate(emptyCandidateWorkspace(), fullCircle));
+  closePoints(getPlacementFootprint(readBrowserWorkspace(storage).candidates[0].components.find(component => component.id === "garage-b")), getPlacementFootprint(placement));
+}
+assert.equal(editPlacementComponent(d4, "garage-b", { rotationDeg: 360 }), d4, "A full turn must preserve geometry and current evidence");
+for (const invalid of [NaN, Infinity, -Infinity]) assert.throws(() => editPlacementComponent(d4, "garage-b", { rotationDeg: invalid }), /finite/i);
+
 const implicitMovable = { ...d4, components: d4.components.map((component) => component.id === "garage-b" && component.kind === "garage" ? { ...component, movable: undefined } : component) };
 const implicitlyMoved = editPlacementComponent(implicitMovable, "garage-b", { x: 8 }, "2026-09-18T12:01:10.000Z");
 assert.equal(implicitlyMoved.components.find((component) => component.id === "garage-b")?.x, 8, "intervention placements are movable unless explicitly locked");
@@ -52,6 +84,17 @@ const rotatedHomeB = rotatedHome.components.find((component) => component.id ===
 assert(rotatedHomeB && rotatedHomeB.kind === "home" && rotatedHomeB.polygon);
 assert.equal(rotatedHomeB.rotationDeg, 0, "polygon home rotation must be baked into footprint vertices");
 assert.notDeepEqual(rotatedHomeB.polygon, homeB.polygon, "home rotation must change authoritative polygon geometry");
+for (const degrees of [90, 180, 270, 359, -90, 450]) {
+  const next = editPlacementComponent(d4, "home-b", { rotationDeg: degrees });
+  const placement = next.components.find(component => component.id === "home-b");
+  const center = [homeB.x + homeB.widthFt / 2, homeB.y + homeB.depthFt / 2];
+  assert.equal(placement.rotationDeg, 0, "Custom footprint rotation remains baked into the authoritative vertices");
+  closePoints(placement.polygon, homeB.polygon.map(point => rotateExpected(point, center, degrees)));
+  assert.deepEqual(placement.polygonVertexIds, placementShapeIdentity(homeB).vertexIds);
+  closePoints(getPlacementFootprint(placement), placement.polygon);
+  assert.equal(next.components.find(component => component.id === "roof-home-b").status, "UNLOCKED", "Every changed quadrant must invalidate the old roof lock");
+}
+assert.equal(editPlacementComponent(d4, "home-b", { rotationDeg: 360 }), d4, "A custom footprint full turn must be a no-op");
 const mirroredHome = mirrorPlacementComponent(d4, "home-b", "horizontal", "2026-09-18T12:01:51.000Z");
 assert.notDeepEqual(mirroredHome.components.find((component) => component.id === "home-b")?.polygon, homeB.polygon, "irregular home mirror must change footprint");
 const wallEdited = editPlacementWallLength(d4, "home-b", 0, 2, "2026-09-18T12:01:52.000Z");
@@ -133,6 +176,10 @@ console.log(JSON.stringify({
   deflectionPointEditing: true,
   projectedDeflectionInsertion: true,
   sharedPolygonIntegrity: true,
+  fullCirclePlacementRotation: true,
+  normalizedNegativeAndMultipleTurns: true,
+  fullTurnPreservesEvidence: true,
+  rotatedSourceReportAndReloadFidelity: true,
   stableFootprintIdentity: true,
   canonicalInterventionGeometryV3: true,
   canonicalInterventionGeometryV2Compatibility: true,
