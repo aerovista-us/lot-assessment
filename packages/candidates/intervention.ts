@@ -18,6 +18,7 @@ import {
 import { assertPolygonIntegrity, polygonWinding, projectPointToSegment } from "@/packages/candidates/geometry-integrity";
 import { nextPlacementVertexId, placementShapeIdentity, resolvePlacementVertexIndex, resolvePlacementWallIndex } from "@/packages/candidates/shape-topology";
 import { ownerGeometryKey, validateRoofComponent } from "@/packages/roof-geometry";
+import { normalizePlacementRotation } from "@/packages/candidates/placement-rotation";
 
 export type EditableCandidateComponent = PlacementComponent | PathComponent | OpeningComponent | RoofComponent | (PolygonComponent & { kind: "pavement" });
 
@@ -104,8 +105,8 @@ export function editPlacementComponent(candidate: CandidateRecord, componentId: 
   const nextY = round(edit.y ?? target.y);
   const nextWidth = round(edit.widthFt ?? target.widthFt);
   const nextDepth = round(edit.depthFt ?? target.depthFt);
-  const rotationLimit = target.rotationLimitDeg ?? 180;
-  const nextRotation = round(Math.max(-rotationLimit, Math.min(rotationLimit, edit.rotationDeg ?? target.rotationDeg ?? 0)));
+  // Template exploration limits do not restrict an explicit staff edit.
+  const nextRotation = normalizePlacementRotation(edit.rotationDeg ?? target.rotationDeg ?? 0);
   if (nextWidth <= 0 || nextDepth <= 0) throw new Error("Placement dimensions must be positive.");
   if (!target.resizable && (nextWidth !== target.widthFt || nextDepth !== target.depthFt)) throw new Error("This component is size-locked.");
   if (target.movable === false && (nextX !== target.x || nextY !== target.y)) throw new Error("This component is position-locked.");
@@ -151,7 +152,7 @@ export function editPlacementComponent(candidate: CandidateRecord, componentId: 
         ...component,
         axleX: round(rotated[0] + dx),
         axleY: round(rotated[1] + dy),
-        headingDeg: round(component.headingDeg + deltaRotation)
+        headingDeg: normalizePlacementRotation(component.headingDeg + deltaRotation)
       } satisfies StallComponent;
     }
   }

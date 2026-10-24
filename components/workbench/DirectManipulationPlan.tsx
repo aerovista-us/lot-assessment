@@ -11,6 +11,7 @@ import type {
   RoofComponent
 } from "@/packages/candidates";
 import { isInterventionEditable } from "@/packages/candidates/intervention";
+import { normalizePlacementRotation } from "@/packages/candidates/placement-rotation";
 import { assertPolygonIntegrity, polygonWinding } from "@/packages/candidates/geometry-integrity";
 import { placementShapeIdentity, placementWallId } from "@/packages/candidates/shape-topology";
 import { roofPlanSegments, validateCandidateRoofs } from "@/packages/roof-geometry";
@@ -28,7 +29,7 @@ export type DirectManipulation =
 type Point = readonly [number, number];
 type DragState =
   | { kind: "placement"; pointerId: number; componentId: string; start: Point; startX: number; startY: number }
-  | { kind: "rotation"; pointerId: number; componentId: string; center: Point; limit: number }
+  | { kind: "rotation"; pointerId: number; componentId: string; center: Point; startBearingDeg: number; startRotationDeg: number }
   | { kind: "path-point"; pointerId: number; componentId: string; pointIndex: number }
   | { kind: "pavement-vertex"; pointerId: number; componentId: string; vertexIndex: number }
   | { kind: "opening"; pointerId: number; componentId: string; ownerId: string }
@@ -244,8 +245,8 @@ export function DirectManipulationPlan({ candidate, selectedComponentId, disable
       return;
     }
     if (active.kind === "rotation") {
-      let rotationDeg = roundDegree(Math.atan2(point[1] - active.center[1], point[0] - active.center[0]) * 180 / Math.PI + 90);
-      rotationDeg = Math.max(-active.limit, Math.min(active.limit, rotationDeg));
+      const bearingDeg = Math.atan2(point[1] - active.center[1], point[0] - active.center[0]) * 180 / Math.PI;
+      const rotationDeg = normalizePlacementRotation(roundDegree(active.startRotationDeg + bearingDeg - active.startBearingDeg));
       updatePreview({ kind: "rotation", componentId: active.componentId, rotationDeg });
       return;
     }
@@ -335,6 +336,7 @@ export function DirectManipulationPlan({ candidate, selectedComponentId, disable
     })}
     {placements.flatMap((rawItem) => {
       if (selectedComponentId !== rawItem.id || rawItem.locked || !rawItem.resizable) return [];
+      if (preview?.kind === "rotation" && preview.componentId === rawItem.id) return [];
       const item = displayPlacement(rawItem), polygon = placementPolygonPoints(item), identity = placementShapeIdentity(rawItem);
       const wallControls = polygon.map((a, wallIndex) => {
         const b = polygon[(wallIndex + 1) % polygon.length], mid: Point = [(a[0]+b[0])/2,(a[1]+b[1])/2];
@@ -358,11 +360,14 @@ export function DirectManipulationPlan({ candidate, selectedComponentId, disable
       const center: Point = [item.x + item.widthFt / 2, item.y + item.depthFt / 2];
       const top: Point = rotatePoint([center[0], item.y], center, item.rotationDeg ?? 0);
       const knob: Point = rotatePoint([center[0], item.y - 4], center, item.rotationDeg ?? 0);
-      const limit = rawItem.rotationLimitDeg ?? (rawItem.kind === "garage" ? 45 : 30);
-      return <g key={`${rawItem.id}-rotate`} className="direct-rotation-control">
+      return <g key={`${rawItem.id}-rotate`} className="direct-rotation-control" data-rotation-component={rawItem.id}>
         <line x1={top[0]} y1={top[1]} x2={knob[0]} y2={knob[1]} />
-        <circle cx={knob[0]} cy={knob[1]} r="1.45" onPointerDown={(event) => begin(event,
-          { kind: "rotation", pointerId: event.pointerId, componentId: rawItem.id, center, limit }, rawItem.id)} />
+        <circle cx={knob[0]} cy={knob[1]} r="1.45" onPointerDown={(event) => {
+          const point = svgPoint(event.clientX, event.clientY);
+          begin(event, { kind: "rotation", pointerId: event.pointerId, componentId: rawItem.id, center,
+            startBearingDeg: Math.atan2(point[1] - center[1], point[0] - center[0]) * 180 / Math.PI,
+            startRotationDeg: rawItem.rotationDeg ?? 0 }, rawItem.id);
+        }}><title>Rotate {rawItem.label} through 360°</title></circle>
       </g>;
     })}
     {roofs.flatMap((roof) => {
