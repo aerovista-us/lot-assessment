@@ -1,11 +1,11 @@
-import { requireWorkbenchApiAccess } from "@/lib/aerovista/api-guard";
+import { requireInternalWorkspaceApiAccess } from "@/lib/aerovista/api-guard";
 import { NextResponse } from "next/server";
 import repair from "@/projects/pondy-design4/repair-comparison.json";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const authGuard = await requireWorkbenchApiAccess();
+  const authGuard = await requireInternalWorkspaceApiAccess();
   if (authGuard) return authGuard;
   return NextResponse.json(repair, { headers: { "cache-control": "no-store" } });
 }
