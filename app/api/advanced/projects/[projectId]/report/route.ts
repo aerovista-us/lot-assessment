@@ -22,7 +22,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ pro
   if (size > 2_000_000) {
     return NextResponse.json({ error: "report_payload_too_large" }, { status: 413 });
   }
-  const body = await request.json().catch(() => null) as
+  const raw = await request.text();
+  if (raw.length > 2_000_000) return NextResponse.json({ error: "report_payload_too_large" }, { status: 413 });
+  let parsed: unknown = null;
+  try { parsed = JSON.parse(raw); } catch { /* invalid input */ }
+  const body = parsed as
     { candidate?: CandidateRecord; document?: DesignDocument } | null;
   const candidate = body?.candidate;
   const document = body?.document;
