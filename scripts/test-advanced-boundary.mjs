@@ -1,0 +1,25 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+
+const read = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf8");
+const guard = read("lib/aerovista/advanced-access.ts");
+const route = read("app/api/advanced/projects/[projectId]/report/route.ts");
+const workspace = read("packages/candidates/browser-workspace.ts");
+
+assert.match(guard, /getWorkbenchSession\(\)/, "Must use resolved session");
+assert.match(guard, /capability: ADVANCED_CAPABILITY/, "Must check paid plan");
+assert.match(guard, /capability: PROJECT_READ_CAPABILITY/, "Must check project access");
+assert.match(guard, /resourceId: projectId/, "Must bind resource ID");
+assert.match(guard, /project_access_denied/, "Must reject other owners");
+assert.match(guard, /advanced_authorization_unavailable/, "Must fail closed on gateway errors");
+assert.doesNotMatch(guard, /LOTSCOPE_ACCESS_CAPABILITY/, "Must not use generic Workbench capability");
+assert.match(route, /await authorizeAdvancedProject\(projectId\)/);
+assert.match(route, /if \(!auth\.allowed\)/);
+assert.match(route, /candidate\.projectId !== projectId/);
+assert.match(route, /document\.projectId !== projectId/);
+assert.match(route, /validateDesignDocument\(candidate, document\)/);
+assert.match(route, /document\.revision < 1/);
+assert.match(route, /createCandidateConceptHtml\(candidate, document\)/);
+assert.match(route, /private, no-store/);
+assert.match(workspace, /WORKSPACE_STORAGE_KEY/, "Legacy browser saved drafts must remain untouched");
+console.log("Advanced boundary source contract: PASS");
