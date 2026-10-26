@@ -1,4 +1,4 @@
-import { requireWorkbenchApiAccess } from "@/lib/aerovista/api-guard";
+import { requireInternalWorkspaceApiAccess } from "@/lib/aerovista/api-guard";
 import { NextResponse } from "next/server";
 import { runPondyTriage } from "@/projects/pondy-lot2/triage";
 
@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 export async function GET() {
-  const authGuard = await requireWorkbenchApiAccess();
+  const authGuard = await requireInternalWorkspaceApiAccess();
   if (authGuard) return authGuard;
   try {
     const result = runPondyTriage();

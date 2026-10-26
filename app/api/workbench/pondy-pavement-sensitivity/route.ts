@@ -1,4 +1,4 @@
-import { requireWorkbenchApiAccess } from "@/lib/aerovista/api-guard";
+import { requireInternalWorkspaceApiAccess } from "@/lib/aerovista/api-guard";
 import { NextRequest, NextResponse } from "next/server";
 import { evaluatePavementSensitivity } from "@/packages/automation/pavement";
 import { insetPolygonBySegment } from "@/packages/geometry";
@@ -27,7 +27,7 @@ function validCandidate(value: unknown): value is PlacementCandidate {
 }
 
 export async function POST(request: NextRequest) {
-  const authGuard = await requireWorkbenchApiAccess();
+  const authGuard = await requireInternalWorkspaceApiAccess();
   if (authGuard) return authGuard;
   let body: { candidate?: unknown; widthsFt?: unknown };
   try {

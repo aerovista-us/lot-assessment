@@ -1,4 +1,4 @@
-import { requireWorkbenchApiAccess } from "@/lib/aerovista/api-guard";
+import { requireInternalWorkspaceApiAccess } from "@/lib/aerovista/api-guard";
 import { NextRequest, NextResponse } from "next/server";
 import {
   SITE_AUTOMATION_PASSES,
@@ -181,7 +181,7 @@ function pavementScenarioStrip(candidate: RankedResult) {
 }
 
 export async function GET(request: NextRequest) {
-  const authGuard = await requireWorkbenchApiAccess();
+  const authGuard = await requireInternalWorkspaceApiAccess();
   if (authGuard) return authGuard;
   const rankedUrl = new URL("/api/workbench/pondy-ranked", request.url);
   const rankedResponse = await fetch(rankedUrl, { cache: "no-store" });
