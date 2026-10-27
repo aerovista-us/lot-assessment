@@ -4,9 +4,10 @@ import { getAeroVistaServerAdapter } from "./app-adapter.server";
 
 export const ADVANCED_CAPABILITY = "lotscope.advanced.access";
 export const PROJECT_READ_CAPABILITY = "lotscope.project.read";
+export const PROJECT_EDIT_CAPABILITY = "lotscope.project.edit";
 export const PROJECT_RESOURCE_TYPE = "lotscope_project";
 
-export async function authorizeAdvancedProject(projectId: string) {
+export async function authorizeAdvancedProject(projectId: string, operation: "read" | "write" = "read") {
   if (!/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/.test(projectId)) {
     return { allowed: false as const, status: 403, code: "invalid_project_scope" };
   }
@@ -17,7 +18,7 @@ export async function authorizeAdvancedProject(projectId: string) {
     const plan = await identity.can({ identityId: session.identity.identityId, capability: ADVANCED_CAPABILITY });
     if (!plan.allowed) return { allowed: false as const, status: 403, code: "advanced_entitlement_required" };
     const project = await identity.can({
-      identityId: session.identity.identityId, capability: PROJECT_READ_CAPABILITY,
+      identityId: session.identity.identityId, capability: operation === "write" ? PROJECT_EDIT_CAPABILITY : PROJECT_READ_CAPABILITY,
       resourceType: PROJECT_RESOURCE_TYPE, resourceId: projectId,
     });
     if (!project.allowed) return { allowed: false as const, status: 403, code: "project_access_denied" };

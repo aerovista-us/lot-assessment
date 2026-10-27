@@ -3,6 +3,7 @@ import { authorizeAdvancedProject } from "@/lib/aerovista/advanced-access";
 import { validateDesignDocument, type DesignDocument } from "@/packages/candidates/design-document";
 import { createCandidateConceptHtml } from "@/packages/candidates/customer-report";
 import type { CandidateRecord } from "@/packages/candidates";
+import { readAdvancedRevision } from "@/lib/aerovista/advanced-revisions";
 
 export const dynamic = "force-dynamic";
 
@@ -50,5 +51,30 @@ export async function POST(request: Request, { params }: { params: Promise<{ pro
     return NextResponse.json({ error: "invalid_or_stale_saved_revision" }, {
       status: 422, headers: { "cache-control": "no-store" },
     });
+  }
+}
+
+/** Generate a report from the server-stored, authenticated latest revision. */
+export async function GET(request: Request, { params }: { params: Promise<{ projectId: string }> }) {
+  const { projectId } = await params;
+  const auth = await authorizeAdvancedProject(projectId);
+  if (!auth.allowed) return NextResponse.json({ error: auth.code }, { status: auth.status, headers: { "cache-control": "no-store" } });
+  const candidateId = new URL(request.url).searchParams.get("candidateId");
+  if (!candidateId || !/^[a-zA-Z0-9][\w-]{0,127}$/.test(candidateId))
+    return NextResponse.json({ error: "invalid_candidate_id" }, { status: 400 });
+  try {
+    const saved = await readAdvancedRevision(projectId, candidateId);
+    if (!saved) return NextResponse.json({ error: "revision_not_found" }, { status: 404 });
+    const report = await createCandidateConceptHtml(saved.candidate, saved.document);
+    return new NextResponse(report.html, {
+      headers: {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "private, no-store",
+        "x-content-type-options": "nosniff",
+        "content-security-policy": "sandbox",
+      },
+    });
+  } catch {
+    return NextResponse.json({ error: "advanced_report_unavailable" }, { status: 503, headers: { "cache-control": "no-store" } });
   }
 }
