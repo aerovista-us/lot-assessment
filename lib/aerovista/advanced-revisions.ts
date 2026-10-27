@@ -72,3 +72,17 @@ export async function readAdvancedRevision(projectId: string, candidateId: strin
   if (digest(canonical([candidate, document])) !== rows[0].payload_sha256) throw Error('stored_payload_integrity_invalid');
   return { candidate, document, payloadSha256: rows[0].payload_sha256 as string };
 }
+
+/** Reject reports made from unsigned browser-local copies or superseded revisions.
+ * Only the latest persisted, source-checked revision can be customer-published. */
+export async function verifyReportSnapshot(
+  projectId: string, candidate: CandidateRecord, document: DesignDocument,
+): Promise<SavedRevision | null> {
+  if (!candidate?.id || candidate.projectId !== projectId ||
+      document?.projectId !== projectId || document.candidateId !== candidate.id ||
+      !Number.isInteger(document.revision) || document.revision < 1) return null;
+  const saved = await readAdvancedRevision(projectId, candidate.id);
+  if (!saved || saved.document.revision !== document.revision ||
+      saved.payloadSha256 !== digest(canonical([candidate, document]))) return null;
+  return saved;
+}
