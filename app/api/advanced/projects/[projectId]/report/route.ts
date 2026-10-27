@@ -3,7 +3,7 @@ import { authorizeAdvancedProject } from "@/lib/aerovista/advanced-access";
 import { validateDesignDocument, type DesignDocument } from "@/packages/candidates/design-document";
 import { createCandidateConceptHtml } from "@/packages/candidates/customer-report";
 import type { CandidateRecord } from "@/packages/candidates";
-import { readAdvancedRevision } from "@/lib/aerovista/advanced-revisions";
+import { readAdvancedRevision, verifyReportSnapshot } from "@/lib/aerovista/advanced-revisions";
 
 export const dynamic = "force-dynamic";
 
@@ -38,7 +38,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ pro
   try {
     validateDesignDocument(candidate, document);
     if (document.revision < 1) throw Error("Unsaved design revision");
-    const report = await createCandidateConceptHtml(candidate, document);
+    // Never publish a client-submitted draft as if it were an account-saved revision.
+    // The authoritative data always comes from the project-owned persisted record.
+    const saved = await verifyReportSnapshot(projectId, candidate, document);
+    if (!saved) return NextResponse.json({ error: "saved_revision_not_current" }, {
+      status: 409, headers: { "cache-control": "no-store" },
+    });
+    const report = await createCandidateConceptHtml(saved.candidate, saved.document);
     return new NextResponse(report.html, {
       headers: {
         "content-type": "text/html; charset=utf-8",
