@@ -20,7 +20,8 @@
     "export:roof": "node --experimental-loader ./scripts/alias-loader.mjs scripts/export-roof-sot.mjs",
     "test:roof-touch": "node scripts/test-roof-inspector-touch.mjs",
     "test:customer-journey-ui": "node scripts/test-customer-journey-ui.mjs",
-    "test:advanced-persistence": "node scripts/test-advanced-persistence.mjs"
+    "test:advanced-persistence": "node scripts/test-advanced-persistence.mjs",
+    "test:advanced-sso": "node --import tsx scripts/test-advanced-sso.mjs"
   },
   "dependencies": {
     "next": "16.3.2",

@@ -6,7 +6,8 @@ const guard = read("lib/aerovista/advanced-access.ts");
 const route = read("app/api/advanced/projects/[projectId]/report/route.ts");
 const workspace = read("packages/candidates/browser-workspace.ts");
 
-assert.match(guard, /getWorkbenchSession\(\)/, "Must use resolved session");
+assert.match(guard, /getAdvancedSession\(\)/, "Must use independent resolved Advanced session");
+assert.doesNotMatch(guard, /getWorkbenchSession/, "Must never use founder Workbench cookie");
 assert.match(guard, /capability: ADVANCED_CAPABILITY/, "Must check paid plan");
 assert.match(guard, /PROJECT_READ_CAPABILITY/, "Must check project read access");
 assert.match(guard, /PROJECT_EDIT_CAPABILITY/, "Must check project edit access");

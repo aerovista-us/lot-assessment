@@ -1,6 +1,6 @@
 import "server-only";
-import { getWorkbenchSession } from "./session";
-import { getAeroVistaServerAdapter } from "./app-adapter.server";
+import { getAdvancedSession } from "./advanced-session";
+import { getAdvancedAeroVistaServerAdapter } from "./advanced-app-adapter.server";
 
 export const ADVANCED_CAPABILITY = "lotscope.advanced.access";
 export const PROJECT_READ_CAPABILITY = "lotscope.project.read";
@@ -11,10 +11,10 @@ export async function authorizeAdvancedProject(projectId: string, operation: "re
   if (!/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/.test(projectId)) {
     return { allowed: false as const, status: 403, code: "invalid_project_scope" };
   }
-  const session = await getWorkbenchSession();
+  const session = await getAdvancedSession();
   if (!session) return { allowed: false as const, status: 401, code: "advanced_session_required" };
   try {
-    const identity = getAeroVistaServerAdapter().identity;
+    const identity = getAdvancedAeroVistaServerAdapter().identity;
     const plan = await identity.can({ identityId: session.identity.identityId, capability: ADVANCED_CAPABILITY });
     if (!plan.allowed) return { allowed: false as const, status: 403, code: "advanced_entitlement_required" };
     const project = await identity.can({
