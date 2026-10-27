@@ -8,7 +8,9 @@ const workspace = read("packages/candidates/browser-workspace.ts");
 
 assert.match(guard, /getWorkbenchSession\(\)/, "Must use resolved session");
 assert.match(guard, /capability: ADVANCED_CAPABILITY/, "Must check paid plan");
-assert.match(guard, /capability: PROJECT_READ_CAPABILITY/, "Must check project access");
+assert.match(guard, /PROJECT_READ_CAPABILITY/, "Must check project read access");
+assert.match(guard, /PROJECT_EDIT_CAPABILITY/, "Must check project edit access");
+assert.match(guard, /resourceType: PROJECT_RESOURCE_TYPE/, "Must bind project scope");
 assert.match(guard, /resourceId: projectId/, "Must bind resource ID");
 assert.match(guard, /project_access_denied/, "Must reject other owners");
 assert.match(guard, /advanced_authorization_unavailable/, "Must fail closed on gateway errors");
