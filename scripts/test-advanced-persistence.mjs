@@ -21,6 +21,9 @@ assert.match(store, /ON CONFLICT \(project_id,candidate_id,revision\) DO NOTHING
 assert.match(store, /payload_sha256/);
 assert.match(store, /WHERE project_id=\$\{projectId\} AND candidate_id=\$\{candidateId\}/);
 assert.match(sql, /PRIMARY KEY \(project_id, candidate_id, revision\)/);
+assert.match(sql, /REFERENCES lotscope_advanced_projects\(project_id\)/);
+assert.match(store, /requireCanonicalProjectSource\(sql, projectId, candidate\)/);
+assert.match(store, /canonical_project_source_mismatch/);
 assert.match(report, /readAdvancedRevision\(projectId, candidateId\)/);
 assert.match(report, /createCandidateConceptHtml\(saved\.candidate, saved\.document\)/);
 assert.match(legacy, /WORKSPACE_STORAGE_KEY/);

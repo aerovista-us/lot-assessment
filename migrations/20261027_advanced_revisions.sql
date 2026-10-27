@@ -1,7 +1,14 @@
 -- Run against a separately provisioned managed PostgreSQL database before enabling Advanced persistence.
 -- No destructive migrations and no writes to Pondy client repositories.
+-- Staff/provisioning-only authoritative project parcel. No public API may insert here.
+CREATE TABLE IF NOT EXISTS lotscope_advanced_projects (
+  project_id text PRIMARY KEY,
+  source_parcel_sha256 char(64) NOT NULL,
+  source_parcel jsonb NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
 CREATE TABLE IF NOT EXISTS lotscope_advanced_revisions (
-  project_id text NOT NULL,
+  project_id text NOT NULL REFERENCES lotscope_advanced_projects(project_id),
   candidate_id text NOT NULL,
   revision integer NOT NULL CHECK (revision >= 1),
   identity_id text NOT NULL,

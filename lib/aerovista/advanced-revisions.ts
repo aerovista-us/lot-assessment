@@ -17,6 +17,18 @@ function canonical(value: unknown): string {
   if (value && typeof value === 'object') return '{' + Object.keys(value).sort().filter(key => (value as Record<string,unknown>)[key] !== undefined).map(key => JSON.stringify(key) + ':' + canonical((value as Record<string,unknown>)[key])).join(',') + '}';
   return JSON.stringify(value);
 }
+/** Only staff-provisioned canonical parcel geometry can authorize a design revision. */
+async function requireCanonicalProjectSource(sql: ReturnType<typeof postgres>, projectId: string, candidate: CandidateRecord) {
+  const parcel = candidate.components.filter(c => c.kind === 'parcel');
+  if (parcel.length !== 1) throw Error('invalid_canonical_parcel');
+  const rows = await sql`SELECT source_parcel_sha256, source_parcel FROM lotscope_advanced_projects WHERE project_id=${projectId}`;
+  if (rows.length !== 1) throw Error('canonical_project_not_provisioned');
+  const source = rows[0].source_parcel;
+  if (digest(canonical(source)) !== rows[0].source_parcel_sha256 ||
+      digest(canonical(parcel[0])) !== rows[0].source_parcel_sha256)
+    throw Error('canonical_project_source_mismatch');
+}
+
 export type SavedRevision = { candidate: CandidateRecord; document: DesignDocument; payloadSha256: string };
 export type SaveRevisionOutcome = 'created' | 'unchanged' | 'conflict';
 
@@ -28,6 +40,7 @@ export async function storeAdvancedRevision(projectId: string, identityId: strin
   const sourceHash = digest(designSourceSignature(candidate));
   const payloadHash = digest(canonical([candidate, document]));
   const sql = connection();
+  await requireCanonicalProjectSource(sql, projectId, candidate);
   const inserted = await sql`
     INSERT INTO lotscope_advanced_revisions
       (project_id,candidate_id,revision,identity_id,source_signature_sha256,payload_sha256,candidate,design_document)
@@ -55,6 +68,7 @@ export async function readAdvancedRevision(projectId: string, candidateId: strin
   const document = rows[0].design_document as DesignDocument;
   if (candidate.projectId !== projectId || candidate.id !== candidateId || document.projectId !== projectId || document.candidateId !== candidateId) throw Error('stored_project_binding_invalid');
   validateDesignDocument(candidate, document);
+  await requireCanonicalProjectSource(sql, projectId, candidate);
   if (digest(canonical([candidate, document])) !== rows[0].payload_sha256) throw Error('stored_payload_integrity_invalid');
   return { candidate, document, payloadSha256: rows[0].payload_sha256 as string };
 }

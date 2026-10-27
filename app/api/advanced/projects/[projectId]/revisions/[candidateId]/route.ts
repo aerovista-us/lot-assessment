@@ -43,7 +43,7 @@ export async function PUT(request: Request, { params }: Context) {
     if (outcome === 'conflict') return invalid('revision_conflict', 409);
     return NextResponse.json({ saved: true, revision: value.document.revision, unchanged: outcome === 'unchanged' }, { status: outcome === 'created' ? 201 : 200, headers });
   } catch (error) {
-    if (error instanceof Error && /^(invalid_project_binding|unsaved_revision)$|^(Design document|Invalid|Missing|Self-crossing|Door|Room|Roof|Floor)/i.test(error.message)) return invalid('invalid_or_stale_revision', 422);
+    if (error instanceof Error && /^(invalid_project_binding|unsaved_revision|invalid_canonical_parcel|canonical_project_source_mismatch)$|^(Design document|Invalid|Missing|Self-crossing|Door|Room|Roof|Floor)/i.test(error.message)) return invalid('invalid_or_stale_revision', 422);
     return internalError(error);
   }
 }

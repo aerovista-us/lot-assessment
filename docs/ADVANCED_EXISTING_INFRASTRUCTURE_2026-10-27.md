@@ -26,3 +26,11 @@
 - Configured Square sandbox purchase product, authenticated checkout and refund/event acceptance, then production payment readiness.
 - Customer UI local-to-account migration, fresh-device Save → Reload → exact SVG/corridor/door/report proof.
 - Exact-head CI/GitHub Packages and deployment/rollback. All related PRs remain draft until their gates pass.
+
+## Security follow-up: canonical project source gate (2026-10-27)
+
+The persistence candidate now requires a *staff-provisioned server-side* `lotscope_advanced_projects` row. `storeAdvancedRevision` and `readAdvancedRevision` hash the source parcel and compare it with that authoritative project record. A client cannot create a canonical project through the public Advanced Save endpoint. The source comparison gate intentionally fails closed for unprovisioned projects. Until a governed project-provisioning process exists, this also means no ordinary new customer project can yet save to the proposed account-backed store.
+
+The schema ran against an isolated disposable database on the existing NXCore PostgreSQL instance; this accepted canonical project registration and a revision referencing it. The test database was dropped afterward and PostgreSQL remained healthy. This is not yet a real authenticated API test or proof of cross-device persistence.
+
+**Critical outstanding:** confirm stronger server ownership for additional fixed site attributes (survey, envelope/setbacks and other authoritative source constraints), secure project creation, and actual database-broker deployment. Do not bypass this gate for a working demo.
