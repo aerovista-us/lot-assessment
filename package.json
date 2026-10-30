@@ -22,7 +22,8 @@
     "test:customer-journey-ui": "node scripts/test-customer-journey-ui.mjs",
     "test:advanced-persistence": "node scripts/test-advanced-persistence.mjs",
     "test:advanced-sso": "node --import tsx scripts/test-advanced-sso.mjs",
-    "test:advanced-broker-signature": "node --import tsx scripts/test-advanced-broker-signature.mjs"
+    "test:advanced-broker-signature": "node --import tsx scripts/test-advanced-broker-signature.mjs",
+    "test:advanced-broker-core": "node --test services/advanced-broker/*.test.mjs"
   },
   "dependencies": {
     "next": "16.3.2",
