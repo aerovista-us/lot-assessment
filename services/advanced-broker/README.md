@@ -58,3 +58,24 @@ The PostgreSQL adapter now takes a transactional `FOR UPDATE` lock on the **staf
 ## Release readiness preflight
 
 `readiness.mjs` is a side-effect-free, fail-closed configuration check. `server.mjs` refuses to listen if its two independent credentials are absent or reused, the allowed Gateway origin is unsafe, private PostgreSQL and dedicated role declarations are missing, or the operator has not explicitly confirmed Gateway registration and canonical-source provisioning. Flags `LOTSCOPE_ADVANCED_GATEWAY_REGISTERED=true`, `LOTSCOPE_ADVANCED_DATABASE_ROLE=lotscope_advanced_broker`, and `LOTSCOPE_ADVANCED_CANONICAL_SOURCE_PROVISIONED=true` must only be set after independently checking real registration, role grants and project locks. These flags are **not** themselves proof of entitlement, nor do they create a role or project. No automatic secret generation or Gateway production restart is attempted. `npm run test:advanced-broker-core` runs the new preflight tests.
+
+## Controlled NXCore Identity Gateway relying-party provisioning (October 30)
+
+**Status: NOT PROVISIONED.** The current production Gateway is Docker Compose-managed: deployment definition `/srv/ACOS/_deploy_runtime/identity-gateway-rate-budget/active/docker-compose.yml`; protected environment `/etc/acos-secrets/identity-gateway.env` (mode 0640, owner root, group glyph). The running Gateway is healthy but does not contain `IDGW_SERVICE_SECRET_LOTSCOPE_ADVANCED` and does not include `lotscope_advanced` in `IDGW_BROKER_SERVICE_ADDITIONS`. These details are host-specific and not stored with credentials in this repository.
+
+Read-only check (prints only missing setting identifiers, never values):
+
+`node services/advanced-broker/deployment-preflight.mjs /srv/ACOS/_deploy_runtime/identity-gateway-rate-budget/active/docker-compose.yml /etc/acos-secrets/identity-gateway.env`
+
+Controlled activation checklist for an authorized NXCore operator, **after GitHub billing/CI is restored**:
+
+1. Capture a **protected, access-restricted backup** of the current deployment Compose file and secrets file, preserving ownership/mode and recording the current container image digest; never send credential values to chat, logs or Git.
+2. Generate a new independent random Advanced service secret using an approved secret generator. Do **not** reuse Workbench/preview/other app secrets. Add the credential only to the protected environment (`IDGW_SERVICE_SECRET_LOTSCOPE_ADVANCED`) and append `lotscope_advanced` to the existing comma-separated `IDGW_BROKER_SERVICE_ADDITIONS` without replacing existing entries.
+3. Add the Compose environment mapping `IDGW_SERVICE_SECRET_LOTSCOPE_ADVANCED: "${IDGW_SERVICE_SECRET_LOTSCOPE_ADVANCED:-}"` in the existing identity-gateway service environment section. Preserve all other service mappings and Docker networks.
+4. Validate the effective Compose configuration using the same external secret file without printing the rendered environment. Review a **redacted, key-only** diff. Schedule controlled Gateway recreation only with a tested rollback to the prior environment and Compose file.
+5. After recreation, confirm readiness and authenticate a **dedicated staging customer** against actual AVCC session resolution, current Square-confirmed entitlement (paid, pending, refunded, expired), and scoped project read/edit grants. Denial in each negative case is a release gate.
+6. Provision a separate least-privilege PostgreSQL role and staff-locked source project. Activate loopback-only broker only after readiness succeeds and ensure the live report matches exactly the persisted selected revision. Keep production commerce/public access disabled until all checks and exact-head CI pass.
+
+The preflight's `ADVANCED_RUNTIME_REGISTERED` / `ADVANCED_RUNTIME_SECRET_PRESENT` flags represent independently confirmed runtime facts and must not be set just to force a green result. This check is deliberately insufficient to authorize publication or payment capture.
+
+**CI blocker:** ACOS GitHub Actions runs 41120280128 and 41122672940 were prevented from starting by GitHub account billing/spending limits, as explicitly reported in GitHub annotations. An organization billing administrator must resolve that through GitHub Billing & plans and rerun exact-head CI. Local ACOS validation on corrected draft head before this run: 62 files / 573 tests PASS. Never infer CI pass from that local result.
