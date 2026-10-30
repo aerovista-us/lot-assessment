@@ -23,16 +23,16 @@ const customer={sessionToken:'customer-session-token-much-longer'};
 const candidate={id:'candidateA',projectId:'owned',components:[]};
 const document={candidateId:'candidateA',projectId:'owned',revision:1};
 test('rejects unsigned, tampered, expired and cross-project requests',async()=>{
-  assert.equal((await broker({method:'GET',path,rawBody:raw(customer),headers:{}})).status,401);
-  const good=signed('GET',path,raw(customer));
+  assert.equal((await broker({method:'POST',path,rawBody:raw(customer),headers:{}})).status,401);
+  const good=signed('POST',path,raw(customer));
   assert.equal((await broker({...good,rawBody:raw({...customer,evil:true})})).status,401);
-  assert.equal((await broker(signed('GET',path,raw(customer),'2026-10-30T11:50:00.000Z'))).status,401);
-  assert.equal((await broker(signed('GET','/v1/advanced/projects/other/revisions/candidateA',raw(customer)))).status,403);
-  assert.equal((await broker(signed('GET','/v1/advanced/projects/../../etc',raw(customer)))).status,404);
+  assert.equal((await broker(signed('POST',path,raw(customer),'2026-10-30T11:50:00.000Z'))).status,401);
+  assert.equal((await broker(signed('POST','/v1/advanced/projects/other/revisions/candidateA',raw(customer)))).status,403);
+  assert.equal((await broker(signed('POST','/v1/advanced/projects/../../etc',raw(customer)))).status,404);
 });
 test('requires a resolved customer session; HMAC alone is not customer authorization',async()=>{
-  assert.equal((await broker(signed('GET',path,raw({sessionToken:'invalid-token-but-still-long-enough'})))).status,403);
-  assert.equal((await broker(signed('GET',path,raw({identityId:'owner-identity'})))).status,401);
+  assert.equal((await broker(signed('POST',path,raw({sessionToken:'invalid-token-but-still-long-enough'})))).status,403);
+  assert.equal((await broker(signed('POST',path,raw({identityId:'owner-identity'})))).status,401);
 });
 test('saves, rejects replays and conflicts, permits identical idempotent retry with fresh timestamp',async()=>{
   const body=raw({...customer,candidate,document});
@@ -41,7 +41,7 @@ test('saves, rejects replays and conflicts, permits identical idempotent retry w
   assert.equal((await broker(signed('PUT',path,body,'2026-10-30T12:00:01.000Z'))).status,200);
   const changed=raw({...customer,candidate,document:{...document,modified:true}});
   assert.equal((await broker(signed('PUT',path,changed))).status,409);
-  assert.equal((await broker(signed('GET',path,raw(customer)))).body.document.revision,1);
+  assert.equal((await broker(signed('POST',path,raw(customer)))).body.document.revision,1);
   assert.equal(saves,3);
 });
 test('rejects a candidate/project mismatch before storage',async()=>{
@@ -50,7 +50,7 @@ test('rejects a candidate/project mismatch before storage',async()=>{
 });
 test('fails closed on identity broker errors',async()=>{
   const failure=createAdvancedBroker({secret,clock:()=>now,validate:async()=>{},authorize:async()=>{throw Error('gateway down');},store:{claimReplay:async()=>true,save:async()=>{},read:async()=>{}}});
-  assert.equal((await failure(signed('GET',path,raw(customer)))).status,503);
+  assert.equal((await failure(signed('POST',path,raw(customer)))).status,503);
 });
 
 test('rejects missing geometry validator, and invalid geometry before write', async()=>{
