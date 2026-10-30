@@ -21,7 +21,8 @@
     "test:roof-touch": "node scripts/test-roof-inspector-touch.mjs",
     "test:customer-journey-ui": "node scripts/test-customer-journey-ui.mjs",
     "test:advanced-persistence": "node scripts/test-advanced-persistence.mjs",
-    "test:advanced-sso": "node --import tsx scripts/test-advanced-sso.mjs"
+    "test:advanced-sso": "node --import tsx scripts/test-advanced-sso.mjs",
+    "test:advanced-broker-signature": "node --import tsx scripts/test-advanced-broker-signature.mjs"
   },
   "dependencies": {
     "next": "16.3.2",
