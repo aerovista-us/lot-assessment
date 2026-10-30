@@ -40,7 +40,11 @@ export function createPostgresRevisionStore(sql) {
       // for this project, preventing gaps or lost-update races across workers.
       if (typeof sql.begin !== 'function') throw Error('transaction_driver_required');
       return sql.begin(async (tx) => {
-        const project = await tx`SELECT project_id FROM lotscope_advanced_projects WHERE project_id=${projectId} FOR UPDATE`;
+        // Lock the logical project without requiring UPDATE permission on
+        // staff-authoritative source rows. Advisory xact locks are released
+        // automatically at commit/rollback and serialize cross-worker saves.
+        await tx`SELECT pg_advisory_xact_lock(hashtextextended(${projectId}, 0))`;
+        const project = await tx`SELECT project_id FROM lotscope_advanced_projects WHERE project_id=${projectId}`;
         if (project.length !== 1) throw Error('project_not_provisioned');
         const existing = await tx`SELECT revision,payload_sha256 FROM lotscope_advanced_revisions
           WHERE project_id=${projectId} AND candidate_id=${candidateId} ORDER BY revision DESC LIMIT 1`;
