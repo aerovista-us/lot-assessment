@@ -13,10 +13,10 @@ function signed(method, path, body, timestamp=time) {
     'x-av-signature':createHmac('sha256',secret).update(`${method}\n${path}\n${timestamp}\n${body}`).digest('hex'),
   }};
 }
-const db=new Map();let permissions=0;let saves=0;
+const db=new Map();const replay=new Set();let permissions=0;let saves=0;
 const broker=createAdvancedBroker({secret,clock:()=>now,validate:async()=>{},
   authorize:async({sessionToken,projectId,capability})=>{permissions++;return sessionToken==='customer-session-token-much-longer' && projectId==='owned' && capability.startsWith('lotscope.project.') ? 'owner-identity' : null;},
-  store:{ save:async({candidateId,candidate,document})=>{saves++;const key=candidateId+':'+document.revision;const json=JSON.stringify([candidate,document]);if(db.has(key))return db.get(key)===json?'unchanged':'conflict';db.set(key,json);return 'created';},
+  store:{ claimReplay:async({replayKey})=>{if(replay.has(replayKey))return false;replay.add(replayKey);return true;}, save:async({candidateId,candidate,document})=>{saves++;const key=candidateId+':'+document.revision;const json=JSON.stringify([candidate,document]);if(db.has(key))return db.get(key)===json?'unchanged':'conflict';db.set(key,json);return 'created';},
     read:async({candidateId})=>{const key=[...db.keys()].filter(k=>k.startsWith(candidateId+':')).sort().at(-1);if(!key)return null;const [candidate,document]=JSON.parse(db.get(key));return {candidate,document};} },
 });
 const customer={sessionToken:'customer-session-token-much-longer'};
@@ -49,12 +49,26 @@ test('rejects a candidate/project mismatch before storage',async()=>{
   assert.equal((await broker(signed('PUT',path,body))).status,400);
 });
 test('fails closed on identity broker errors',async()=>{
-  const failure=createAdvancedBroker({secret,clock:()=>now,validate:async()=>{},authorize:async()=>{throw Error('gateway down');},store:{save:async()=>{},read:async()=>{}}});
+  const failure=createAdvancedBroker({secret,clock:()=>now,validate:async()=>{},authorize:async()=>{throw Error('gateway down');},store:{claimReplay:async()=>true,save:async()=>{},read:async()=>{}}});
   assert.equal((await failure(signed('GET',path,raw(customer)))).status,503);
 });
 
 test('rejects missing geometry validator, and invalid geometry before write', async()=>{
-  assert.throws(()=>createAdvancedBroker({secret,authorize:async()=> 'owner',store:{save:async()=>{},read:async()=>{}}}), /broker_configuration_incomplete/);
-  const invalid=createAdvancedBroker({secret,clock:()=>now,authorize:async()=> 'owner',validate:async()=>{throw Error('bad polygon')},store:{save:async()=>{throw Error('should not write')},read:async()=>null}});
+  assert.throws(()=>createAdvancedBroker({secret,authorize:async()=> 'owner',store:{claimReplay:async()=>true,save:async()=>{},read:async()=>{}}}), /broker_configuration_incomplete/);
+  const invalid=createAdvancedBroker({secret,clock:()=>now,authorize:async()=> 'owner',validate:async()=>{throw Error('bad polygon')},store:{claimReplay:async()=>true,save:async()=>{throw Error('should not write')},read:async()=>null}});
   assert.equal((await invalid(signed('PUT',path,raw({...customer,candidate,document})))).status,422);
+});
+
+test('two broker instances sharing the replay ledger cannot both accept the same write', async()=>{
+  const claims=new Set();
+  const store={claimReplay:async({replayKey})=>{if(claims.has(replayKey))return false;claims.add(replayKey);return true;},save:async()=> 'created',read:async()=>null};
+  const options={secret,clock:()=>now,validate:async()=>{},authorize:async()=> 'owner',store};
+  const a=createAdvancedBroker(options), b=createAdvancedBroker(options);
+  const request=signed('PUT',path,raw({...customer,candidate,document}));
+  const results=await Promise.all([a(request),b(request)]);
+  assert.deepEqual(results.map(r=>r.status).sort(),[201,409]);
+});
+test('replay store outage fails closed and does not save', async()=>{
+  const broker=createAdvancedBroker({secret,clock:()=>now,validate:async()=>{},authorize:async()=> 'owner',store:{claimReplay:async()=>{throw Error('db down')},save:async()=>{throw Error('should not save')},read:async()=>null}});
+  assert.equal((await broker(signed('PUT',path,raw({...customer,candidate,document})))).status,503);
 });
