@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+import { configureAdvancedIdentityAuthorizer } from './identity-adapter.server.mjs';
+const address=process.env.STAGE_GATEWAY_ADDRESS;
+const secret=process.env.STAGE_GATEWAY_SECRET;
+if(!/^http:\/\/172\.|^http:\/\/10\./.test(address||'')||!secret)throw Error('isolated_private_stage_required');
+const fetchImpl=(url,options)=>fetch(`${address}${new URL(url).pathname}`,options);
+const auth=configureAdvancedIdentityAuthorizer({gatewayOrigin:'http://identity-gateway:3110',gatewaySecret:secret,fetchImpl});
+const request={sessionToken:'staging-good-customer-session-000',projectId:'owned-project',capability:'lotscope.project.read'};
+assert.equal(await auth(request),'isolated-staging-identity');
+assert.equal(await auth({...request,projectId:'other-project'}),null);
+assert.equal(await auth({...request,sessionToken:'staging-revoked-customer-session-000'}),null);
+assert.equal(await auth({...request,capability:'lotscope.project.edit'}),'isolated-staging-identity');
+const wrong=configureAdvancedIdentityAuthorizer({gatewayOrigin:'http://identity-gateway:3110',gatewaySecret:'wrong-secret-xxxxxxxxxxxxxxxxxxxxxxxxxxxx',fetchImpl});
+await assert.rejects(()=>wrong(request));
+console.log('ISOLATED_REAL_HTTP_GATEWAY_AND_APP_ADAPTER PASS (mock downstream AVCC)');
