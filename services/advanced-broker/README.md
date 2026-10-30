@@ -11,3 +11,9 @@ Before service activation: wire existing Identity Gateway session resolution (mu
 Run `npm run test:advanced-broker-core` and `npm run test:advanced-broker-signature`. The existing migration was separately applied on disposable NXCore PostgreSQL on October 30, including duplicate revision and project foreign-key checks; the disposable database was dropped. Do not confuse these limited checks with a full live service integration test.
 
 Pondy Flats remains one client repository. No shared customer report publication into Pondy.
+
+## Live Identity Gateway connector
+
+`identity-adapter.server.mjs` now creates the existing `@aerovista-us/app-adapter/server` client with the **separate** `lotscope_advanced` service identity and `IDGW_SERVICE_SECRET_LOTSCOPE_ADVANCED`. `identity-authorizer.mjs` performs an uncached `auth.resolveSession` on every request, then checks global `lotscope.advanced.access` and the exact scoped `lotscope.project.read`/`edit` grant using the resolved identity ID. A revoked/invalid session or denied grant returns no identity; Gateway unavailability propagates a fail-closed 503 from the broker. No new authorization table was introduced.
+
+The current runtime reports the Advanced Identity Gateway service secret **not provisioned**, so the tests exercise a fake authenticated Gateway interface, not a real paid customer session. Do not activate live broker requests until the separate IDGW client, credentials and project grants are provisioned and independently verified with actual authorized and unauthorized accounts. Existing founder Workbench credentials must not be reused.
