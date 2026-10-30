@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { createHmac } from "node:crypto";
 import { signAdvancedBrokerRequest } from "../lib/aerovista/advanced-broker-signature.ts";
 
@@ -27,4 +28,8 @@ for (const bad of [
 }
 assert.throws(() => signAdvancedBrokerRequest("GET", "/v1/advanced/health", "", "short", timestamp), /broker_secret_unconfigured/);
 assert.throws(() => signAdvancedBrokerRequest("GET", "/v1/advanced/health", "", secret, "not-date"), /invalid_broker_timestamp/);
-console.log("Advanced broker HMAC signing contract: PASS");
+const serverTransport = readFileSync(new URL("../lib/aerovista/advanced-broker-client.server.ts", import.meta.url), "utf8");
+assert.match(serverTransport, /import "server-only"/);
+assert.match(serverTransport, /process\.env\.LOTSCOPE_ADVANCED_BROKER_HMAC_SECRET/);
+assert.match(serverTransport, /signAdvancedBrokerRequest\(method, path, body, secret, timestamp\)/);
+console.log("Advanced broker HMAC signing and server-only secret boundary: PASS");
