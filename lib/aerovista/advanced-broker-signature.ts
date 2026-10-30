@@ -1,4 +1,3 @@
-import "server-only";
 import { createHmac } from "node:crypto";
 
 /**
