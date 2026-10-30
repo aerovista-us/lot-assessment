@@ -41,6 +41,7 @@ try {
   server=await launch();
   const body=makeBody({candidate,document});
   const firstSigned = payload('PUT',location,body);
+  const gapBeforeFirst=await send('PUT',location,makeBody({candidate,document:{...document,revision:5}}),500);assert.equal(gapBeforeFirst.status,409);
   const first=await preparedSend('PUT',location,firstSigned);assert.equal(first.status,201);
   const read=await send('POST',location,makeBody({}));assert.equal(read.status,200);assert.deepEqual(read.body.document,document);
   const duplicate=await preparedSend('PUT',location,firstSigned);assert.equal(duplicate.status,409);
@@ -56,6 +57,10 @@ try {
   const freshRevision={...document,revision:2};
   const concurrently=await Promise.all([send('PUT',location,makeBody({candidate,document:freshRevision}),4000),send('PUT',location,makeBody({candidate,document:freshRevision}),4000)]);
   assert.deepEqual(concurrently.map(v=>v.status).sort(),[201,409]);
+  const skip=await send('PUT',location,makeBody({candidate,document:{...document,revision:4}}),5000);assert.equal(skip.status,409);
+  const third=await send('PUT',location,makeBody({candidate,document:{...document,revision:3}}),6000);assert.equal(third.status,201);
+  const stale=await send('PUT',location,makeBody({candidate,document:{...document,revision:1}}),7000);assert.equal(stale.status,409);
+  const latest=await send('POST',location,makeBody({}));assert.equal(latest.status,200);assert.equal(latest.body.document.revision,3);
   console.log('HTTP + real disposable PostgreSQL: save/read/conflict/canonical-source/restart/cross-project/concurrency PASS');
 } finally {
   if (server?.listening) await new Promise(ok=>server.close(ok));

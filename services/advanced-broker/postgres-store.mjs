@@ -36,14 +36,22 @@ export function createPostgresRevisionStore(sql) {
       await canonicalProject(projectId, candidate);
       const payloadSha = canonicalHash([candidate, document]);
       const sourceSha = canonicalHash(candidate.components);
-      const inserted = await sql`
-        INSERT INTO lotscope_advanced_revisions
+      // The project row is a stable transaction lock shared by every writer
+      // for this project, preventing gaps or lost-update races across workers.
+      if (typeof sql.begin !== 'function') throw Error('transaction_driver_required');
+      return sql.begin(async (tx) => {
+        const project = await tx`SELECT project_id FROM lotscope_advanced_projects WHERE project_id=${projectId} FOR UPDATE`;
+        if (project.length !== 1) throw Error('project_not_provisioned');
+        const existing = await tx`SELECT revision,payload_sha256 FROM lotscope_advanced_revisions
+          WHERE project_id=${projectId} AND candidate_id=${candidateId} ORDER BY revision DESC LIMIT 1`;
+        const latest = existing[0]?.revision ?? 0;
+        if (document.revision === latest) return existing[0].payload_sha256 === payloadSha ? 'unchanged' : 'conflict';
+        if (document.revision !== latest + 1) return 'conflict';
+        await tx`INSERT INTO lotscope_advanced_revisions
           (project_id,candidate_id,revision,identity_id,source_signature_sha256,payload_sha256,candidate,design_document)
-        VALUES (${projectId},${candidateId},${document.revision},${identityId},${sourceSha},${payloadSha},${sql.json(candidate)},${sql.json(document)})
-        ON CONFLICT (project_id,candidate_id,revision) DO NOTHING RETURNING revision`;
-      if (inserted.length) return 'created';
-      const existing = await sql`SELECT payload_sha256 FROM lotscope_advanced_revisions WHERE project_id=${projectId} AND candidate_id=${candidateId} AND revision=${document.revision}`;
-      return existing[0]?.payload_sha256 === payloadSha ? 'unchanged' : 'conflict';
+          VALUES (${projectId},${candidateId},${document.revision},${identityId},${sourceSha},${payloadSha},${tx.json(candidate)},${tx.json(document)})`;
+        return 'created';
+      });
     },
     async read({ projectId, candidateId }) {
       const rows = await sql`SELECT candidate,design_document,payload_sha256 FROM lotscope_advanced_revisions WHERE project_id=${projectId} AND candidate_id=${candidateId} ORDER BY revision DESC LIMIT 1`;
