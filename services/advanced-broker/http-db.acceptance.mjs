@@ -10,7 +10,8 @@ if (!process.env.LOTSCOPE_TEST_DATABASE_URL || !process.env.LOTSCOPE_TEST_DATABA
 const sql = postgres(process.env.LOTSCOPE_TEST_DATABASE_URL, { max: 5, ssl: false });
 const secret = 'isolated-acceptance-secret-with-32-characters';
 const parcel = {kind:'parcel',id:'parcel-1',points:[[0,0],[50,0],[50,50],[0,50]]};
-const candidate = {id:'candidateA',projectId:'owned',revisionLabel:'r1',components:[parcel]};
+const setback = {kind:'setback',id:'survey-east-boundary',offsetFt:12,direction:'east'};
+const candidate = {id:'candidateA',projectId:'owned',revisionLabel:'r1',components:[parcel,setback]};
 const document = {projectId:'owned',candidateId:'candidateA',revision:1,sourceRevision:'r1'};
 const sessionToken = 'acceptance-owner-session-validated-in-fixture';
 const makeBody = (value) => JSON.stringify({sessionToken,...value});
@@ -36,7 +37,7 @@ async function launch() {
 }
 let server;
 try {
-  await sql`INSERT INTO lotscope_advanced_projects (project_id, source_parcel_sha256, source_parcel) VALUES ('owned',${canonicalHash(parcel)},${sql.json(parcel)})`;
+  await sql`INSERT INTO lotscope_advanced_projects (project_id, source_parcel_sha256, source_parcel, source_locked_components) VALUES ('owned',${canonicalHash(parcel)},${sql.json(parcel)},${sql.json([parcel,setback])})`;
   server=await launch();
   const body=makeBody({candidate,document});
   const firstSigned = payload('PUT',location,body);
@@ -47,6 +48,7 @@ try {
   const changed=await send('PUT',location,makeBody({candidate,document:{...document,revision:1,updatedAt:'different'}}),2000);assert.equal(changed.status,409);
   const denied=await send('POST','/v1/advanced/projects/other/revisions/candidateA',makeBody({}));assert.equal(denied.status,403);
   const altered=await send('PUT',location,makeBody({candidate:{...candidate,components:[{...parcel,points:[[0,0],[51,0],[50,50]]}]},document}),3000);assert.equal(altered.status,422);
+  const alteredLock=await send('PUT',location,makeBody({candidate:{...candidate,components:[parcel,{...setback,offsetFt:11}]},document:{...document,revision:3}}),3001);assert.equal(alteredLock.status,422);
   await new Promise(ok=>server.close(ok));server=await launch();
   // Replayed signed payload survives broker restart due to PostgreSQL claim.
   const afterRestart=await preparedSend('PUT',location,firstSigned);assert.equal(afterRestart.status,409);

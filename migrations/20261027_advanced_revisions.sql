@@ -5,6 +5,9 @@ CREATE TABLE IF NOT EXISTS lotscope_advanced_projects (
   project_id text PRIMARY KEY,
   source_parcel_sha256 char(64) NOT NULL,
   source_parcel jsonb NOT NULL,
+  -- Staff-authored immutable source facts (survey, access, setbacks etc.).
+  -- NULL explicitly blocks saving until governed source provisioning occurs.
+  source_locked_components jsonb,
   created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE TABLE IF NOT EXISTS lotscope_advanced_revisions (
@@ -33,3 +36,7 @@ CREATE TABLE IF NOT EXISTS lotscope_advanced_replay_claims (
 );
 CREATE INDEX IF NOT EXISTS lotscope_advanced_replay_expiry
   ON lotscope_advanced_replay_claims (expires_at);
+
+-- Idempotent forward migration for databases created with the earlier schema.
+ALTER TABLE lotscope_advanced_projects
+  ADD COLUMN IF NOT EXISTS source_locked_components jsonb;

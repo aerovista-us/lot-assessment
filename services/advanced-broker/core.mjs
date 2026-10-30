@@ -60,7 +60,7 @@ export function createAdvancedBroker({ secret, authorize, validate, store, clock
       if (result === 'conflict') return code(409, 'revision_conflict');
       return { status: result === 'created' ? 201 : 200, body: { saved: true, revision: body.document.revision, unchanged: result === 'unchanged' } };
     } catch (error) {
-      if (error?.message === 'canonical_source_mismatch' || error?.message === 'project_not_provisioned') return code(422, 'canonical_source_rejected');
+      if (['canonical_source_mismatch', 'project_not_provisioned', 'canonical_source_not_provisioned', 'canonical_source_corrupt'].includes(error?.message)) return code(422, 'canonical_source_rejected');
       return code(503, 'storage_unavailable');
     }
   };
