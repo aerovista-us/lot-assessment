@@ -6,6 +6,7 @@ import { createPostgresRevisionStore } from './postgres-store.mjs';
 import { configureAdvancedIdentityAuthorizer } from './identity-adapter.server.mjs';
 import { validateAdvancedBrokerGeometry } from './geometry-validator.ts';
 import { evaluateAdvancedBrokerReadiness } from './readiness.mjs';
+import { verifyAdvancedDatabaseAuthority } from './database-authority.mjs';
 
 const secret = process.env.LOTSCOPE_ADVANCED_BROKER_HMAC_SECRET ?? '';
 const databaseUrl = process.env.LOTSCOPE_ADVANCED_PRIVATE_DATABASE_URL ?? '';
@@ -25,6 +26,14 @@ if (!readiness.ready) throw Error(`advanced_broker_not_ready:${readiness.reason}
 // The explicit readiness flags are operator assertions; real entitlement and
 // source authorization still run for every request and must be acceptance-tested.
 const sql = postgres(databaseUrl, { max: 5, connect_timeout: 5, idle_timeout: 15 });
+try {
+  // Validate privileges of the actual connected PostgreSQL role, not just an
+  // operator-provided environment declaration. Never listen on failed checks.
+  await verifyAdvancedDatabaseAuthority(sql);
+} catch (error) {
+  await sql.end();
+  throw error;
+}
 const authorize = configureAdvancedIdentityAuthorizer();
 const handle = createAdvancedBroker({
   secret,

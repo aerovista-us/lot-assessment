@@ -79,3 +79,9 @@ Controlled activation checklist for an authorized NXCore operator, **after GitHu
 The preflight's `ADVANCED_RUNTIME_REGISTERED` / `ADVANCED_RUNTIME_SECRET_PRESENT` flags represent independently confirmed runtime facts and must not be set just to force a green result. This check is deliberately insufficient to authorize publication or payment capture.
 
 **CI blocker:** ACOS GitHub Actions runs 41120280128 and 41122672940 were prevented from starting by GitHub account billing/spending limits, as explicitly reported in GitHub annotations. An organization billing administrator must resolve that through GitHub Billing & plans and rerun exact-head CI. Local ACOS validation on corrected draft head before this run: 62 files / 573 tests PASS. Never infer CI pass from that local result.
+
+## Actual PostgreSQL role authority at startup
+
+The broker now calls `verifyAdvancedDatabaseAuthority(sql)` on the **opened database connection before binding its private HTTP listener**. It rejects a superuser, `BYPASSRLS` identity, a role other than `lotscope_advanced_broker`, any write rights to staff-provisioned canonical projects, any update/delete rights over immutable revisions, or insufficient read/insert/delete rights for replay handling. Unlike the earlier readiness operator flags, this test queries `current_user` and `has_table_privilege` from PostgreSQL directly. It is a startup privilege check, not evidence of correct payment, live project ownership, DB backup/restore, or a completed customer experience.
+
+The existing `role-setup.sql` provisions a **NOLOGIN group** `lotscope_advanced_broker_rw`; production must separately provision a dedicated LOGIN `lotscope_advanced_broker` with only membership in that group, ensure no other excess inherited grants, and store its secret outside the repository. The application must **never** use a database superuser account. This guard does not create any roles or change ACLs.
