@@ -3,7 +3,8 @@ import { authorizeAdvancedProject } from "@/lib/aerovista/advanced-access";
 import { validateDesignDocument, type DesignDocument } from "@/packages/candidates/design-document";
 import { createCandidateConceptHtml } from "@/packages/candidates/customer-report";
 import type { CandidateRecord } from "@/packages/candidates";
-import { readAdvancedRevision, verifyReportSnapshot } from "@/lib/aerovista/advanced-revisions";
+import { readAccountSavedRevision, AdvancedBrokerError } from "@/lib/aerovista/advanced-persistence.server";
+import { canonicalHash } from "@/lib/aerovista/advanced-canonical-hash";
 
 export const dynamic = "force-dynamic";
 
@@ -40,7 +41,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ pro
     if (document.revision < 1) throw Error("Unsaved design revision");
     // Never publish a client-submitted draft as if it were an account-saved revision.
     // The authoritative data always comes from the project-owned persisted record.
-    const saved = await verifyReportSnapshot(projectId, candidate, document);
+    const saved = await readAccountSavedRevision(projectId, candidate.id);
+    if (saved && (saved.document.revision !== document.revision || saved.payloadSha256 !== canonicalHash([candidate, document]))) return NextResponse.json({ error: 'saved_revision_not_current' }, {status:409, headers:{'cache-control':'no-store'}});
     if (!saved) return NextResponse.json({ error: "saved_revision_not_current" }, {
       status: 409, headers: { "cache-control": "no-store" },
     });
@@ -53,7 +55,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ pro
         "x-content-type-options": "nosniff",
       },
     });
-  } catch {
+  } catch (error) {
+    if (error instanceof AdvancedBrokerError) return NextResponse.json({error:error.code}, {status:error.status,headers:{'cache-control':'no-store'}});
     return NextResponse.json({ error: "invalid_or_stale_saved_revision" }, {
       status: 422, headers: { "cache-control": "no-store" },
     });
@@ -69,7 +72,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ proj
   if (!candidateId || !/^[a-zA-Z0-9][\w-]{0,127}$/.test(candidateId))
     return NextResponse.json({ error: "invalid_candidate_id" }, { status: 400 });
   try {
-    const saved = await readAdvancedRevision(projectId, candidateId);
+    const saved = await readAccountSavedRevision(projectId, candidateId);
     if (!saved) return NextResponse.json({ error: "revision_not_found" }, { status: 404 });
     const report = await createCandidateConceptHtml(saved.candidate, saved.document);
     return new NextResponse(report.html, {
@@ -80,7 +83,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ proj
         "content-security-policy": "sandbox",
       },
     });
-  } catch {
+  } catch (error) {
+    if (error instanceof AdvancedBrokerError) return NextResponse.json({error:error.code}, {status:error.status,headers:{'cache-control':'no-store'}});
     return NextResponse.json({ error: "advanced_report_unavailable" }, { status: 503, headers: { "cache-control": "no-store" } });
   }
 }
