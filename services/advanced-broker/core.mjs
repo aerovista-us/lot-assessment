@@ -14,7 +14,7 @@ export function createAdvancedBroker({ secret, authorize, validate, store, clock
   if (typeof secret !== 'string' || secret.length < 32 || typeof authorize !== 'function' || typeof validate !== 'function' ||
       !store || typeof store.save !== 'function' || typeof store.read !== 'function' || typeof store.claimReplay !== 'function') throw Error('broker_configuration_incomplete');
   return async function handle({ method, path, headers, rawBody }) {
-    if (!['GET', 'PUT'].includes(method) || typeof path !== 'string' || !paths.test(path)) return code(404, 'not_found');
+    if (!['POST', 'PUT'].includes(method) || typeof path !== 'string' || !paths.test(path)) return code(404, 'not_found');
     if (typeof rawBody !== 'string' || Buffer.byteLength(rawBody, 'utf8') > maxBytes) return code(413, 'payload_too_large');
     const service = headers['x-av-service'];
     const ts = headers['x-av-timestamp'];
@@ -40,7 +40,7 @@ export function createAdvancedBroker({ secret, authorize, validate, store, clock
     } catch { return code(503, 'customer_authorization_unavailable'); }
     if (typeof identityId !== 'string' || !identityId) return code(403, 'project_access_denied');
     try {
-      if (method === 'GET') {
+      if (method === 'POST') {
         const record = await store.read({ projectId, candidateId });
         return record ? { status: 200, body: record } : code(404, 'revision_not_found');
       }
