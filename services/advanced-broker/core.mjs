@@ -12,8 +12,7 @@ export const canonicalHash = (value) => sha(canonical(value));
 /** HMAC verifies the service, not the human or ownership. Never trust a body identityId. */
 export function createAdvancedBroker({ secret, authorize, validate, store, clock = () => Date.now() }) {
   if (typeof secret !== 'string' || secret.length < 32 || typeof authorize !== 'function' || typeof validate !== 'function' ||
-      !store || typeof store.save !== 'function' || typeof store.read !== 'function') throw Error('broker_configuration_incomplete');
-  const seen = new Map();
+      !store || typeof store.save !== 'function' || typeof store.read !== 'function' || typeof store.claimReplay !== 'function') throw Error('broker_configuration_incomplete');
   return async function handle({ method, path, headers, rawBody }) {
     if (!['GET', 'PUT'].includes(method) || typeof path !== 'string' || !paths.test(path)) return code(404, 'not_found');
     if (typeof rawBody !== 'string' || Buffer.byteLength(rawBody, 'utf8') > maxBytes) return code(413, 'payload_too_large');
@@ -25,13 +24,9 @@ export function createAdvancedBroker({ secret, authorize, validate, store, clock
         typeof signature !== 'string' || !/^[0-9a-f]{64}$/.test(signature)) return code(401, 'service_auth_denied');
     const expected = createHmac('sha256', secret).update(`${method}\n${path}\n${ts}\n${rawBody}`).digest();
     if (!timingSafeEqual(expected, Buffer.from(signature, 'hex'))) return code(401, 'service_auth_denied');
-    // Prevent signed PUT replays within the accepted timestamp window, without blocking distinct revisions.
+    // Replay claims must be atomic and shared across every broker instance.
+    // Claims are intentionally made after live customer authorization.
     const replayKey = sha(`${method}\n${path}\n${ts}\n${signature}`);
-    if (method === 'PUT') {
-      for (const [key, expiry] of seen) if (expiry < clock()) seen.delete(key);
-      if (seen.has(replayKey)) return code(409, 'signed_request_replayed');
-      seen.set(replayKey, clock() + 300_000);
-    }
     let body;
     try { body = JSON.parse(rawBody); } catch { return code(400, 'invalid_json'); }
     if (!body || typeof body !== 'object' || typeof body.sessionToken !== 'string' ||
@@ -56,6 +51,10 @@ export function createAdvancedBroker({ secret, authorize, validate, store, clock
       // Shared geometry validation must run before any write; broker never trusts
       // the candidate's self-declared source signature.
       try { await validate(body.candidate, body.document); } catch { return code(422, 'invalid_design_geometry'); }
+      // Fail closed if the durable replay ledger is unavailable. This is
+      // an atomic insert-or-reject across processes (not a process-local map).
+      if (!await store.claimReplay({ replayKey, expiresAt: new Date(Date.parse(ts) + 300_000) }))
+        return code(409, 'signed_request_replayed');
       // Database adapter separately verifies staff-provisioned canonical source.
       const result = await store.save({ projectId, candidateId, identityId, candidate: body.candidate, document: body.document });
       if (result === 'conflict') return code(409, 'revision_conflict');

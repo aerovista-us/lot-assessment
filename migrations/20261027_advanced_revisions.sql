@@ -23,3 +23,13 @@ CREATE INDEX IF NOT EXISTS lotscope_advanced_revisions_latest
   ON lotscope_advanced_revisions (project_id, candidate_id, revision DESC);
 -- DB credentials are server-only. Client ownership is authorized by Identity Gateway
 -- before queries; the repository has no public database endpoint or service key.
+
+-- Durable signed-write replay claims. Delete expired rows only after all
+-- accepted signature timestamps are outside the replay window.
+CREATE TABLE IF NOT EXISTS lotscope_advanced_replay_claims (
+  replay_sha256 char(64) PRIMARY KEY,
+  expires_at timestamptz NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS lotscope_advanced_replay_expiry
+  ON lotscope_advanced_replay_claims (expires_at);

@@ -11,6 +11,13 @@ export function createPostgresRevisionStore(sql) {
         canonicalHash(parcels[0]) !== projects[0].source_parcel_sha256) throw Error('canonical_source_mismatch');
   }
   return {
+    async claimReplay({ replayKey, expiresAt }) {
+      if (!/^[0-9a-f]{64}$/.test(replayKey) || !(expiresAt instanceof Date) || !Number.isFinite(expiresAt.getTime()))
+        throw Error('invalid_replay_claim');
+      const result = await sql`INSERT INTO lotscope_advanced_replay_claims (replay_sha256, expires_at)
+        VALUES (${replayKey}, ${expiresAt.toISOString()}) ON CONFLICT (replay_sha256) DO NOTHING RETURNING replay_sha256`;
+      return result.length === 1;
+    },
     async save({ projectId, candidateId, identityId, candidate, document }) {
       if (candidate.id !== candidateId || document.revision < 1) throw Error('invalid_revision_binding');
       await canonicalProject(projectId, candidate);
