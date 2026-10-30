@@ -4,11 +4,24 @@ import { canonicalHash } from './core.mjs';
 export function createPostgresRevisionStore(sql) {
   if (typeof sql !== 'function') throw Error('database_unavailable');
   async function canonicalProject(projectId, candidate) {
-    const projects = await sql`SELECT source_parcel_sha256, source_parcel FROM lotscope_advanced_projects WHERE project_id = ${projectId}`;
+    const projects = await sql`SELECT source_parcel_sha256, source_parcel, source_locked_components FROM lotscope_advanced_projects WHERE project_id = ${projectId}`;
     if (projects.length !== 1) throw Error('project_not_provisioned');
     const parcels = candidate?.components?.filter(component => component?.kind === 'parcel') || [];
     if (parcels.length !== 1 || canonicalHash(projects[0].source_parcel) !== projects[0].source_parcel_sha256 ||
         canonicalHash(parcels[0]) !== projects[0].source_parcel_sha256) throw Error('canonical_source_mismatch');
+    // Server-side source locks are an allowlisted set of fixed geometry facts;
+    // no customer request may modify, omit or duplicate an authoritative lock.
+    const locks = projects[0].source_locked_components;
+    if (!Array.isArray(locks) || locks.length === 0 || !Array.isArray(candidate?.components))
+      throw Error('canonical_source_not_provisioned');
+    const ids = new Set();
+    for (const lock of locks) {
+      if (!lock || typeof lock.id !== 'string' || !lock.id || ids.has(lock.id)) throw Error('canonical_source_corrupt');
+      ids.add(lock.id);
+      const matches = candidate.components.filter(component => component?.id === lock.id);
+      if (matches.length !== 1 || canonicalHash(matches[0]) !== canonicalHash(lock))
+        throw Error('canonical_source_mismatch');
+    }
   }
   return {
     async claimReplay({ replayKey, expiresAt }) {
