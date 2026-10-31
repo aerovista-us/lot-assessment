@@ -1,7 +1,7 @@
 'use client';
 import { createBrowserAppAdapter } from '@aerovista-us/app-adapter/browser';
 import { useEffect, useState } from 'react';
-import { LOTSCOPE_ADVANCED_APP_ID, safeAdvancedNext } from '@/lib/aerovista/advanced-config';
+import { LOTSCOPE_ADVANCED_APP_ID, LOTSCOPE_ADVANCED_STORE_URL, safeAdvancedNext } from '@/lib/aerovista/advanced-config';
 function adapter() {
   return createBrowserAppAdapter({
     appId: LOTSCOPE_ADVANCED_APP_ID,
@@ -32,6 +32,7 @@ export default function AdvancedCallback() {
     <h1>{message}</h1>
     {failed ? <><p>Account access remains protected. You can retry your sign-in or return to free LotScope.</p>
       <button type="button" className="primary-button" onClick={() => adapter().auth.beginLogin({next:safeAdvancedNext(new URLSearchParams(window.location.search).get('next'))})}>Try sign-in again</button>
+      <p><a href={LOTSCOPE_ADVANCED_STORE_URL} rel="noopener noreferrer">Review one-time Advanced access options</a></p>
       <p><a href="/">Public LotScope</a></p></> : null}
   </main>;
 }
