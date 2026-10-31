@@ -21,7 +21,7 @@ function reverseJsonKeys(value) {
  return value;
 }
 const saved={candidate:reverseJsonKeys(candidate),document:reverseJsonKeys(doc),payloadSha256:'a'.repeat(64)};
-const reportHtml=(await createCandidateConceptHtml(saved.candidate,saved.document)).html;
+const reportHtml=(await createCandidateConceptHtml(saved.candidate,saved.document,'ACCOUNT_SAVED')).html;
 const compiled=await build({
  stdin:{contents:"import React from 'react';import {createRoot} from 'react-dom/client';import {AdvancedProjectWorkspace} from './app/advanced/projects/[projectId]/workspace';createRoot(document.getElementById('root')).render(<AdvancedProjectWorkspace projectId='"+projectId+"'/>);",resolveDir:process.cwd(),loader:'tsx'},
  bundle:true,write:false,platform:'browser',format:'iife',target:'es2022',jsx:'automatic',tsconfig:resolve('tsconfig.json'),define:{'process.env.NODE_ENV':'"development"'},

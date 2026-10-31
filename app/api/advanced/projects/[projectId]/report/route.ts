@@ -46,7 +46,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ pro
     if (!saved) return NextResponse.json({ error: "saved_revision_not_current" }, {
       status: 409, headers: { "cache-control": "no-store" },
     });
-    const report = await createCandidateConceptHtml(saved.candidate, saved.document);
+    const report = await createCandidateConceptHtml(saved.candidate, saved.document, 'ACCOUNT_SAVED');
     return new NextResponse(report.html, {
       headers: {
         "content-type": "text/html; charset=utf-8",
@@ -74,7 +74,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ proj
   try {
     const saved = await readAccountSavedRevision(projectId, candidateId);
     if (!saved) return NextResponse.json({ error: "revision_not_found" }, { status: 404 });
-    const report = await createCandidateConceptHtml(saved.candidate, saved.document);
+    const report = await createCandidateConceptHtml(saved.candidate, saved.document, 'ACCOUNT_SAVED');
     return new NextResponse(report.html, {
       headers: {
         "content-type": "text/html; charset=utf-8",
