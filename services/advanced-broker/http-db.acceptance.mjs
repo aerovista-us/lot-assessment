@@ -37,7 +37,13 @@ async function launch() {
 }
 let server;
 try {
-  await sql`INSERT INTO lotscope_advanced_projects (project_id, source_parcel_sha256, source_parcel, source_locked_components) VALUES ('owned',${canonicalHash(parcel)},${sql.json(parcel)},${sql.json([parcel,setback])})`;
+  if (process.env.LOTSCOPE_TEST_PROJECT_PREPROVISIONED === 'true') {
+    const [source] = await sql`SELECT source_parcel_sha256 FROM lotscope_advanced_projects WHERE project_id='owned'`;
+    assert.equal(source?.source_parcel_sha256, canonicalHash(parcel), 'staff-provisioned source must match');
+  } else {
+    // Legacy unrestricted fixture mode; NEVER use for restricted-role acceptance.
+    await sql`INSERT INTO lotscope_advanced_projects (project_id, source_parcel_sha256, source_parcel, source_locked_components) VALUES ('owned',${canonicalHash(parcel)},${sql.json(parcel)},${sql.json([parcel,setback])})`;
+  }
   server=await launch();
   const body=makeBody({candidate,document});
   const firstSigned = payload('PUT',location,body);
