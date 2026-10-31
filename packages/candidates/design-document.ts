@@ -70,6 +70,26 @@ function contained(inner:P2[],outer:P2[]){
  }
  return true;
 }
+/** PostgreSQL JSONB normalizes object key order. Compare source facts, not
+ * the original serialization order, while preserving existing browser drafts.
+ */
+export function canonicalDesignValue(value:unknown):string {
+ if(Array.isArray(value))return '['+value.map(canonicalDesignValue).join(',')+']';
+ if(value&&typeof value==='object'){
+  const record=value as Record<string,unknown>;
+  return '{'+Object.keys(record).filter(key=>record[key]!==undefined).sort()
+   .map(key=>JSON.stringify(key)+':'+canonicalDesignValue(record[key])).join(',')+'}';
+ }
+ return JSON.stringify(value);
+}
+export function sourceSignatureMatches(c:CandidateRecord,signature:string):boolean {
+ if(signature===designSourceSignature(c))return true;
+ if(typeof signature!=='string'||signature.length>2_000_000)return false;
+ try {
+  const expected=[c.id,c.projectId,c.revisionLabel,c.components];
+  return canonicalDesignValue(JSON.parse(signature))===canonicalDesignValue(expected);
+ }catch{return false;}
+}
 export function designSourceSignature(c:CandidateRecord){
  if(!c?.id||!c.projectId||!c.revisionLabel||!Array.isArray(c.components))throw Error('Missing candidate source');
  return JSON.stringify([c.id,c.projectId,c.revisionLabel,c.components]);
@@ -83,7 +103,7 @@ export function sourceBuildingOwners(c:CandidateRecord):PlacementComponent[]{
 }
 export function validateDesignDocument(c:CandidateRecord,d:DesignDocument){
  if(!d||d.schemaVersion!==DESIGN_DOCUMENT_SCHEMA||d.candidateId!==c.id||d.projectId!==c.projectId||
- d.sourceRevision!==c.revisionLabel||d.sourceSignature!==designSourceSignature(c))
+ d.sourceRevision!==c.revisionLabel||!sourceSignatureMatches(c,d.sourceSignature))
  throw Error('Design document stale: exact candidate source changed');
  if(!Number.isInteger(d.revision)||d.revision<0||!Array.isArray(d.shapes)||d.shapes.length>160||
  (d.doors!==undefined&&!Array.isArray(d.doors))||(d.roofParameters!==undefined&&!Array.isArray(d.roofParameters)))throw Error('Invalid design revision');
