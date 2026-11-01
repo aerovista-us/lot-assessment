@@ -1,18 +1,18 @@
 import type { Metadata } from "next";
 import AeroVistaLocalBadge from "@/components/AeroVistaLocalBadge";
 import UmamiAnalytics from "@/components/UmamiAnalytics";
-import VNextPublicBanner from "@/components/VNextPublicBanner";
 import "./globals.css";
 import "./guided.css";
+import "./architecture.css";
 
 const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://lotscope.aerovista.us").replace(/\/$/, "");
-const previewImage = `${siteUrl}/lotscope_preview.png`;
+const previewImage = `${siteUrl}/opengraph-image`;
 const logoImage = `${siteUrl}/lotscope_logo.png`;
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
-  title: "LotScope | Can I Build That Here?",
-  description: "A fast early-feasibility screen for lot dimensions, setbacks, coverage, project size, garages and access constraints.",
+  title: "LotScope | Architectural Site Planning & Lot Feasibility",
+  description: "Study parcel boundaries, test conceptual building programs and setbacks, compare options and understand what needs professional verification. By AeroVista Local.",
   alternates: { canonical: siteUrl },
   icons: {
     icon: [{ url: logoImage, type: "image/png" }],
@@ -20,8 +20,8 @@ export const metadata: Metadata = {
     apple: [{ url: logoImage, type: "image/png" }]
   },
   openGraph: {
-    title: "LotScope — Can I Build That Here?",
-    description: "Check setbacks, coverage, garages and access before they become redesigns. Early site feasibility by AeroVista Local.",
+    title: "LotScope — Every Great Build Starts With the Lot",
+    description: "Parcel-aware site planning, transparent feasibility, conceptual building programs and traceable design decisions. By AeroVista Local.",
     type: "website",
     locale: "en_US",
     url: siteUrl,
@@ -29,16 +29,16 @@ export const metadata: Metadata = {
     images: [
       {
         url: previewImage,
-        width: 1731,
-        height: 909,
-        alt: "LotScope — Can I build that here? Early site feasibility by AeroVista Local."
+        width: 1200,
+        height: 630,
+        alt: "LotScope architectural site study with parcel, setbacks and indicative building program."
       }
     ]
   },
   twitter: {
     card: "summary_large_image",
-    title: "LotScope — Can I Build That Here?",
-    description: "Check the lot constraints before they become redesigns.",
+    title: "LotScope — Every Great Build Starts With the Lot",
+    description: "Every great build starts with the lot. Study site geometry and compare conceptual programs.",
     images: [previewImage]
   }
 };
@@ -48,7 +48,6 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="en">
       <body>
         {children}
-        <VNextPublicBanner />
         <AeroVistaLocalBadge />
         <UmamiAnalytics />
       </body>

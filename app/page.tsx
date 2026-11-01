@@ -1,6 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { SitePlanDiagram } from "@/components/SitePlanDiagram";
+import { STUDY_STORAGE_KEY, createPublicStudy, parsePublicStudy } from "@/lib/study-session";
 import { IrregularLotSketch, type IrregularLotSnapshot } from "@/components/IrregularLotSketch";
 import { assessLot, type LotAssessmentInput } from "@/lib/assessment";
 import { trackEvent } from "@/lib/analytics";
@@ -85,12 +88,65 @@ function fmt(value: number) {
   return new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(value);
 }
 
+type Comparison = {id:string;label:string;status:string;score:number;confidence:string;utilization:number;units:number;stories:number;mode:"RECTANGLE"|"CUSTOM";input:LotAssessmentInput;studyConfidence:ConfidenceMap;customLot:IrregularLotSnapshot|null;};
+const examplePrograms: ReadonlyArray<{id:string;label:string;detail:string;value:LotAssessmentInput}>= [
+  {id:"narrow",label:"Narrow infill",detail:"Single home · one-car garage",value:{...initialInput,lotWidthFt:40,lotDepthFt:115,units:1,livingAreaPerUnitSqFt:1600,stories:2,garageSpacesPerUnit:1,drivewayWidthFt:12,minimumAccessWidthFt:12,leftSetbackFt:5,rightSetbackFt:5}},
+  {id:"duplex",label:"Duplex concept",detail:"Two homes · integrated parking",value:{...initialInput}},
+  {id:"compact",label:"Compact cottage",detail:"Single level · modest footprint",value:{...initialInput,lotWidthFt:66,lotDepthFt:100,units:1,livingAreaPerUnitSqFt:980,stories:1,garageSpacesPerUnit:1,garageIntegrated:false,frontSetbackFt:20,rearSetbackFt:18,leftSetbackFt:7,rightSetbackFt:7,drivewayWidthFt:12,minimumAccessWidthFt:12}}
+];
 export default function Home() {
   const [input, setInput] = useState<LotAssessmentInput>(initialInput);
   const [confidence, setConfidence] = useState<ConfidenceMap>(initialConfidence);
   const [lotMode, setLotMode] = useState<"RECTANGLE" | "CUSTOM">("RECTANGLE");
   const [customLot, setCustomLot] = useState<IrregularLotSnapshot | null>(null);
   const [hasRun, setHasRun] = useState(false);
+  const [studyMessage,setStudyMessage] = useState("");
+  const [comparisons,setComparisons] = useState<Comparison[]>([]);
+  const applyStudy = (value:ReturnType<typeof parsePublicStudy>) => {
+    setInput(value.input);setConfidence(value.confidence);
+    setLotMode(value.lotMode);setCustomLot(value.customLot);
+    setHasRun(false);
+    setStudyMessage("Your saved study was restored. Run a fresh assessment to update the verdict.");
+  };
+  const saveLocal = () => {
+    try {
+      if(lotMode==="CUSTOM"&&!customLot?.complete)throw Error("Finish the irregular polygon before saving.");
+      localStorage.setItem(STUDY_STORAGE_KEY,JSON.stringify(createPublicStudy(input,confidence,lotMode,customLot)));
+      setStudyMessage("Study saved on this device only. No account upload or site approval occurred.");
+    } catch(cause){setStudyMessage(cause instanceof Error?cause.message:"Browser storage is unavailable.");}
+  };
+  const restoreLocal = () => {
+    try {
+      const raw=localStorage.getItem(STUDY_STORAGE_KEY);
+      if(!raw)throw Error("No locally saved LotScope study exists on this device.");
+      applyStudy(parsePublicStudy(JSON.parse(raw)));
+    }catch(cause){setStudyMessage(cause instanceof Error?cause.message:"Saved study could not be restored.");}
+  };
+  const exportStudy = () => {
+    if(lotMode==="CUSTOM"&&!customLot?.complete){setStudyMessage("Complete the parcel polygon before exporting.");return;}
+    const payload=createPublicStudy(input,confidence,lotMode,customLot);
+    const url=URL.createObjectURL(new Blob([JSON.stringify(payload,null,2)],{type:"application/json"}));
+    const link=document.createElement("a");link.href=url;link.download="lotscope-site-study.json";link.click();
+    window.setTimeout(()=>URL.revokeObjectURL(url),1000);
+    setStudyMessage("Portable study exported. This is a local concept file, not a broker-saved Advanced revision.");
+  };
+  const applyExample = (id:string) => {
+    const example=examplePrograms.find(p=>p.id===id);
+    if(!example)return;
+    setInput({...example.value});setConfidence(initialConfidence);
+    setLotMode("RECTANGLE");setCustomLot(null);setHasRun(false);
+    setStudyMessage(example.label+" loaded as example assumptions. Confirm real site and jurisdiction values.");
+  };
+  const compareCurrent = () => {
+    if(!hasRun)return;
+    setComparisons(current=>{
+      const next={id:String(Date.now()),label:"Study "+(current.length+1),status:result.status,score:result.score,
+       confidence:infoConfidence.level,utilization:result.utilizationPct,units:input.units,stories:input.stories,
+       mode:lotMode,input:{...input},studyConfidence:{...confidence},customLot:lotMode==="CUSTOM"?customLot:null};
+      return [...current.slice(-2),next];
+    });
+    setStudyMessage("Comparison captured. Scores only compare entered assumptions, not zoning approval.");
+  };
 
   useEffect(() => {
     trackEvent("journey_start", { surface: "guided_assessment_v2" });
@@ -102,14 +158,17 @@ export default function Home() {
   const update = (key: NumberField, raw: string) => {
     const parsed = Number(raw);
     setInput((current) => ({ ...current, [key]: Number.isFinite(parsed) ? parsed : 0 }));
+    setHasRun(false);
   };
 
   const updateConfidence = (key: keyof LotAssessmentInput, state: FactState) => {
     setConfidence((current) => ({ ...current, [key]: state }));
+    setHasRun(false);
   };
 
   const syncCustomLot = useCallback((snapshot: IrregularLotSnapshot) => {
     setCustomLot(snapshot);
+    setHasRun(false);
     if (!snapshot.complete) return;
     setInput((current) => {
       if (current.lotWidthFt === snapshot.screenWidthFt && current.lotDepthFt === snapshot.screenDepthFt) return current;
@@ -172,26 +231,60 @@ export default function Home() {
 
   return (
     <main className="shell">
-      <header className="topbar">
-        <div className="brand-lockup">
+      <header className="topbar" aria-label="LotScope site navigation">
+        <Link className="brand-lockup" href="/" style={{textDecoration:"none"}}>
           <div className="brand-mark">LS</div>
-          <div><strong>LotScope</strong><span>Can I build that here?</span></div>
-        </div>
-        <button className="ghost-button" onClick={reset}>Reset example</button>
+          <div><strong>LotScope<span style={{display:"inline",color:"var(--accent)"}}> /</span> Site Studio</strong><span>Land intelligence by AeroVista</span></div>
+        </Link>
+        <nav className="studio-nav" aria-label="Main navigation">
+          <a href="#assessment">Lot assessment</a>
+          <a href="#result">Findings</a><Link href="/assessment/guided">Evidence view</Link>
+          <Link href="/workbench">Workbench</Link>
+          <Link href="/advanced" className="nav-accent">Advanced ↗</Link>
+        </nav>
       </header>
 
-      <section className="hero">
-        <p className="eyebrow">AEROVISTA LOCAL · GUIDED ASSESSMENT v2.1</p>
-        <h1>Find the constraints before they become redesigns.</h1>
-        <p className="lede">Describe the lot, the rules you are using, the project, and access. LotScope keeps physical feasibility separate from how confident we should be in the information behind it.</p>
-        <div className="notice"><strong>Planning aid, not permit approval.</strong> LotScope uses the facts and assumptions you enter. It does not invent zoning rules or silently convert assumptions into confirmed facts.</div>
+      <section className="public-hero" aria-label="Start your lot planning journey">
+        <div className="public-hero-copy">
+          <p className="hero-kicker">SITE INTELLIGENCE / 01 — DISCOVER</p>
+          <h1>Every great build starts <span className="hero-strong">with the lot.</span></h1>
+          <p className="lede">Explore your parcel. Test a building program against the setbacks and coverage you know. See where the constraints begin—before you invest in detailed plans.</p>
+          <div className="hero-ctas"><a href="#assessment" className="primary-button">Assess a lot ↘</a><Link href="/advanced" className="secondary-button">Explore Advanced ↗</Link></div>
+          <div className="hero-footnotes"><span>Rectangular & irregular parcels</span><span>Transparent assumptions</span><span>No account required</span></div>
+          <div className="notice"><strong>Conceptual feasibility only.</strong> No inferred zoning, surveyed boundaries, permit determination, or guaranteed building placement.</div>
+        </div>
+        <div className="hero-plan">
+          {lotMode==="CUSTOM"&&!customLot?.complete?<div className="architect-plan" data-site-plan="awaiting-polygon"><div className="architect-plan-head"><span>LS — 001 / CUSTOM PARCEL</span><span>AWAITING SOURCE GEOMETRY</span></div><div style={{minHeight:340,display:"grid",placeItems:"center",padding:25,textAlign:"center",color:"#a6c6ca"}}>Draw or paste at least three parcel corners below. The plan will display only your submitted geometry, not an invented lot outline.</div><div className="architect-plan-foot"><span>UNVERIFIED INPUT</span><span>NO PARCEL GENERATED</span></div></div>:<SitePlanDiagram input={input} result={result} customLot={lotMode==="CUSTOM"?customLot:null} id="public-site-hero"/>}
+        </div>
       </section>
 
-      <section className="mode-selector" aria-label="Lot input mode">
-        <button className={lotMode === "RECTANGLE" ? "mode-card active" : "mode-card"} onClick={() => setLotMode("RECTANGLE")}>
+      <div className="public-workflow" aria-label="LotScope workflow">
+        <div className="current"><b>01</b><span>Understand the parcel</span></div>
+        <div><b>02</b><span>Test buildability</span></div>
+        <div><b>03</b><span>Compare scenarios</span></div>
+        <div><b>04</b><span>Advance the design</span></div>
+      </div>
+
+      <section className="study-toolbox" aria-label="Study tools">
+        <div className="study-toolbox-top"><div><p className="eyebrow">PROJECT STARTER</p><h2>Start from a program or your own site.</h2><p>Examples are assumptions, not local building-code defaults. Changes stay in this browser unless you explicitly save them.</p></div>
+        <span className="mode-pill">FREE PUBLIC STUDIO</span></div>
+        <div className="study-tools">
+          <select aria-label="Choose an example project program" defaultValue="" onChange={event=>{if(event.target.value)applyExample(event.target.value);event.currentTarget.value="";}}>
+            <option value="">Load example project…</option>{examplePrograms.map(p=><option key={p.id} value={p.id}>{p.label} — {p.detail}</option>)}
+          </select>
+          <button type="button" onClick={saveLocal}>Save on this device</button>
+          <button type="button" onClick={restoreLocal}>Restore local study</button>
+          <button type="button" onClick={exportStudy}>Export study JSON ↓</button>
+          <button type="button" onClick={reset}>Reset inputs</button>
+        </div>
+        {studyMessage&&<p className="study-notice" role="status" aria-live="polite">{studyMessage}</p>}
+      </section>
+
+      <section className="mode-selector" aria-label="Lot input mode" id="assessment">
+        <button className={lotMode === "RECTANGLE" ? "mode-card active" : "mode-card"} onClick={() => {setLotMode("RECTANGLE");setHasRun(false);}}>
           <strong>QUICK RECTANGLE</strong><span>Use width + depth for a fast dimensional screen.</span>
         </button>
-        <button className={lotMode === "CUSTOM" ? "mode-card active" : "mode-card"} onClick={() => setLotMode("CUSTOM")}>
+        <button className={lotMode === "CUSTOM" ? "mode-card active" : "mode-card"} onClick={() => {setLotMode("CUSTOM");setHasRun(false);}}>
           <strong>CUSTOM / IRREGULAR LOT</strong><span>Draw or paste parcel corners and identify the actual street frontage.</span>
         </button>
       </section>
@@ -235,7 +328,7 @@ export default function Home() {
           </div>
 
           <div className="toggle-row">
-            <input id="garageIntegrated" type="checkbox" checked={input.garageIntegrated} onChange={(event) => setInput((current) => ({ ...current, garageIntegrated: event.target.checked }))} />
+            <input id="garageIntegrated" type="checkbox" checked={input.garageIntegrated} onChange={(event) => {setInput((current) => ({ ...current, garageIntegrated: event.target.checked }));setHasRun(false);}} />
             <label htmlFor="garageIntegrated"><strong>Garage integrated under/within building footprint</strong><small>Use this when upper-floor living area can overlap the garage footprint.</small></label>
             <select className={`fact-state ${confidence.garageIntegrated.toLowerCase()}`} value={confidence.garageIntegrated} onChange={(event) => updateConfidence("garageIntegrated", event.target.value as FactState)}>
               <option value="CONFIRMED">Confirmed</option>
@@ -251,9 +344,8 @@ export default function Home() {
         <aside className="preview-panel">
           <p className="eyebrow">LIVE CALCULATION</p>
           <h2>{lotMode === "CUSTOM" ? "Irregular lot screen" : "Buildable envelope"}</h2>
-          <div className="envelope-visual" aria-label="Conceptual public screening envelope">
-            <div className="lot-box"><div className="build-box"><span>{fmt(result.buildableWidthFt)}′ × {fmt(result.buildableDepthFt)}′</span></div></div>
-          </div>
+          <p className="microcopy">Drawing LS-001 above reflects the submitted parcel inputs. The metrics below are screening estimates, not an engineered placement solution.</p>
+          <div className="confidence-mini"><span>Current lot mode</span><strong>{lotMode==="CUSTOM"?"Supplied polygon":"Rectangular envelope"}</strong></div>
           <div className="metric-list">
             {lotMode === "CUSTOM" && customLot?.complete && <>
               <div><span>Measured polygon area</span><strong>{fmt(customLot.areaSqFt)} sq ft</strong></div>
@@ -307,9 +399,27 @@ export default function Home() {
               <article className="next-checks"><p className="mini-label">VERIFY NEXT</p><ol>{result.nextChecks.map((item) => <li key={item}>{item}</li>)}</ol></article>
             </div>
 
-            <div className="hero-actions"><button className="primary-button" onClick={share}>Share summary</button></div>
+            <div className="hero-actions">
+              <button className="primary-button" onClick={share}>Share findings</button>
+              <button className="secondary-button" onClick={compareCurrent}>Add to comparison +</button>
+              <button className="secondary-button" onClick={exportStudy}>Export inputs ↓</button>
+            </div>
           </>
         ) : <p>Adjust the facts and confidence states above, then run the assessment. Feasibility and information confidence are intentionally scored separately.</p>}
+      </section>
+
+      <section className="section" aria-label="Compare screened scenarios" id="compare">
+        <div className="section-heading"><div><p className="eyebrow">03 / COMPARE</p><h2>What changes when the program changes?</h2></div>
+          <span className="mode-pill">UP TO 3 OPTIONS</span></div>
+        <p className="microcopy">Capture different assessed programs on the same site, or test another set of assumptions. These screening scores are comparisons—not verified physical layouts or zoning determinations.</p>
+        {comparisons.length?<div className="study-set">{comparisons.map(study=><article className="study-scenario" key={study.id}>
+          <span>{study.mode} · {study.confidence} CONFIDENCE</span>
+          <strong>{study.status}</strong>
+          <p>{study.units} unit(s) · {study.stories} stories · {fmt(study.utilization)}% estimated capacity used</p>
+          <p>Feasibility score <b>{study.score}/100</b></p>
+          <button type="button" onClick={()=>{setInput({...study.input});setLotMode(study.mode);setConfidence({...study.studyConfidence});setCustomLot(study.customLot);setHasRun(false);setStudyMessage("Comparison inputs loaded. Review the parcel and reassess before relying on the verdict.");document.getElementById("assessment")?.scrollIntoView({behavior:"smooth"});}}>Use these inputs</button>
+        </article>)}</div>:<div className="notice">Run an assessment and select <strong>Add to comparison</strong> to record your first scenario. Compare how project size, garage needs and setbacks affect the result.</div>}
+        <div className="hero-actions"><Link className="primary-button" href="/advanced">Continue toward a private design ↗</Link><Link className="secondary-button" href="/workbench">Explore the design Workbench</Link></div>
       </section>
 
       <section className="section disclaimer-card">
@@ -318,7 +428,7 @@ export default function Home() {
         <p>LotScope Public packages capabilities already proven in the shared engine and Workbench. The irregular-lot sketcher records real parcel polygons and frontage, while deeper placement and turning claims stay behind the Workbench evidence gate until they are proven for the specific site.</p>
       </section>
 
-      <footer>LotScope · “Can I Build That Here?” · An AeroVista Local utility</footer>
+      <footer>LOT SCOPE / AEROVISTA LOCAL · Site intelligence for thoughtful building · Digital screening is not construction approval.</footer>
     </main>
   );
 }

@@ -1,0 +1,31 @@
+/* Architectural studio continuity for authorized Workbench surfaces. */
+.workbench-nav-shell{background:rgba(10,22,29,.96)!important;border-color:rgba(158,191,199,.24)!important;backdrop-filter:blur(18px)}
+.workbench-topbar{border-color:rgba(158,191,199,.22)!important}
+.workbench-nav a,.workbench-tools>summary{color:#bcd2d6!important}
+.workbench-nav a:hover,.workbench-tools>summary:hover{color:#eff8f9!important;background:rgba(137,204,213,.08)!important}
+.workbench-nav a[aria-current=page]{color:#c9f1f2!important;border-color:rgba(147,208,218,.34)!important}
+.studio-home-hero{gap:clamp(24px,5vw,62px)}
+.studio-home-intro>.eyebrow{letter-spacing:.16em}
+.studio-home-intro h1{color:#eef7f8}
+.studio-project-preview{border-color:rgba(148,196,205,.35)!important;border-radius:11px!important;background:linear-gradient(145deg,#152c35,#10202a)!important}
+.studio-project-preview:hover{border-color:#9bd7e2!important}
+.studio-project-caption{color:#9fc4ca!important}
+.studio-project-preview .candidate-plan-svg{background-image:linear-gradient(rgba(140,185,193,.09) 1px,transparent 1px),linear-gradient(90deg,rgba(140,185,193,.09) 1px,transparent 1px)!important;background-size:25px 25px!important}
+.studio-project-footer{border-top-color:rgba(149,195,202,.23)!important}
+.studio-project-footer>span{color:#9dd8df!important}
+.studio-overview{border-color:rgba(149,195,202,.25)!important}
+.studio-overview strong{color:#d7eff0!important}
+.studio-journey-card{background:linear-gradient(130deg,#152b34,#10202a)!important;border:1px solid rgba(144,193,201,.23)!important;border-radius:10px!important}
+.studio-journey-card:hover{border-color:#8ac9d3!important;transform:translateY(-2px)}
+.studio-step-number,.studio-start-section>.section-heading>a{color:#9dd7df!important}
+.studio-journey-card strong{color:#e7f4f5!important}
+.studio-engineering-links{border-color:rgba(149,195,202,.25)!important}
+#workbench-content .wb-panel{background:linear-gradient(145deg,#142831,#0e1d25)!important;border-color:rgba(139,188,198,.24)!important;border-radius:11px!important}
+#workbench-content .design-editor{border-radius:11px!important}
+#workbench-content .design-studio-grid{gap:18px}
+#workbench-content .design-floor-canvas{background-color:#13252e!important}
+#workbench-content .layout-option{border-color:rgba(143,197,206,.3)!important;border-radius:8px!important}
+#workbench-content .layout-option[aria-pressed=true]{border-color:#9bd8df!important;box-shadow:inset 3px 0 #92d4de}
+#workbench-content button:focus-visible,#workbench-content a:focus-visible{outline-color:#afe8ed!important}
+.workbench-resume{border-color:rgba(147,204,211,.27)!important;background:linear-gradient(125deg,#19323c,#0c1d27)!important;border-radius:9px!important}
+@media(max-width:960px){.workbench-nav{background:#11252f!important;border-color:rgba(159,200,206,.35)!important}}
