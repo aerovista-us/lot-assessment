@@ -69,7 +69,10 @@ jobs:
           curl -fsS http://127.0.0.1:3000/ > /tmp/public.html
           test "$(curl -sS -o /tmp/workbench.html -w '%{http_code}' http://127.0.0.1:3000/workbench)" = "307"
           curl -sSI http://127.0.0.1:3000/workbench | grep -qi '/workbench-auth'
-          grep -q 'GUIDED ASSESSMENT v2.1' /tmp/public.html
+          grep -q 'SITE INTELLIGENCE / 01' /tmp/public.html
+          grep -q 'data-site-plan="rectangle"' /tmp/public.html
+          grep -q 'Save on this device' /tmp/public.html
+          curl -fsS http://127.0.0.1:3000/advanced | grep -q 'ADVANCED PREVIEW'
           grep -q 'QUICK RECTANGLE' /tmp/public.html
           grep -q 'CUSTOM / IRREGULAR LOT' /tmp/public.html
           curl -fsS http://127.0.0.1:3000/workbench-auth | grep -q 'AeroVista sign in required'

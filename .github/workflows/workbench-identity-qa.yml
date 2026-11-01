@@ -87,7 +87,7 @@ jobs:
             curl -fsS http://127.0.0.1:3000/ >/dev/null && break
             sleep 1
           done
-          curl -fsS http://127.0.0.1:3000/ | grep -q 'GUIDED ASSESSMENT'
+          curl -fsS http://127.0.0.1:3000/ | grep -q 'SITE INTELLIGENCE / 01'
           curl -fsS http://127.0.0.1:3000/assessment/guided >/dev/null
           curl -fsS http://127.0.0.1:3000/workbench-auth | grep -q 'AeroVista sign in required'
           test "$(curl -sS -o /tmp/workbench.html -w '%{http_code}' http://127.0.0.1:3000/workbench)" = "307"
