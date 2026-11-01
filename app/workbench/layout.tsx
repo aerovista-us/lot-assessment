@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getWorkbenchAccess } from "@/lib/aerovista/session";
 import { WorkbenchNavigation } from "@/components/workbench/WorkbenchNavigation";
 import "./workbench.css";
+import "./architecture-workbench.css";
 
 export const dynamic = "force-dynamic";
 

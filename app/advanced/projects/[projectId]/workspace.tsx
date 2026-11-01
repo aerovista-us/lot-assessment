@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import {AdvancedPlanPreview} from '@/components/AdvancedPlanPreview';
 import {useEffect,useState} from 'react';
 import {isLotScopePackage} from '@/packages/candidates/workspace';
 import {validateDesignDocument,canonicalDesignValue,type DesignDocument} from '@/packages/candidates/design-document';
@@ -116,18 +117,21 @@ export function AdvancedProjectWorkspace({projectId}:{projectId:string}) {
   const shapes=saved?.document.shapes||selection?.document.shapes||[];
   const rooms=shapes.filter(shape=>shape.kind==='ROOM');
   const zoneCount=shapes.length;
-  return <main className="shell" style={{padding:'32px 24px 70px',maxWidth:1100,margin:'0 auto'}}>
+  return <main className="shell arch-advanced-shell" style={{padding:'32px 0 70px',maxWidth:1180,margin:'0 auto'}}>
     <nav aria-label="Project breadcrumb" style={{marginBottom:20}}><Link href="/advanced">Advanced</Link> / <span aria-current="page">Project {projectId}</span></nav>
-    <p className="eyebrow">LOT SCOPE · ACCOUNT WORKSPACE</p>
-    <h1>Your design, saved to your account.</h1>
+    <p className="eyebrow">03 / PRIVATE PROJECT STUDIO · AUTHORIZED DESIGN</p>
+    <h1>Where your chosen design becomes a saved record.</h1>
     <p>Import the exact selected Workbench design, save it to your authorized project, reload it from the private store, and build a report from that same revision. Nothing is published merely by importing a file.</p>
-    <ol style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(170px,1fr))',gap:12,paddingLeft:22,margin:'24px 0'}}>
-      <li>Choose a design</li><li>Save to your account</li><li>Reload and verify</li><li>Generate matching report</li>
-    </ol>
-    <p role="status" aria-live="polite" className="wb-panel" style={{padding:14}}>{message}</p>
-    {error?<p role="alert" style={{border:'1px solid #bf6a6a',borderRadius:8,padding:14}}>{error}</p>:null}
-    <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(300px,1fr))',gap:20}}>
-      <section className="wb-panel" style={{padding:22}} aria-label="Import and save selected design">
+    <div className="arch-advanced-steps" aria-label="Design revision workflow">
+      <div><span>01 / IMPORT</span><strong>{selection?'Design selected':'Choose a design'}</strong><p>Source-bound Workbench package for this project</p></div>
+      <div><span>02 / SAVE</span><strong>{saved?'Stored and checked':'Authorize the save'}</strong><p>Persist without rewriting canonical parcel source</p></div>
+      <div><span>03 / RELOAD</span><strong>{saved?'Revision verified':'Compare server data'}</strong><p>Verify the same candidate and design document</p></div>
+      <div><span>04 / REPORT</span><strong>{report?'Report matched':'Explain the saved plan'}</strong><p>Do not download a mismatched or stale alternative</p></div>
+    </div>
+    <p role="status" aria-live="polite" className="arch-status-strip">{message}</p>
+    {error?<p role="alert" className="arch-status-strip">{error}</p>:null}
+    <div className="arch-project-grid">
+      <section className="wb-panel" style={{padding:22}} aria-label="Import and save selected design"><p className="arch-step-label">01 / IMPORT TO ACCOUNT</p>
         <h2>1 · Bring your Workbench design</h2>
         <p>Save the chosen room layout and export its <code>.lotscope.json</code> package from Workbench. Only an export belonging to this project can be saved here.</p>
         <p><Link href="/workbench">Open Workbench</Link></p>
@@ -136,7 +140,7 @@ export function AdvancedProjectWorkspace({projectId}:{projectId:string}) {
         {selection?<div><h3>{selection.candidate.revisionLabel}</h3><p>Candidate <code>{selection.candidate.id}</code> · revision {selection.document.revision} · {zoneCount} zones</p>
           <button type="button" className="primary-button" data-advanced-save disabled={working} onClick={()=>void saveRevision()}>{working?'Verifying…':'Save and verify account revision'}</button></div>:null}
       </section>
-      <section className="wb-panel" style={{padding:22}} aria-label="Reload saved design">
+      <section className="wb-panel" style={{padding:22}} aria-label="Reload saved design"><p className="arch-step-label">02 / SERVER READ-BACK</p>
         <h2>2 · Resume an account design</h2>
         <p>Enter the candidate ID from an existing saved project, or use the ID populated by an imported package.</p>
         <label htmlFor="advanced-candidate-id">Candidate ID</label>
@@ -149,7 +153,8 @@ export function AdvancedProjectWorkspace({projectId}:{projectId:string}) {
         </div>:null}
       </section>
     </div>
-    <section className="wb-panel" style={{marginTop:20,padding:22}} aria-label="Saved design report">
+    {(saved||selection)&&<AdvancedPlanPreview document={(saved||selection)!.document}/>}
+    <section className="wb-panel" style={{marginTop:20,padding:22}} aria-label="Saved design report"><p className="arch-step-label">03 / SOURCE-VERIFIED REPORT</p>
       <h2>3 · Explain the saved design</h2>
       <p>Reports are produced from your account’s authoritative saved revision—not a browser draft or a newly generated alternative.</p>
       <button type="button" className="primary-button" data-advanced-report disabled={!saved||working} onClick={()=>void generateReport()}>{working?'Verifying report…':'Generate saved-revision report'}</button>
@@ -159,6 +164,6 @@ export function AdvancedProjectWorkspace({projectId}:{projectId:string}) {
         <iframe title="Verified customer design report" sandbox="" srcDoc={report.html} style={{display:'block',width:'100%',height:560,border:'1px solid #58657b',borderRadius:12,marginTop:20}}/>
       </div>:null}
     </section>
-    <p style={{marginTop:22,opacity:.82}}>Digital concept approval does not constitute structural, site, fire, access, permitting, or construction approval. Independent professional and jurisdictional review remains necessary.</p>
+    <p className="arch-disclaimer">Digital concept approval does not constitute structural, site, fire, access, permitting, or construction approval. Independent professional and jurisdictional review remains necessary.</p>
   </main>;
 }
