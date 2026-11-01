@@ -122,6 +122,15 @@ export default function Home() {
       applyStudy(parsePublicStudy(JSON.parse(raw)));
     }catch(cause){setStudyMessage(cause instanceof Error?cause.message:"Saved study could not be restored.");}
   };
+  const importStudy = async (file:File|null) => {
+    if(!file)return;
+    try {
+      if(file.size>1_000_000)throw Error("Study file exceeds the 1 MB local import limit.");
+      applyStudy(parsePublicStudy(JSON.parse(await file.text())));
+      setComparisons([]);
+      setStudyMessage("Study imported locally. Confirm the parcel and assumptions, then run a fresh assessment.");
+    }catch(cause){setStudyMessage(cause instanceof Error?cause.message:"Study file could not be imported.");}
+  };
   const exportStudy = () => {
     if(lotMode==="CUSTOM"&&!customLot?.complete){setStudyMessage("Complete the parcel polygon before exporting.");return;}
     const payload=createPublicStudy(input,confidence,lotMode,customLot);
@@ -274,6 +283,7 @@ export default function Home() {
           </select>
           <button type="button" onClick={saveLocal}>Save on this device</button>
           <button type="button" onClick={restoreLocal}>Restore local study</button>
+          <label className="study-import-label"><span>Import study JSON ↑</span><input type="file" accept=".json,application/json" aria-label="Import a LotScope study file" onChange={event=>{void importStudy(event.currentTarget.files?.[0]||null);event.currentTarget.value="";}}/></label>
           <button type="button" onClick={exportStudy}>Export study JSON ↓</button>
           <button type="button" onClick={reset}>Reset inputs</button>
         </div>
