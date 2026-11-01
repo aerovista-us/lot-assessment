@@ -49,6 +49,9 @@ await wait(()=>document.querySelector('[data-advanced-save]'),'selected design f
 assert(document.body.textContent.includes('revision '+doc.revision));
 document.querySelector('[data-advanced-save]').click();
 await wait(()=>document.querySelector('[data-advanced-saved-revision]'),'authoritative save and readback');
+await wait(()=>document.querySelector('[data-advanced-design-preview] svg polygon'),'source-bound advanced plan preview');
+assert(document.querySelector('[data-advanced-design-preview]')?.getAttribute('data-advanced-design-preview')==='GROUND');
+assert(document.querySelector('[data-advanced-design-preview]').textContent.includes('DRAFT / UNVERIFIED'));
 assert(calls.some(c=>c.method==='PUT'));
 assert(calls.some(c=>c.method==='GET'&&c.path.includes('/revisions/')));
 assert(!document.querySelector('[data-advanced-report-verified]'));
