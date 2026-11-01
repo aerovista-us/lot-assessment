@@ -99,12 +99,13 @@ export default function Home() {
   const [confidence, setConfidence] = useState<ConfidenceMap>(initialConfidence);
   const [lotMode, setLotMode] = useState<"RECTANGLE" | "CUSTOM">("RECTANGLE");
   const [customLot, setCustomLot] = useState<IrregularLotSnapshot | null>(null);
+  const [sketchVersion,setSketchVersion] = useState(0);
   const [hasRun, setHasRun] = useState(false);
   const [studyMessage,setStudyMessage] = useState("");
   const [comparisons,setComparisons] = useState<Comparison[]>([]);
   const applyStudy = (value:ReturnType<typeof parsePublicStudy>) => {
     setInput(value.input);setConfidence(value.confidence);
-    setLotMode(value.lotMode);setCustomLot(value.customLot);
+    setLotMode(value.lotMode);setCustomLot(value.customLot);setSketchVersion(version=>version+1);
     setHasRun(false);
     setStudyMessage("Your saved study was restored. Run a fresh assessment to update the verdict.");
   };
@@ -310,7 +311,7 @@ export default function Home() {
             <span className="mode-pill">{lotMode === "RECTANGLE" ? "RECTANGLE" : "IRREGULAR / SCREENED"}</span>
           </div>
 
-          {lotMode === "CUSTOM" && <IrregularLotSketch onChange={syncCustomLot} initialSnapshot={customLot} />}
+          {lotMode === "CUSTOM" && <IrregularLotSketch key={sketchVersion} onChange={syncCustomLot} initialSnapshot={customLot} />}
 
           <div className="input-groups">
             {visibleGroups.map((group) => (
@@ -427,7 +428,7 @@ export default function Home() {
           <strong>{study.status}</strong>
           <p>{study.units} unit(s) · {study.stories} stories · {fmt(study.utilization)}% estimated capacity used</p>
           <p>Feasibility score <b>{study.score}/100</b></p>
-          <button type="button" onClick={()=>{setInput({...study.input});setLotMode(study.mode);setConfidence({...study.studyConfidence});setCustomLot(study.customLot);setHasRun(false);setStudyMessage("Comparison inputs loaded. Review the parcel and reassess before relying on the verdict.");document.getElementById("assessment")?.scrollIntoView({behavior:"smooth"});}}>Use these inputs</button>
+          <button type="button" onClick={()=>{setInput({...study.input});setLotMode(study.mode);setConfidence({...study.studyConfidence});setCustomLot(study.customLot);setSketchVersion(version=>version+1);setHasRun(false);setStudyMessage("Comparison inputs loaded. Review the parcel and reassess before relying on the verdict.");document.getElementById("assessment")?.scrollIntoView({behavior:"smooth"});}}>Use these inputs</button>
         </article>)}</div>:<div className="notice">Run an assessment and select <strong>Add to comparison</strong> to record your first scenario. Compare how project size, garage needs and setbacks affect the result.</div>}
         <div className="hero-actions"><Link className="primary-button" href="/advanced/overview">Continue toward a private design ↗</Link><Link className="secondary-button" href="/workbench">Explore the design Workbench</Link></div>
       </section>
