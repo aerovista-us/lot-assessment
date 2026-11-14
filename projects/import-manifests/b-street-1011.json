@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "lotscope-source-manifest-v1",
+  "projectId": "b-street-1011",
+  "sourceRepository": "aerovista-us/bstreet",
+  "sourceRevision": "6998103c5f72de743c03d4c5157022618616f975",
+  "artifacts": [
+    {
+      "id": "owner-powerhouse",
+      "type": "customer-report",
+      "path": "index.html",
+      "title": "B Street owner presentation",
+      "visibility": "customer-review",
+      "evidenceState": "REVIEW_REQUIRED"
+    },
+    {
+      "id": "source-register",
+      "type": "source-document",
+      "path": "docs/SOURCE_REGISTER.md",
+      "title": "Owner research and source register",
+      "visibility": "internal",
+      "evidenceState": "SOURCE_ONLY"
+    },
+    {
+      "id": "master-strategy",
+      "type": "source-document",
+      "path": "docs/MASTER_STRATEGY.md",
+      "title": "Owner strategy research",
+      "visibility": "internal",
+      "evidenceState": "REVIEW_REQUIRED"
+    }
+  ]
+}
