@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "lotscope-source-manifest-v1",
+  "projectId": "pondy-lot2",
+  "sourceRepository": "aerovista-us/PondyFlats",
+  "sourceRevision": "881d539710d9711761042133de86388d680926f1",
+  "artifacts": [
+    {
+      "id": "project-readme",
+      "type": "source-document",
+      "path": "README.md",
+      "title": "Pondy Lot 2 source package",
+      "visibility": "internal",
+      "evidenceState": "SOURCE_ONLY"
+    },
+    {
+      "id": "report-standard",
+      "type": "customer-report",
+      "path": "docs/UNIFIED_CUSTOMER_REPORT_STANDARD.md",
+      "title": "22-feature customer report standard",
+      "visibility": "customer-review",
+      "evidenceState": "REVIEW_REQUIRED"
+    },
+    {
+      "id": "design-three",
+      "type": "drawing-package",
+      "path": "design-3.html",
+      "title": "Design 3 presentation source",
+      "visibility": "customer-review",
+      "evidenceState": "REVIEW_REQUIRED"
+    }
+  ]
+}
