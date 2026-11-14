@@ -3,8 +3,8 @@ import { useState } from "react";
 
 type SourceArtifact = {
   id: string; path: string; title: string; type: string;
-  visibility: "internal" | "customer-review";
-  evidenceState: "SOURCE_ONLY" | "REVIEW_REQUIRED" | "WITHHELD";
+  visibility: string;
+  evidenceState: string;
 };
 type SourceManifest = {
   schemaVersion: string; projectId: string; sourceRepository: string;
