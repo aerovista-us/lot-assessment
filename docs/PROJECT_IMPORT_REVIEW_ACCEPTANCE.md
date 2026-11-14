@@ -23,3 +23,11 @@ Status: implemented in draft PR #171; not deployed, not a persisted import syste
 6. Authenticated staging browser test, Vercel preview checks and production acceptance.
 
 Existing Pondy Flats and B Street GitHub Pages are transitional project-source deliverables, **not** newly authorized outputs. Keep customer/public visibility unchanged until explicit review. Neither project is a first-class application.
+
+## Cross-system staging review submission (source complete; not activated)
+- A button appears on both project pages **only** when the server is a Vercel preview and `LOTSCOPE_IMPORT_REVIEW_ENABLED=true`. Source preflight must succeed before the button becomes available.
+- `POST /api/workbench/project-imports/submit-review` requires an authenticated Workbench session, same-origin request, JSON, allowlisted project, configured HTTPS gateway URL, and the workbench's IDGW HMAC secret. It forwards the session token with a bounded source manifest over signed service HMAC, rather than submitting an impersonable reviewer ID.
+- Identity Gateway's staging-only broker resolves the session via AVCC and forwards canonical identity to an internal AVCC HMAC endpoint. AVCC revalidates active founder/admin authority and re-verifies the source files before creating review-only ledger rows in an explicitly migrated staging SQLite database.
+- All three tiers fail closed when the feature is disabled. Source files and current customer deliverables are unchanged; there is no approval/release endpoint.
+- LotScope source import tests, TypeScript and Next.js build passed on isolated checkout; Gateway 6 broker tests and AVCC 5 ledger/service tests passed on isolated checkout.
+- **Not yet accepted**: actual cross-service authenticated staging call through deployed networking, configured secrets, readback against canonical project IDs, and staged migration backup/rollback. Do not merge/enable as production feature before these gates.
