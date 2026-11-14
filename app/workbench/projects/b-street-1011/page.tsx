@@ -31,7 +31,7 @@ export default function BStreetProjectPage() {
         <a href={`https://github.com/${manifest.sourceRepository}/blob/${manifest.sourceRevision}/${artifact.path}`} target="_blank" rel="noopener noreferrer">View pinned source ↗</a>
       </div>)}</div>
     </section>
-    <ProjectSourceVerification manifest={manifest} />
+    <ProjectSourceVerification manifest={manifest} allowReviewSubmission={process.env.VERCEL_ENV === "preview" && process.env.LOTSCOPE_IMPORT_REVIEW_ENABLED === "true"} />
     <section className="wb-panel"><p className="eyebrow">CUSTOMER REPORT</p><h2>{project.customerReport.label}</h2><p>Existing source deliverables remain preserved. Authenticated project-scoped report import, HTML/PDF parity and consent-controlled release are pending. No automatic publication is enabled.</p></section>
   </main>;
 }
