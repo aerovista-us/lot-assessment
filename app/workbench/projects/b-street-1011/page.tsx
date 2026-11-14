@@ -1,3 +1,4 @@
+import { ProjectSourceVerification } from "@/components/workbench/ProjectSourceVerification";
 import Link from "next/link";
 import { LOTSCOPE_PROJECTS } from "@/lib/lotscope-project-catalog";
 import manifest from "@/projects/import-manifests/b-street-1011.json";
@@ -30,6 +31,7 @@ export default function BStreetProjectPage() {
         <a href={`https://github.com/${manifest.sourceRepository}/blob/${manifest.sourceRevision}/${artifact.path}`} target="_blank" rel="noopener noreferrer">View pinned source ↗</a>
       </div>)}</div>
     </section>
+    <ProjectSourceVerification manifest={manifest} />
     <section className="wb-panel"><p className="eyebrow">CUSTOMER REPORT</p><h2>{project.customerReport.label}</h2><p>Existing source deliverables remain preserved. Authenticated project-scoped report import, HTML/PDF parity and consent-controlled release are pending. No automatic publication is enabled.</p></section>
   </main>;
 }
