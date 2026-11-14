@@ -1,5 +1,6 @@
 import Link from "next/link";
 import projectSpec from "@/projects/pondy-lot2/project.json";
+import importManifest from "@/projects/import-manifests/pondy-lot2.json";
 import { pondyCandidateRegistry } from "@/projects/pondy-lot2/candidate-registry";
 
 const stages = ["Intake", "Rules", "Program", "Explore", "Review", "Intervention", "Validate", "Select", "Freeze", "Present"];
@@ -29,6 +30,17 @@ export default function PondyLotWorkspace() {
       <article className="wb-panel"><p className="eyebrow">OPEN INFORMATION</p><h2>Professional / AHJ confirmation</h2><p>Accessory-structure interpretation, close garage separation, civil grading/drainage and final permit-level validation remain outside the current automated proof.</p><span className="repair-watch">DO NOT PROMOTE AS RESOLVED</span></article>
     </section>
 
+    <section className="wb-panel" aria-label="Source-pinned Pondy project reports">
+      <p className="eyebrow">PROJECT IMPORTS / CUSTOMER REPORT SOURCES</p>
+      <h2>Existing source packages, not automatically published</h2>
+      <p>Source: {importManifest.sourceRepository} · Revision <code>{importManifest.sourceRevision.slice(0, 12)}</code>. Import, verification and customer-release gates remain pending.</p>
+      <div className="hero-actions">{importManifest.artifacts.map(artifact =>
+        <a key={artifact.id} className="secondary-button" target="_blank" rel="noopener noreferrer"
+          href={`https://github.com/${importManifest.sourceRepository}/blob/${importManifest.sourceRevision}/${artifact.path}`}>
+          {artifact.title} ↗
+        </a>)}</div>
+      <p className="microcopy">All report and drawing sources remain concept-only and require source/geometry checks before any customer-facing publication.</p>
+    </section>
     <section className="wb-panel lot-automation-callout"><div><p className="eyebrow">AUTOMATION-FIRST RULE</p><h2>Staff does not start by drawing.</h2></div><p>Broad search and ranking stay first. Human intervention is reserved for candidates the machine classifies as worth repairing. Any future component edit creates a child revision and makes prior evidence stale until the pipeline reruns it.</p></section>
   </main>;
 }
