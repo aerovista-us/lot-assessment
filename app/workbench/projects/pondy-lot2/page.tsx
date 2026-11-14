@@ -42,7 +42,7 @@ export default function PondyLotWorkspace() {
         </a>)}</div>
       <p className="microcopy">All report and drawing sources remain concept-only and require source/geometry checks before any customer-facing publication.</p>
     </section>
-    <ProjectSourceVerification manifest={importManifest} />
+    <ProjectSourceVerification manifest={importManifest} allowReviewSubmission={process.env.VERCEL_ENV === "preview" && process.env.LOTSCOPE_IMPORT_REVIEW_ENABLED === "true"} />
     <section className="wb-panel lot-automation-callout"><div><p className="eyebrow">AUTOMATION-FIRST RULE</p><h2>Staff does not start by drawing.</h2></div><p>Broad search and ranking stay first. Human intervention is reserved for candidates the machine classifies as worth repairing. Any future component edit creates a child revision and makes prior evidence stale until the pipeline reruns it.</p></section>
   </main>;
 }
