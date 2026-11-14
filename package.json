@@ -20,7 +20,7 @@
     "export:roof": "node --experimental-loader ./scripts/alias-loader.mjs scripts/export-roof-sot.mjs",
     "test:roof-touch": "node scripts/test-roof-inspector-touch.mjs",
     "test:customer-journey-ui": "node scripts/test-customer-journey-ui.mjs",
-    "test:project-imports": "node scripts/test-project-import-contract.mjs"
+    "test:project-imports": "node scripts/test-project-import-contract.mjs && node scripts/test-project-import-source-verifier.mjs"
   },
   "dependencies": {
     "next": "16.3.2",
