@@ -2,7 +2,7 @@
   "schemaVersion": "lotscope-source-manifest-v1",
   "projectId": "pondy-lot2",
   "sourceRepository": "aerovista-us/PondyFlats",
-  "sourceRevision": "881d539710d9711761042133de86388d680926f1",
+  "sourceRevision": "04b0f3112c38b866f32b016d26e3bed2827a7706",
   "artifacts": [
     {
       "id": "project-readme",
