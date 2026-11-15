@@ -24,6 +24,7 @@ export function CaseComparisonWorkbench() {
   const importInput = useRef<HTMLInputElement>(null);
   // Server revisions are independent from the draft's in-browser edit count.
   const serverRevision = useRef(0);
+  const draftEditEpoch = useRef(0);
   const [cloudState, setCloudState] = useState("Not synced · browser draft only");
   const [cloudBusy, setCloudBusy] = useState(false);
   const gate = useMemo(() => caseGate(project), [project]);
@@ -49,9 +50,15 @@ export function CaseComparisonWorkbench() {
 
   async function loadCloudCase() {
     if (!window.confirm("Replace this browser draft with the last saved cloud case? Export first if you need to preserve local changes.")) return;
+    const id = project.id;
+    const beforeLoadEditEpoch = draftEditEpoch.current;
     setCloudBusy(true);
     try {
-      const response = await fetch(`/api/workbench/cases?id=${encodeURIComponent(project.id)}`, { cache: "no-store" });
+      const response = await fetch(`/api/workbench/cases?id=${encodeURIComponent(id)}`, { cache: "no-store" });
+      if (draftEditEpoch.current !== beforeLoadEditEpoch) {
+        setCloudState("Cloud load cancelled: browser draft changed while loading. Your edits were preserved.");
+        return;
+      }
       if (response.status === 404) {
         serverRevision.current = 0;
         setCloudState("No cloud case for this ID yet · local draft preserved");
@@ -59,7 +66,11 @@ export function CaseComparisonWorkbench() {
       }
       if (!response.ok) throw new Error(`Cloud load failed (${response.status})`);
       const result = await response.json() as { revision: number; project: CaseProject };
-      if (!validCaseDocument(result.project) || result.project.id !== project.id || !Number.isSafeInteger(result.revision) || result.revision < 1) throw new Error("Unexpected case response");
+      if (!validCaseDocument(result.project) || result.project.id !== id || !Number.isSafeInteger(result.revision) || result.revision < 1) throw new Error("Unexpected case response");
+      if (draftEditEpoch.current !== beforeLoadEditEpoch) {
+        setCloudState("Cloud load cancelled: browser draft changed while loading. Your edits were preserved.");
+        return;
+      }
       serverRevision.current = result.revision;
       storageSafe.current = true;
       setProject(result.project);
@@ -101,6 +112,7 @@ export function CaseComparisonWorkbench() {
     }
   }
   function update(mutator: (next: CaseProject) => void, note?: string) {
+    draftEditEpoch.current += 1;
     setProject(current => { const next = clone(current); next.acceptedAt = null; mutator(next); next.revision += 1; next.updatedAt = new Date().toISOString(); return next; });
     setCloudState("Unsynced browser changes · save cloud case to persist");
     if (note) setMessage(note);
@@ -131,6 +143,7 @@ export function CaseComparisonWorkbench() {
         if (packageRecord.schema !== "horizon.lotscope.case-package.v1") throw new Error("unsupported package schema");
         if (!validCaseDocument(packageRecord.project)) throw new Error("invalid case document or missing required evidence");
         const incoming = packageRecord.project;
+        draftEditEpoch.current += 1;
         setProject(current => ({ ...incoming, id: current.id, revision: current.revision + 1, updatedAt: new Date().toISOString(), acceptedAt: null }));
         storageSafe.current = true;
         serverRevision.current = 0;
