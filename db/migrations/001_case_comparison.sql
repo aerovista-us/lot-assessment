@@ -29,4 +29,16 @@ DROP TRIGGER IF EXISTS lotscope_case_revision_capture ON lotscope_case;
 CREATE TRIGGER lotscope_case_revision_capture
 AFTER INSERT OR UPDATE OF document ON lotscope_case
 FOR EACH ROW EXECUTE FUNCTION lotscope_record_case_revision();
+-- Defense in depth: an application SQL role may append case snapshots but must
+-- never rewrite the recorded history through ordinary UPDATE/DELETE statements.
+CREATE OR REPLACE FUNCTION lotscope_reject_revision_mutation()
+RETURNS trigger LANGUAGE plpgsql AS $
+BEGIN
+  RAISE EXCEPTION 'Case revision history is append-only';
+END;
+$;
+DROP TRIGGER IF EXISTS lotscope_case_revision_immutable ON lotscope_case_revision;
+CREATE TRIGGER lotscope_case_revision_immutable
+BEFORE UPDATE OR DELETE ON lotscope_case_revision
+FOR EACH ROW EXECUTE FUNCTION lotscope_reject_revision_mutation();
 COMMIT;
