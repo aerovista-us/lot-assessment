@@ -1,0 +1,66 @@
+name: Case Comparison Persistence SQL QA
+
+on:
+  pull_request:
+    paths:
+      - 'db/migrations/**'
+      - 'db/tests/**'
+      - 'app/api/workbench/cases/**'
+      - 'lib/case-document-validation.ts'
+      - 'scripts/test-case-comparison.ts'
+      - '.github/workflows/case-persistence-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sql-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: lotscope_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U test_user -d lotscope_test"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      PGHOST: localhost
+      PGPORT: "5432"
+      PGUSER: test_user
+      PGPASSWORD: test_password
+      PGDATABASE: lotscope_test
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Install PostgreSQL client
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+      - name: Apply migration twice to verify idempotence
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -f db/migrations/001_case_comparison.sql
+          psql -v ON_ERROR_STOP=1 -f db/migrations/001_case_comparison.sql
+      - name: Test revisions, stale-write isolation and cross-owner keys
+        run: psql -v ON_ERROR_STOP=1 -f db/tests/case_comparison_contract.sql
+      - name: Run rollback-only Neon Preview acceptance contract against disposable PostgreSQL
+        run: psql -v ON_ERROR_STOP=1 -f db/tests/neon_preview_acceptance.sql
+      - name: Prove disposable database backup and restore
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -c "INSERT INTO lotscope_case(owner_identity_id,case_id,revision,document) VALUES ('restore-test','RESTORE-001',1,'{\"id\":\"RESTORE-001\"}'::jsonb)"
+          pg_dump --format=custom --no-owner --no-privileges -f "$RUNNER_TEMP/lotscope-restore-proof.dump"
+          createdb lotscope_restore_test
+          pg_restore --dbname=lotscope_restore_test --no-owner --no-privileges "$RUNNER_TEMP/lotscope-restore-proof.dump"
+          test "$(psql --dbname=lotscope_restore_test -Atc "SELECT count(*) FROM lotscope_case WHERE owner_identity_id='restore-test' AND case_id='RESTORE-001'")" = "1"
+          test "$(psql --dbname=lotscope_restore_test -Atc "SELECT count(*) FROM lotscope_case_revision WHERE owner_identity_id='restore-test' AND case_id='RESTORE-001'")" = "1"
+          rm -f "$RUNNER_TEMP/lotscope-restore-proof.dump"

@@ -7,6 +7,11 @@ on:
       - 'app/workbench-auth/**'
       - 'app/api/workbench/**'
       - 'lib/aerovista/**'
+      - 'lib/case-comparison.ts'
+      - 'lib/case-document-validation.ts'
+      - 'components/workbench/CaseComparisonWorkbench.tsx'
+      - 'scripts/test-case-comparison.ts'
+      - 'scripts/test-case-api.mjs'
       - 'scripts/test-workbench-handoff-failure.mjs'
       - 'scripts/test-candidate-customer-report.mjs'
       - 'packages/candidates/customer-report.ts'
@@ -58,6 +63,10 @@ jobs:
         run: npm install --no-audit --no-fund
       - name: Type check
         run: npm run lint
+      - name: Case Compare deterministic model and persisted-document validation
+        run: npm run test:case-comparison
+      - name: Case API route contract (mocked identity and SQL)
+        run: npx tsx scripts/test-case-api.mjs
       - name: Verify classified broker and founder access failures
         run: node --experimental-loader ./scripts/alias-loader.mjs scripts/test-workbench-handoff-failure.mjs
       - name: Protected roof inspector React source and valley review acceptance
@@ -94,4 +103,8 @@ jobs:
           grep -qi '/workbench-auth' <(curl -sSI http://127.0.0.1:3000/workbench)
           test "$(curl -sS -o /tmp/registry.json -w '%{http_code}' http://127.0.0.1:3000/api/workbench/registry)" = "401"
           grep -q 'workbench_not_authorized' /tmp/registry.json
+          test "$(curl -sS -o /tmp/case-anon.json -w '%{http_code}' 'http://127.0.0.1:3000/api/workbench/cases?id=HZ-001')" = "401"
+          grep -q 'Workbench capability required' /tmp/case-anon.json
+          test "$(curl -sS -o /tmp/case-anon-put.json -w '%{http_code}' -X PUT -H 'content-type: application/json' -d '{}' 'http://127.0.0.1:3000/api/workbench/cases')" = "401"
+          grep -q 'Workbench capability required' /tmp/case-anon-put.json
           curl -fsS http://127.0.0.1:3000/api/workbench/auth/session | grep -q '"authenticated":false'

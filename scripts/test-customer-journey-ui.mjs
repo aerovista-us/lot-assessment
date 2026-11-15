@@ -238,7 +238,11 @@ app.window.close();app=await open(raw,'http://fixture.test/workbench');doc=app.w
 assert.equal(doc.querySelector('[data-continue-design]').getAttribute('data-continue-design'),'journey-ui-fixture','Home must resume actual saved work rather than the registry default');
 assert.match(doc.querySelector('[data-continue-design]').getAttribute('href'),/journey-ui-fixture$/);
 assert.match(doc.querySelector('.workbench-resume').textContent,/5 rooms/);
-const journeyLinks=()=>[...doc.querySelectorAll('.studio-journey-card')].slice(1).map(link=>link.getAttribute('href'));
+// Case Compare is a separate case workspace, not a shortcut into the saved candidate.
+const journeyLinks=()=>[...doc.querySelectorAll('.studio-journey-card')]
+ .map(link=>link.getAttribute('href'))
+ .filter(href=>href?.includes('/candidates/') && href !== doc.querySelector('[data-continue-design]')?.getAttribute('href'));
+assert([...doc.querySelectorAll('.studio-journey-card')].some(link=>link.getAttribute('href')==='/workbench/case-comparison'),'Case Compare must remain independently navigable');
 assert.deepEqual(journeyLinks(),[
  '/workbench/projects/pondy-lot2/candidates/journey-ui-fixture#universal-design-editor',
  '/workbench/projects/pondy-lot2/candidates/journey-ui-fixture#customer-report-preview'

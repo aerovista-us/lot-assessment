@@ -89,14 +89,18 @@ export function generateCaseAlternatives(project: CaseProject, strategyKey = pro
 
 export function caseGate(project: CaseProject) {
   const missingEvidence = project.evidence.filter(item => item.required && item.status !== "verified");
-  const rejected = project.evidence.filter(item => item.status === "rejected");
+  const findings = [...project.constraints, ...project.assumptions];
+  const rejected = [...project.evidence, ...findings].filter(item => item.status === "rejected");
+  const unresolvedFindings = findings.filter(item => item.status !== "verified");
   const openRisks = project.risks.filter(item => item.status !== "closed");
-  const state = rejected.length ? "blocked" : missingEvidence.length || openRisks.length ? "conditional" : "evidence-ready";
-  return { state, label: state === "evidence-ready" ? "Evidence ready" : state === "blocked" ? "Blocked" : "Conditional", missingEvidence, openRisks };
+  const state = rejected.length ? "blocked" :
+    missingEvidence.length || unresolvedFindings.length || openRisks.length || !project.savedLayout
+      ? "conditional" : "evidence-ready";
+  return { state, label: state === "evidence-ready" ? "Evidence ready" : state === "blocked" ? "Blocked" : "Conditional", missingEvidence, unresolvedFindings, openRisks };
 }
 
 export function tradeoffSummary(project: CaseProject) {
   const alternative = project.savedLayout; const gate = caseGate(project);
   if (!alternative) return "Generate alternatives and save a working layout before drafting a tradeoff summary.";
-  return `${alternative.name} using the ${CASE_STRATEGIES[alternative.strategy].label.toLowerCase()} strategy shows ${alternative.fit >= 80 ? "strong" : "moderate"} preliminary program fit and ${alternative.circulation >= 80 ? "clear" : "unresolved"} circulation. Its ${alternative.coverage}% modeled coverage and ${alternative.riskScore}/100 risk indicator are comparison inputs only. The case remains ${gate.label.toLowerCase()} with ${gate.missingEvidence.length} evidence gate${gate.missingEvidence.length === 1 ? "" : "s"} open. Next bounded check: ${project.nextBoundedCheck}`;
+  return `${alternative.name} using the ${CASE_STRATEGIES[alternative.strategy].label.toLowerCase()} strategy shows ${alternative.fit >= 80 ? "strong" : "moderate"} preliminary program fit and ${alternative.circulation >= 80 ? "clear" : "unresolved"} circulation. Its ${alternative.coverage}% modeled coverage and ${alternative.riskScore}/100 risk indicator are comparison inputs only. The case remains ${gate.label.toLowerCase()} with ${gate.missingEvidence.length} evidence gate${gate.missingEvidence.length === 1 ? "" : "s"} open, ${gate.unresolvedFindings.length} unresolved assumption/constraint finding${gate.unresolvedFindings.length === 1 ? "" : "s"}, and ${gate.openRisks.length} open risk${gate.openRisks.length === 1 ? "" : "s"}. Next bounded check: ${project.nextBoundedCheck}`;
 }

@@ -39,7 +39,7 @@ try{
    if(view==='home'){
     await page.waitForSelector('[data-continue-design]');
     const resumePath=await page.$eval('[data-continue-design]',element=>element.getAttribute('href'));
-    assert.deepEqual(await page.$$eval('.studio-journey-card',elements=>elements.slice(1).map(element=>element.getAttribute('href'))),[resumePath+'#universal-design-editor',resumePath+'#customer-report-preview'],'Home journey shortcuts must stay with the resumed design');
+    assert.deepEqual(await page.$$eval('.studio-journey-card',elements=>elements.map(element=>element.getAttribute('href')).filter(href=>href?.includes('/candidates/') && !href.endsWith('/candidates/journey-ui-fixture'))),[resumePath+'#universal-design-editor',resumePath+'#customer-report-preview'],'Home journey shortcuts must stay with the resumed design');
    }
    if(width<960){
     await page.click('.workbench-menu-toggle');
