@@ -49,7 +49,7 @@ const bundle = await build({
       b.onResolve({ filter: /^next\/server$/ }, () => ({ path: "next/server", namespace: "test-mock" }));
       b.onResolve({ filter: /^@neondatabase\/serverless$/ }, () => ({ path: "neon", namespace: "test-mock" }));
       b.onResolve({ filter: /^@\/lib\/aerovista\/session$/ }, () => ({ path: "session", namespace: "test-mock" }));
-      b.onResolve({ filter: /^@\// }, args => ({ path: path.join(root, args.path.slice(2)) }));
+      b.onResolve({ filter: /^@\// }, args => ({ path: path.join(root, args.path.slice(2) + ".ts") }));
       b.onLoad({ filter: /.*/, namespace: "test-mock" }, args => {
         if (args.path === "next/server") {
           return { contents: "export const NextResponse = { json(body, init) { return Response.json(body, init); } };", loader: "js" };
