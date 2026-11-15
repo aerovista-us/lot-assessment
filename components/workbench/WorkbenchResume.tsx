@@ -58,7 +58,8 @@ export function WorkbenchJourneyCards() {
   const stages = [
     { number: "01", title: "Explore the lot", copy: "Review the parcel, buildings and source constraints. Compare the arrangements worth developing.", action: "Open project", href: "/workbench/projects/pondy-lot2" },
     { number: "02", title: "Shape your layout", copy: "Generate room alternatives, inspect the tradeoffs and save the arrangement you prefer.", action: "Enter layout studio", href: `${path}#universal-design-editor` },
-    { number: "03", title: "Review the whole story", copy: "Understand the checks and open questions. Preview a report from your saved design.", action: "Preview a report", href: `${path}#customer-report-preview` }
+    { number: "03", title: "Compare the case", copy: "Coordinate strategies, assumptions, risks and evidence without changing the saved source layout.", action: "Open case comparison", href: "/workbench/case-comparison" },
+    { number: "04", title: "Review the whole story", copy: "Understand the checks and open questions. Preview a report from your saved design.", action: "Preview a report", href: `${path}#customer-report-preview` }
   ];
   return <div className="studio-journey-grid">{stages.map(stage => <Link className="studio-journey-card" href={stage.href} key={stage.number}><span className="studio-step-number">{stage.number}</span><h3>{stage.title}</h3><p>{stage.copy}</p><strong>{stage.action} <span aria-hidden="true">↗</span></strong></Link>)}</div>;
 }
