@@ -14,6 +14,12 @@ globalThis.__caseApiTest = {
   query: async (strings, values) => {
     if (databaseUnavailable) throw new Error("mock DB unavailable");
     const statement = strings.join("?").trim();
+    if (statement.startsWith("SELECT case_id, revision")) {
+      const owner = values[0];
+      return [...records.entries()].filter(([key]) => key.startsWith(owner + ":"))
+        .map(([key, entry]) => ({ case_id: key.slice(owner.length + 1), revision: entry.revision,
+          name: entry.document.name, updated_at: "2026-11-14T00:00:00.000Z" }));
+    }
     if (statement.startsWith("SELECT revision, document")) {
       const [owner, id] = values;
       const record = records.get(owner + ":" + id);
@@ -66,6 +72,7 @@ const encoded = Buffer.from(bundle.outputFiles[0].text).toString("base64");
 const { GET, PUT } = await import("data:text/javascript;base64," + encoded);
 const url = "http://localhost/api/workbench/cases";
 function get(id = "HZ-001") { return GET(new Request(url + "?id=" + encodeURIComponent(id))); }
+function list() { return GET(new Request(url + "?list=1")); }
 function put(project, expectedRevision, headers = {}) {
   return PUT(new Request(url, { method: "PUT", headers: { "content-type": "application/json", ...headers },
     body: JSON.stringify({ project, expectedRevision }) }));
@@ -77,6 +84,7 @@ async function verify(response, status, context) {
 }
 const project = createCaseProject();
 await verify(await get(), 401, "anonymous GET");
+await verify(await list(), 401, "anonymous case index");
 await verify(await put(project, 0), 401, "anonymous PUT");
 identity = "founder-test";
 await verify(await put(project, 0, { origin: "https://untrusted.example" }), 403, "cross-origin mutation");
@@ -95,6 +103,8 @@ assert.equal(created.revision, 1);
 assert.equal(created.project.acceptedAt, null, "unverified client acceptance must not survive");
 assert.equal(created.decisionState, "conditional");
 await verify(await put(project, 0), 409, "duplicate create");
+const founderList = await verify(await list(), 200, "owner case list");
+assert.deepEqual(founderList.cases.map(item => item.id), [project.id], "only owner cases listed");
 const loaded = await verify(await get(), 200, "case read");
 assert.equal(loaded.revision, 1);
 assert.equal(loaded.project.id, project.id);
@@ -104,6 +114,7 @@ assert.equal(saved.revision, 2);
 await verify(await put(changed, 1), 409, "stale update");
 identity = "staff-test";
 await verify(await get(), 404, "other owner cannot read founder case");
+assert.deepEqual((await verify(await list(), 200, "other owner case list")).cases, [], "do not disclose founder cases in index");
 await verify(await put(changed, 1), 409, "other owner cannot overwrite founder case");
 const staff = await verify(await put(project, 0), 200, "owner-scoped separate case");
 assert.equal(staff.revision, 1);
