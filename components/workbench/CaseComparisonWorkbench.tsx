@@ -25,6 +25,7 @@ export function CaseComparisonWorkbench() {
   // Server revisions are independent from the draft's in-browser edit count.
   const serverRevision = useRef(0);
   const draftEditEpoch = useRef(0);
+  const activeCaseId = useRef(project.id);
   const [cloudState, setCloudState] = useState("Not synced · browser draft only");
   const [cloudBusy, setCloudBusy] = useState(false);
   const [cloudCases, setCloudCases] = useState<Array<{ id: string; name: string; revision: number }>>([]);
@@ -37,7 +38,7 @@ export function CaseComparisonWorkbench() {
       const saved = window.localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed: unknown = JSON.parse(saved);
-        if (validCaseDocument(parsed)) setProject({ ...parsed, acceptedAt: null });
+        if (validCaseDocument(parsed)) { activeCaseId.current = parsed.id; setProject({ ...parsed, acceptedAt: null }); }
         else { storageSafe.current = false; setMessage("Saved browser draft failed validation. It was not loaded or overwritten. Export the original browser data before attempting recovery."); }
       }
     } catch { storageSafe.current = false; setMessage("Browser draft could not be read. The original stored data was not overwritten."); }
@@ -74,6 +75,7 @@ export function CaseComparisonWorkbench() {
         return;
       }
       serverRevision.current = result.revision;
+      activeCaseId.current = result.project.id;
       storageSafe.current = true;
       setProject(result.project);
       setCloudCaseId(result.project.id);
@@ -111,6 +113,7 @@ export function CaseComparisonWorkbench() {
     fresh.id = `HZ-${crypto.randomUUID().slice(0, 12).toUpperCase()}`;
     draftEditEpoch.current += 1;
     serverRevision.current = 0;
+    activeCaseId.current = fresh.id;
     storageSafe.current = true;
     setProject(fresh);
     setCloudCaseId("");
@@ -136,6 +139,10 @@ export function CaseComparisonWorkbench() {
       }
       const result = await response.json() as { revision: number; project: CaseProject };
       if (!validCaseDocument(result.project) || result.project.id !== snapshot.id || !Number.isSafeInteger(result.revision) || result.revision < 1) throw new Error("Unexpected save response");
+      if (activeCaseId.current !== snapshot.id) {
+        setCloudState(`Case ${snapshot.id} was saved remotely at revision ${result.revision}, but a different case is now open. Its local draft and revision were not changed.`);
+        return;
+      }
       serverRevision.current = result.revision;
       setCloudCaseId(result.project.id);
       setCloudCases(current => [{
@@ -143,7 +150,8 @@ export function CaseComparisonWorkbench() {
       }, ...current.filter(item => item.id !== result.project.id)].slice(0, 100));
       // Do not overwrite edits made while the request was in flight. Never display a
       // client-side acceptance that the server intentionally refused to persist.
-      setProject(current => current.revision === snapshot.revision && current.updatedAt === snapshot.updatedAt
+      setProject(current => current.id === snapshot.id &&
+        current.revision === snapshot.revision && current.updatedAt === snapshot.updatedAt
         ? result.project : current);
       setCloudState(`Cloud case saved · revision ${result.revision}; unsynced edits may remain`);
     } catch (error) {
