@@ -20,6 +20,10 @@ export function CaseComparisonWorkbench() {
   const [ready, setReady] = useState(false);
   const [message, setMessage] = useState("Saved in this browser · export a case package for transfer");
   const importInput = useRef<HTMLInputElement>(null);
+  // Server revisions are independent from the draft's in-browser edit count.
+  const serverRevision = useRef(0);
+  const [cloudState, setCloudState] = useState("Not synced · browser draft only");
+  const [cloudBusy, setCloudBusy] = useState(false);
   const gate = useMemo(() => caseGate(project), [project]);
   const fingerprint = useMemo(() => caseFingerprint(project), [project]);
 
@@ -30,8 +34,56 @@ export function CaseComparisonWorkbench() {
   }, []);
   useEffect(() => { if (ready) try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(project)); } catch { /* warning already shown */ } }, [project, ready]);
 
+  async function loadCloudCase() {
+    if (!window.confirm("Replace this browser draft with the last saved cloud case? Export first if you need to preserve local changes.")) return;
+    setCloudBusy(true);
+    try {
+      const response = await fetch(`/api/workbench/cases?id=${encodeURIComponent(project.id)}`, { cache: "no-store" });
+      if (response.status === 404) {
+        serverRevision.current = 0;
+        setCloudState("No cloud case for this ID yet · local draft preserved");
+        return;
+      }
+      if (!response.ok) throw new Error(`Cloud load failed (${response.status})`);
+      const result = await response.json() as { revision: number; project: CaseProject };
+      if (!result.project || result.project.id !== project.id || !Number.isInteger(result.revision)) throw new Error("Unexpected case response");
+      serverRevision.current = result.revision;
+      setProject(result.project);
+      setCloudState(`Cloud case loaded · revision ${result.revision}`);
+    } catch (error) {
+      setCloudState(error instanceof Error ? error.message : "Cloud load failed");
+    } finally {
+      setCloudBusy(false);
+    }
+  }
+  async function saveCloudCase() {
+    setCloudBusy(true);
+    const snapshot = clone(project);
+    try {
+      const response = await fetch("/api/workbench/cases", {
+        method: "PUT", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ expectedRevision: serverRevision.current, project: snapshot }),
+      });
+      if (response.status === 409) {
+        setCloudState("Conflict: cloud case changed. Export this draft before loading the newer revision.");
+        return;
+      }
+      if (!response.ok) {
+        const failure = await response.json().catch(() => ({})) as { error?: string };
+        throw new Error(failure.error || `Cloud save failed (${response.status})`);
+      }
+      const result = await response.json() as { revision: number };
+      serverRevision.current = result.revision;
+      setCloudState(`Cloud case saved · revision ${result.revision}; later edits are not yet synced`);
+    } catch (error) {
+      setCloudState(error instanceof Error ? error.message : "Cloud save failed; browser draft retained");
+    } finally {
+      setCloudBusy(false);
+    }
+  }
   function update(mutator: (next: CaseProject) => void, note?: string) {
     setProject(current => { const next = clone(current); mutator(next); next.revision += 1; next.updatedAt = new Date().toISOString(); return next; });
+    setCloudState("Unsynced browser changes · save cloud case to persist");
     if (note) setMessage(note);
   }
   function generate() {
@@ -50,14 +102,14 @@ export function CaseComparisonWorkbench() {
     download(`${project.id}-conditional-report.html`, `<!doctype html><meta charset="utf-8"><title>${project.name}</title><style>body{font:14px system-ui;max-width:900px;margin:50px auto;color:#172033}h1,h2{font-family:Georgia,serif}aside{padding:15px;background:#fff4d7;border-left:5px solid #b7791f}table{width:100%;border-collapse:collapse}td,th{padding:9px;border-bottom:1px solid #ddd;text-align:left}</style><h1>${project.name}</h1><p>${project.id} · revision ${project.revision} · ${fingerprint}</p><aside><strong>Status: ${gate.label}</strong><p>Conditional coordination report only. Not structural, code, access, circulation, permitting, construction, or design acceptance.</p></aside><h2>Tradeoff summary</h2><p>${tradeoffSummary(project)}</p><h2>Evidence</h2><table><tr><th>Gate</th><th>Status</th><th>Source</th></tr>${evidenceRows}</table>`, "text/html");
   }
   function importPackage(file: File) {
-    const reader = new FileReader(); reader.onload = () => { try { const payload = JSON.parse(String(reader.result)); if (!String(payload.schema || "").startsWith("horizon.lotscope.")) throw new Error("unsupported package schema"); const incoming = payload.project ?? payload; setProject({ ...incoming, id: project.id, revision: project.revision + 1, updatedAt: new Date().toISOString(), acceptedAt: null }); setMessage("Imported without copy/paste. Evidence and acceptance remain fail closed."); } catch (error) { setMessage(`Import blocked: ${error instanceof Error ? error.message : "invalid file"}`); } }; reader.readAsText(file);
+    const reader = new FileReader(); reader.onload = () => { try { const payload = JSON.parse(String(reader.result)); if (!String(payload.schema || "").startsWith("horizon.lotscope.")) throw new Error("unsupported package schema"); const incoming = payload.project ?? payload; setProject({ ...incoming, id: project.id, revision: project.revision + 1, updatedAt: new Date().toISOString(), acceptedAt: null }); setMessage("Imported without copy/paste. Evidence and acceptance remain fail closed."); setCloudState("Imported draft not synced to cloud"); } catch (error) { setMessage(`Import blocked: ${error instanceof Error ? error.message : "invalid file"}`); } }; reader.readAsText(file);
   }
 
   return <main className="shell workbench-shell cc-shell">
     <header className="cc-head"><div><p className="eyebrow">LOTSCOPE WORKBENCH · CASE COMPARISON</p><h1>Coordinate the decision.<br/>Keep uncertainty visible.</h1><p className="lede">Compare residential site strategies, preserve assumptions and evidence, and hand the chosen direction back to the source design tools.</p></div><aside className={`cc-decision cc-${gate.state}`}><span>DECISION STATE</span><strong>{gate.label}</strong><small>{gate.missingEvidence.length} evidence gates · {gate.openRisks.length} open risks</small></aside></header>
-    <section className="cc-project-bar"><div><span>{project.id}</span><input aria-label="Project name" value={project.name} onChange={event => update(next => { next.name = event.target.value; })}/><small>{project.address} · r{project.revision} · {dateLabel(project.updatedAt)} · {fingerprint}</small></div><div><button className="secondary-button" type="button" onClick={() => importInput.current?.click()}>Import intake</button><button className="secondary-button" type="button" onClick={exportCase}>Export package</button></div><input ref={importInput} type="file" accept="application/json" hidden onChange={event => { const file = event.target.files?.[0]; if (file) importPackage(file); event.currentTarget.value = ""; }}/></section>
+    <section className="cc-project-bar"><div><span>{project.id}</span><input aria-label="Project name" value={project.name} onChange={event => update(next => { next.name = event.target.value; })}/><small>{project.address} · r{project.revision} · {dateLabel(project.updatedAt)} · {fingerprint}</small></div><div><button className="secondary-button" type="button" onClick={() => importInput.current?.click()}>Import intake</button><button className="secondary-button" type="button" disabled={cloudBusy} onClick={loadCloudCase}>Load cloud</button><button className="secondary-button" type="button" disabled={cloudBusy} onClick={saveCloudCase}>Save cloud</button><button className="secondary-button" type="button" onClick={exportCase}>Export package</button></div><input ref={importInput} type="file" accept="application/json" hidden onChange={event => { const file = event.target.files?.[0]; if (file) importPackage(file); event.currentTarget.value = ""; }}/></section>
     <nav className="cc-stages" aria-label="Case workflow">{stages.map((item, index) => <button key={item} type="button" className={stage === item ? "active" : ""} onClick={() => setStage(item)}><span>0{index + 1}</span>{item}{item === "Validate" ? <b>{gate.missingEvidence.length}</b> : null}</button>)}</nav>
-    <p className="cc-notice" role="status"><strong>Evidence-aware:</strong> {message}</p>
+    <p className="cc-notice" role="status"><strong>Evidence-aware:</strong> {message} <span>· {cloudState}</span></p>
     {stage === "Generate" ? <Generate project={project} update={update} generate={generate}/> : null}
     {stage === "Compare" ? <Compare project={project} saveAlternative={saveAlternative} setStage={setStage}/> : null}
     {stage === "Refine" ? <Refine project={project} update={update}/> : null}
