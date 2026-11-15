@@ -27,6 +27,8 @@ export function CaseComparisonWorkbench() {
   const draftEditEpoch = useRef(0);
   const [cloudState, setCloudState] = useState("Not synced · browser draft only");
   const [cloudBusy, setCloudBusy] = useState(false);
+  const [cloudCases, setCloudCases] = useState<Array<{ id: string; name: string; revision: number }>>([]);
+  const [cloudCaseId, setCloudCaseId] = useState("");
   const gate = useMemo(() => caseGate(project), [project]);
   const fingerprint = useMemo(() => caseFingerprint(project), [project]);
 
@@ -48,9 +50,9 @@ export function CaseComparisonWorkbench() {
     catch { setMessage("Browser draft could not be saved. Export this case before leaving."); }
   }, [project, ready]);
 
-  async function loadCloudCase() {
-    if (!window.confirm("Replace this browser draft with the last saved cloud case? Export first if you need to preserve local changes.")) return;
-    const id = project.id;
+  async function loadCloudCase(requestedId = project.id) {
+    if (!window.confirm("Replace this browser draft with the selected cloud case? Export first if you need to preserve local changes.")) return;
+    const id = requestedId;
     const beforeLoadEditEpoch = draftEditEpoch.current;
     setCloudBusy(true);
     try {
@@ -74,12 +76,47 @@ export function CaseComparisonWorkbench() {
       serverRevision.current = result.revision;
       storageSafe.current = true;
       setProject(result.project);
+      setCloudCaseId(result.project.id);
       setCloudState(`Cloud case loaded · revision ${result.revision}`);
     } catch (error) {
       setCloudState(error instanceof Error ? error.message : "Cloud load failed");
     } finally {
       setCloudBusy(false);
     }
+  }
+  async function browseCloudCases() {
+    setCloudBusy(true);
+    try {
+      const response = await fetch("/api/workbench/cases?list=1", { cache: "no-store" });
+      if (!response.ok) throw new Error(`Case index unavailable (${response.status})`);
+      const payload: unknown = await response.json();
+      if (!payload || typeof payload !== "object" || !("cases" in payload) ||
+          !Array.isArray(payload.cases)) throw new Error("Invalid cloud case index");
+      const cases = payload.cases.filter((c: unknown): c is { id: string; name: string; revision: number } =>
+        !!c && typeof c === "object" && "id" in c && "name" in c && "revision" in c &&
+        typeof c.id === "string" && /^[a-zA-Z0-9_-]{1,80}$/.test(c.id) &&
+        typeof c.name === "string" && Number.isSafeInteger(c.revision)).slice(0, 100);
+      setCloudCases(cases);
+      setCloudCaseId(cases[0]?.id ?? "");
+      setCloudState(cases.length ? `${cases.length} cloud case(s) found for your account` : "No saved cloud cases for your account");
+    } catch (error) {
+      setCloudState(error instanceof Error ? error.message : "Could not browse cloud cases");
+    } finally {
+      setCloudBusy(false);
+    }
+  }
+  function newCase() {
+    if (!window.confirm("Create a new browser case? Export the current draft first if it has not been saved to cloud.")) return;
+    const fresh = createCaseProject(2);
+    fresh.id = `HZ-${crypto.randomUUID().slice(0, 12).toUpperCase()}`;
+    draftEditEpoch.current += 1;
+    serverRevision.current = 0;
+    storageSafe.current = true;
+    setProject(fresh);
+    setCloudCaseId("");
+    setCloudState("New browser case · not saved to cloud");
+    setMessage("New study created with unverified example dimensions. Enter measured lot details before making decisions.");
+    setStage("Generate");
   }
   async function saveCloudCase() {
     setCloudBusy(true);
@@ -100,6 +137,7 @@ export function CaseComparisonWorkbench() {
       const result = await response.json() as { revision: number; project: CaseProject };
       if (!validCaseDocument(result.project) || result.project.id !== snapshot.id || !Number.isSafeInteger(result.revision) || result.revision < 1) throw new Error("Unexpected save response");
       serverRevision.current = result.revision;
+      setCloudCaseId(result.project.id);
       // Do not overwrite edits made while the request was in flight. Never display a
       // client-side acceptance that the server intentionally refused to persist.
       setProject(current => current.revision === snapshot.revision && current.updatedAt === snapshot.updatedAt
@@ -159,7 +197,8 @@ export function CaseComparisonWorkbench() {
 
   return <main className="shell workbench-shell cc-shell">
     <header className="cc-head"><div><p className="eyebrow">LOTSCOPE WORKBENCH · CASE COMPARISON</p><h1>Coordinate the decision.<br/>Keep uncertainty visible.</h1><p className="lede">Compare residential site strategies, preserve assumptions and evidence, and hand the chosen direction back to the source design tools.</p></div><aside className={`cc-decision cc-${gate.state}`}><span>DECISION STATE</span><strong>{gate.label}</strong><small>{gate.missingEvidence.length} evidence gates · {gate.unresolvedFindings.length} unresolved findings · {gate.openRisks.length} open risks</small></aside></header>
-    <section className="cc-project-bar"><div><span>{project.id}</span><input aria-label="Project name" value={project.name} onChange={event => update(next => { next.name = event.target.value; })}/><small>{project.address} · r{project.revision} · {dateLabel(project.updatedAt)} · {fingerprint}</small></div><div><button className="secondary-button" type="button" onClick={() => importInput.current?.click()}>Import intake</button><button className="secondary-button" type="button" disabled={cloudBusy} onClick={loadCloudCase}>Load cloud</button><button className="secondary-button" type="button" disabled={cloudBusy} onClick={saveCloudCase}>Save cloud</button><button className="secondary-button" type="button" onClick={exportCase}>Export package</button></div><input ref={importInput} type="file" accept="application/json" hidden onChange={event => { const file = event.target.files?.[0]; if (file) importPackage(file); event.currentTarget.value = ""; }}/></section>
+    <section className="cc-project-bar"><div><span>{project.id}</span><input aria-label="Project name" value={project.name} onChange={event => update(next => { next.name = event.target.value; })}/><small>{project.address} · r{project.revision} · {dateLabel(project.updatedAt)} · {fingerprint}</small></div><div><button className="secondary-button" type="button" onClick={() => importInput.current?.click()}>Import intake</button><button className="secondary-button" type="button" disabled={cloudBusy} onClick={newCase}>New case</button><button className="secondary-button" type="button" disabled={cloudBusy} onClick={browseCloudCases}>Browse cloud</button><button className="secondary-button" type="button" disabled={cloudBusy} onClick={() => loadCloudCase()}>Load current</button><button className="secondary-button" type="button" disabled={cloudBusy} onClick={saveCloudCase}>Save cloud</button><button className="secondary-button" type="button" onClick={exportCase}>Export package</button></div><input ref={importInput} type="file" accept="application/json" hidden onChange={event => { const file = event.target.files?.[0]; if (file) importPackage(file); event.currentTarget.value = ""; }}/></section>
+    {cloudCases.length ? <section className="cc-notice" aria-label="Cloud cases"><label>Saved cloud cases <select aria-label="Saved cloud case" value={cloudCaseId} onChange={event => setCloudCaseId(event.target.value)}>{cloudCases.map(item => <option key={item.id} value={item.id}>{item.name} · {item.id} · r{item.revision}</option>)}</select></label> <button className="secondary-button" type="button" disabled={cloudBusy || !cloudCaseId} onClick={() => loadCloudCase(cloudCaseId)}>Load selected case</button></section> : null}
     <nav className="cc-stages" aria-label="Case workflow">{stages.map((item, index) => <button key={item} type="button" className={stage === item ? "active" : ""} onClick={() => setStage(item)}><span>0{index + 1}</span>{item}{item === "Validate" ? <b>{gate.missingEvidence.length}</b> : null}</button>)}</nav>
     <p className="cc-notice" role="status"><strong>Evidence-aware:</strong> {message} <span>· {cloudState}</span></p>
     {stage === "Generate" ? <Generate project={project} update={update} generate={generate}/> : null}
