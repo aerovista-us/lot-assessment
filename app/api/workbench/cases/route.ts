@@ -20,11 +20,21 @@ function validId(value: unknown): value is string {
 export async function GET(request: Request) {
   const session = await getWorkbenchAccess();
   if (!session) return respond({ error: "Workbench capability required." }, 401);
-  const id = new URL(request.url).searchParams.get("id");
-  if (!validId(id)) return respond({ error: "Valid case id required." }, 400);
+  const params = new URL(request.url).searchParams;
+  const listing = params.get("list") === "1";
+  const id = params.get("id");
+  if (!listing && !validId(id)) return respond({ error: "Valid case id required." }, 400);
   const sql = database();
   if (!sql) return respond({ error: "Case store not configured." }, 503);
   try {
+    if (listing) {
+      const rows = await sql`SELECT case_id, revision, document->>'name' AS name, updated_at
+        FROM lotscope_case WHERE owner_identity_id = ${session.identity.identityId}
+        ORDER BY updated_at DESC LIMIT 100`;
+      return respond({ cases: rows.map(row => ({
+        id: row.case_id, revision: row.revision, name: row.name, updatedAt: row.updated_at
+      })) });
+    }
     const rows = await sql`SELECT revision, document FROM lotscope_case
       WHERE owner_identity_id = ${session.identity.identityId} AND case_id = ${id}`;
     if (!rows.length) return respond({ error: "Case not found." }, 404);
