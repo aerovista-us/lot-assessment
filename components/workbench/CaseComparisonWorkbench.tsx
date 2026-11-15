@@ -88,7 +88,7 @@ export function CaseComparisonWorkbench() {
     }
   }
   function update(mutator: (next: CaseProject) => void, note?: string) {
-    setProject(current => { const next = clone(current); mutator(next); next.revision += 1; next.updatedAt = new Date().toISOString(); return next; });
+    setProject(current => { const next = clone(current); next.acceptedAt = null; mutator(next); next.revision += 1; next.updatedAt = new Date().toISOString(); return next; });
     setCloudState("Unsynced browser changes · save cloud case to persist");
     if (note) setMessage(note);
   }
