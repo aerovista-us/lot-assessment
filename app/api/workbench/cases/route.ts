@@ -43,6 +43,19 @@ export async function GET(request: Request) {
 export async function PUT(request: Request) {
   const session = await getWorkbenchAccess();
   if (!session) return respond({ error: "Workbench capability required." }, 401);
+  // Cookie-authenticated writes must not accept a cross-origin browser request.
+  const origin = request.headers.get("origin");
+  const fetchSite = request.headers.get("sec-fetch-site");
+  if (fetchSite === "cross-site") return respond({ error: "Cross-origin case writes are not permitted." }, 403);
+  if (origin) {
+    try {
+      if (new URL(origin).origin !== new URL(request.url).origin) {
+        return respond({ error: "Cross-origin case writes are not permitted." }, 403);
+      }
+    } catch {
+      return respond({ error: "Invalid request origin." }, 403);
+    }
+  }
   const size = Number(request.headers.get("content-length") || "0");
   if (size > 1024 * 1024) return respond({ error: "Case package exceeds 1 MB." }, 413);
   let input: { project?: unknown; expectedRevision?: unknown };
