@@ -106,6 +106,14 @@ const staff = await verify(await put(project, 0), 200, "owner-scoped separate ca
 assert.equal(staff.revision, 1);
 identity = "founder-test";
 assert.equal((await verify(await get(), 200, "founder case intact")).project.name, "Revised founder case");
+const founderKey = "founder-test:" + project.id;
+const originalRecord = structuredClone(records.get(founderKey));
+records.set(founderKey, { revision: originalRecord.revision, document: { id: project.id } });
+await verify(await get(), 503, "corrupt stored case refused");
+records.set(founderKey, { ...originalRecord, revision: originalRecord.revision + 1 });
+await verify(await get(), 503, "document/revision mismatch refused");
+records.set(founderKey, originalRecord);
+await verify(await get(), 200, "restored record loads");
 databaseUnavailable = true;
 await verify(await get(), 503, "read DB outage");
 await verify(await put(changed, 2), 503, "write DB outage");
