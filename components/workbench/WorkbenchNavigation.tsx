@@ -7,6 +7,7 @@ import { useRef, useState } from "react";
 const staffNav = [
   ["Home", "/workbench"],
   ["Projects", "/workbench/projects"],
+  ["Case compare", "/workbench/case-comparison"],
   ["Pondy Lot 2", "/workbench/projects/pondy-lot2"],
   ["Explore", "/workbench/projects/pondy-lot2/explore"],
   ["Designs", "/workbench/projects/pondy-lot2/candidates"],
