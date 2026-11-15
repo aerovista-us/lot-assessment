@@ -100,4 +100,8 @@ jobs:
           grep -qi '/workbench-auth' <(curl -sSI http://127.0.0.1:3000/workbench)
           test "$(curl -sS -o /tmp/registry.json -w '%{http_code}' http://127.0.0.1:3000/api/workbench/registry)" = "401"
           grep -q 'workbench_not_authorized' /tmp/registry.json
+          test "$(curl -sS -o /tmp/case-anon.json -w '%{http_code}' 'http://127.0.0.1:3000/api/workbench/cases?id=HZ-001')" = "401"
+          grep -q 'Workbench capability required' /tmp/case-anon.json
+          test "$(curl -sS -o /tmp/case-anon-put.json -w '%{http_code}' -X PUT -H 'content-type: application/json' -d '{}' 'http://127.0.0.1:3000/api/workbench/cases')" = "401"
+          grep -q 'Workbench capability required' /tmp/case-anon-put.json
           curl -fsS http://127.0.0.1:3000/api/workbench/auth/session | grep -q '"authenticated":false'
