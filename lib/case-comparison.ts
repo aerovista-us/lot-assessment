@@ -89,10 +89,14 @@ export function generateCaseAlternatives(project: CaseProject, strategyKey = pro
 
 export function caseGate(project: CaseProject) {
   const missingEvidence = project.evidence.filter(item => item.required && item.status !== "verified");
-  const rejected = project.evidence.filter(item => item.status === "rejected");
+  const findings = [...project.constraints, ...project.assumptions];
+  const rejected = [...project.evidence, ...findings].filter(item => item.status === "rejected");
+  const unresolvedFindings = findings.filter(item => item.status !== "verified");
   const openRisks = project.risks.filter(item => item.status !== "closed");
-  const state = rejected.length ? "blocked" : missingEvidence.length || openRisks.length || !project.savedLayout ? "conditional" : "evidence-ready";
-  return { state, label: state === "evidence-ready" ? "Evidence ready" : state === "blocked" ? "Blocked" : "Conditional", missingEvidence, openRisks };
+  const state = rejected.length ? "blocked" :
+    missingEvidence.length || unresolvedFindings.length || openRisks.length || !project.savedLayout
+      ? "conditional" : "evidence-ready";
+  return { state, label: state === "evidence-ready" ? "Evidence ready" : state === "blocked" ? "Blocked" : "Conditional", missingEvidence, unresolvedFindings, openRisks };
 }
 
 export function tradeoffSummary(project: CaseProject) {
