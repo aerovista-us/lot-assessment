@@ -91,7 +91,7 @@ export function caseGate(project: CaseProject) {
   const missingEvidence = project.evidence.filter(item => item.required && item.status !== "verified");
   const rejected = project.evidence.filter(item => item.status === "rejected");
   const openRisks = project.risks.filter(item => item.status !== "closed");
-  const state = rejected.length ? "blocked" : missingEvidence.length || openRisks.length ? "conditional" : "evidence-ready";
+  const state = rejected.length ? "blocked" : missingEvidence.length || openRisks.length || !project.savedLayout ? "conditional" : "evidence-ready";
   return { state, label: state === "evidence-ready" ? "Evidence ready" : state === "blocked" ? "Blocked" : "Conditional", missingEvidence, openRisks };
 }
 
