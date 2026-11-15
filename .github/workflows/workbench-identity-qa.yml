@@ -11,6 +11,7 @@ on:
       - 'lib/case-document-validation.ts'
       - 'components/workbench/CaseComparisonWorkbench.tsx'
       - 'scripts/test-case-comparison.ts'
+      - 'scripts/test-case-api.mjs'
       - 'scripts/test-workbench-handoff-failure.mjs'
       - 'scripts/test-candidate-customer-report.mjs'
       - 'packages/candidates/customer-report.ts'
@@ -64,6 +65,8 @@ jobs:
         run: npm run lint
       - name: Case Compare deterministic model and persisted-document validation
         run: npm run test:case-comparison
+      - name: Case API route contract (mocked identity and SQL)
+        run: npx tsx scripts/test-case-api.mjs
       - name: Verify classified broker and founder access failures
         run: node --experimental-loader ./scripts/alias-loader.mjs scripts/test-workbench-handoff-failure.mjs
       - name: Protected roof inspector React source and valley review acceptance
