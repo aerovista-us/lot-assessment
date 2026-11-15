@@ -28,7 +28,13 @@ export async function GET(request: Request) {
     const rows = await sql`SELECT revision, document FROM lotscope_case
       WHERE owner_identity_id = ${session.identity.identityId} AND case_id = ${id}`;
     if (!rows.length) return respond({ error: "Case not found." }, 404);
-    return respond({ revision: rows[0].revision, project: rows[0].document });
+    const stored = rows[0];
+    if (!Number.isSafeInteger(stored.revision) || stored.revision < 1
+        || !validCaseDocument(stored.document)
+        || stored.document.id !== id || stored.document.revision !== stored.revision) {
+      return respond({ error: "Case store returned an invalid revision; no data loaded." }, 503);
+    }
+    return respond({ revision: stored.revision, project: stored.document });
   } catch {
     return respond({ error: "Case store unavailable." }, 503);
   }
