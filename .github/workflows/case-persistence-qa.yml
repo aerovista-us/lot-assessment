@@ -51,6 +51,8 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f db/migrations/001_case_comparison.sql
       - name: Test revisions, stale-write isolation and cross-owner keys
         run: psql -v ON_ERROR_STOP=1 -f db/tests/case_comparison_contract.sql
+      - name: Run rollback-only Neon Preview acceptance contract against disposable PostgreSQL
+        run: psql -v ON_ERROR_STOP=1 -f db/tests/neon_preview_acceptance.sql
       - name: Prove disposable database backup and restore
         shell: bash
         run: |
