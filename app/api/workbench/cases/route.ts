@@ -47,6 +47,15 @@ export async function PUT(request: Request) {
   } catch {
     return respond({ error: "Invalid JSON." }, 400);
   }
+  const supplied = input?.project;
+  if (supplied && typeof supplied === "object" && !Array.isArray(supplied)) {
+    const evidence = (supplied as { evidence?: unknown }).evidence;
+    if (Array.isArray(evidence) && evidence.some(item =>
+      item && typeof item === "object" && (item as { status?: unknown }).status === "verified" &&
+      (typeof (item as { source?: unknown }).source !== "string" ||
+        !(item as { source: string }).source.trim())
+    )) return respond({ error: "Verified evidence requires a source." }, 422);
+  }
   if (!validCaseDocument(input?.project) || !Number.isSafeInteger(input.expectedRevision)
       || Number(input.expectedRevision) < 0) {
     return respond({ error: "Invalid case document or expected revision." }, 400);
@@ -55,9 +64,6 @@ export async function PUT(request: Request) {
   const expected = Number(input.expectedRevision);
   // Never accept client-supplied approval. Evidence-ready is not an explicit approval.
   // Enforce valid evidence structure on every persisted revision.
-  if (project.evidence.some(item => item.status === "verified" && !item.source.trim())) {
-    return respond({ error: "Verified evidence requires a source." }, 422);
-  }
   const gate = caseGate(project);
   const sanitized = { ...project, acceptedAt: null, revision: expected + 1, updatedAt: new Date().toISOString() };
   const sql = database();
