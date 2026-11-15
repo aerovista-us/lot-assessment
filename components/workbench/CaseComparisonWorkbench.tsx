@@ -34,7 +34,7 @@ export function CaseComparisonWorkbench() {
       const saved = window.localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed: unknown = JSON.parse(saved);
-        if (validCaseDocument(parsed)) setProject(parsed);
+        if (validCaseDocument(parsed)) setProject({ ...parsed, acceptedAt: null });
         else { storageSafe.current = false; setMessage("Saved browser draft failed validation. It was not loaded or overwritten. Export the original browser data before attempting recovery."); }
       }
     } catch { storageSafe.current = false; setMessage("Browser draft could not be read. The original stored data was not overwritten."); }
@@ -113,7 +113,7 @@ export function CaseComparisonWorkbench() {
     update(next => { if (next.savedLayout && next.savedLayout.id !== alternative.id) next.baselineLayout = next.savedLayout; next.savedLayout = alternative; next.acceptedAt = null; }, `${alternative.name} is now the working layout; comparison alternatives remain unchanged.`);
   }
   function exportCase() {
-    const payload = { schema: "horizon.lotscope.case-package.v1", exportedAt: new Date().toISOString(), acceptance: { state: gate.state, explicit: Boolean(project.acceptedAt), missingEvidence: gate.missingEvidence.map(item => item.id), openRisks: gate.openRisks.map(item => item.id) }, project };
+    const payload = { schema: "horizon.lotscope.case-package.v1", exportedAt: new Date().toISOString(), acceptance: { state: gate.state, explicit: false, missingEvidence: gate.missingEvidence.map(item => item.id), openRisks: gate.openRisks.map(item => item.id) }, project };
     download(`${project.id}-case-package.json`, JSON.stringify(payload, null, 2), "application/json");
   }
   function exportReport() {
