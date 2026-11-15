@@ -49,7 +49,7 @@ export function validCaseDocument(value: unknown): value is CaseProject {
           && text(e.source,2000) && (e.status !== "verified" || e.source.trim().length > 0))) return false;
   const ids = p.evidence.map((e:{id:string})=>e.id);
   if (new Set(ids).size !== ids.length || !requiredEvidence.every(id =>
-      p.evidence.some((e:{id:string;required:boolean})=>e.id === id && e.required === true))) return false;
+      (p.evidence as Array<{id:string;required:boolean}>).some(e=>e.id === id && e.required === true))) return false;
   if (!Array.isArray(p.risks) || p.risks.length > 100 || !p.risks.every((r:unknown)=>
       isObj(r) && text(r.id,100) && text(r.text,2000) && text(r.nextCheck,2000)
       && ["low","medium","high"].includes(String(r.severity))
