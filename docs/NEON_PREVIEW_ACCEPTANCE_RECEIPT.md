@@ -35,6 +35,11 @@ An environment variable named `DATABASE_URL` in Vercel is not proof of branch is
 3. Run `db/tests/neon_preview_acceptance.sql` against that same branch. It asserts schema, trigger names, revision capture, stale write denial, tenant isolation, and history immutability. Its probe writes are enclosed in `BEGIN` / `ROLLBACK`; it must report PASS with no leftover probe row.
 4. Confirm the preview application's runtime deployment points at this same Neon branch. Do not infer this solely from a successful build.
 
+## Application-side synchronization protection — tested in code CI
+- An active-case ID guard prevents a late cloud save for an earlier case from assigning its server revision to a newly opened case. The remote save may have succeeded; the UI reports this without changing the newer local draft.
+- A save response may update the active case only if the project ID and local edit revision still match the original snapshot. Edits made during the request remain local.
+- This is an application-side safeguard and does not replace the uncompleted real Neon save/reload acceptance below.
+
 ## Real authenticated case acceptance
 Use **two distinct authorized, non-production test identities** through the actual AeroVista Gateway / AVCC SSO flow on the exact Preview URL. Do not bypass capability checks. Both users must independently have `lotscope.workbench.access` granted in the identity authority; avoid sharing one founder cookie.
 
