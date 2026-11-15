@@ -79,13 +79,16 @@ export async function PUT(request: Request) {
   const sql = database();
   if (!sql) return respond({ error: "Case store not configured." }, 503);
   try {
-    const rows = await sql`INSERT INTO lotscope_case (owner_identity_id, case_id, revision, document)
-      SELECT ${session.identity.identityId}, ${sanitized.id}, ${sanitized.revision}, ${JSON.stringify(sanitized)}::jsonb
-      WHERE ${expected} = 0
-      ON CONFLICT (owner_identity_id, case_id) DO UPDATE
-      SET revision = EXCLUDED.revision, document = EXCLUDED.document, updated_at = now()
-      WHERE lotscope_case.revision = ${expected}
-      RETURNING revision`;
+    const rows = expected === 0
+      ? await sql`INSERT INTO lotscope_case (owner_identity_id, case_id, revision, document)
+          VALUES (${session.identity.identityId}, ${sanitized.id}, 1, ${JSON.stringify(sanitized)}::jsonb)
+          ON CONFLICT (owner_identity_id, case_id) DO NOTHING
+          RETURNING revision`
+      : await sql`UPDATE lotscope_case
+          SET revision = ${sanitized.revision}, document = ${JSON.stringify(sanitized)}::jsonb, updated_at = now()
+          WHERE owner_identity_id = ${session.identity.identityId}
+            AND case_id = ${sanitized.id} AND revision = ${expected}
+          RETURNING revision`;
     if (!rows.length) return respond({ error: "Revision conflict. Reload before saving.", code: "revision_conflict" }, 409);
     return respond({ revision: rows[0].revision, project: sanitized, decisionState: gate.state });
   } catch {
