@@ -15,6 +15,10 @@ assert.equal(project.savedLayout.id, first[0].id, "comparison generation must no
 assert.equal(caseGate(project).state, "conditional", "unknown evidence must fail closed");
 project.evidence.forEach(item => { item.status = "verified"; item.source = "test evidence"; });
 project.risks.forEach(item => { item.status = "closed"; });
+assert.equal(caseGate(project).state, "conditional", "unresolved assumptions and constraints must stay conditional");
+assert.equal(caseGate(project).unresolvedFindings.length, 2);
+project.constraints.forEach(item => { item.status = "verified"; });
+project.assumptions.forEach(item => { item.status = "verified"; });
 assert.equal(caseGate(project).state, "evidence-ready");
 project.evidence[0].status = "rejected";
 assert.equal(caseGate(project).state, "blocked");
