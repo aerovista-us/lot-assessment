@@ -72,9 +72,14 @@ export function CaseComparisonWorkbench() {
         const failure = await response.json().catch(() => ({})) as { error?: string };
         throw new Error(failure.error || `Cloud save failed (${response.status})`);
       }
-      const result = await response.json() as { revision: number };
+      const result = await response.json() as { revision: number; project: CaseProject };
+      if (!result.project || result.project.id !== snapshot.id || !Number.isInteger(result.revision)) throw new Error("Unexpected save response");
       serverRevision.current = result.revision;
-      setCloudState(`Cloud case saved · revision ${result.revision}; later edits are not yet synced`);
+      // Do not overwrite edits made while the request was in flight. Never display a
+      // client-side acceptance that the server intentionally refused to persist.
+      setProject(current => current.revision === snapshot.revision && current.updatedAt === snapshot.updatedAt
+        ? result.project : current);
+      setCloudState(`Cloud case saved · revision ${result.revision}; unsynced edits may remain`);
     } catch (error) {
       setCloudState(error instanceof Error ? error.message : "Cloud save failed; browser draft retained");
     } finally {
