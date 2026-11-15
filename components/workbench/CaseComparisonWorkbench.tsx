@@ -5,6 +5,7 @@ import {
   CASE_STRATEGIES, caseFingerprint, caseGate, createCaseProject, generateCaseAlternatives, tradeoffSummary,
   type CaseAlternative, type CaseProject, type CaseStrategy, type FindingStatus,
 } from "@/lib/case-comparison";
+import { validCaseDocument } from "@/lib/case-document-validation";
 
 const STORAGE_KEY = "lotscope.case-comparison.v1";
 const stages = ["Generate", "Compare", "Refine", "Validate", "Drawings", "Report"] as const;
@@ -29,11 +30,22 @@ export function CaseComparisonWorkbench() {
   const fingerprint = useMemo(() => caseFingerprint(project), [project]);
 
   useEffect(() => {
-    try { const saved = window.localStorage.getItem(STORAGE_KEY); if (saved) setProject(JSON.parse(saved)); }
-    catch { setMessage("Browser storage is unavailable; export before leaving this page."); }
+    try {
+      const saved = window.localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed: unknown = JSON.parse(saved);
+        if (validCaseDocument(parsed)) setProject(parsed);
+        else { storageSafe.current = false; setMessage("Saved browser draft failed validation. It was not loaded or overwritten. Export the original browser data before attempting recovery."); }
+      }
+    } catch { storageSafe.current = false; setMessage("Browser draft could not be read. The original stored data was not overwritten."); }
     setReady(true);
   }, []);
-  useEffect(() => { if (ready) try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(project)); } catch { /* warning already shown */ } }, [project, ready]);
+  const storageSafe = useRef(true);
+  useEffect(() => {
+    if (!ready || !storageSafe.current) return;
+    try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(project)); }
+    catch { setMessage("Browser draft could not be saved. Export this case before leaving."); }
+  }, [project, ready]);
 
   async function loadCloudCase() {
     if (!window.confirm("Replace this browser draft with the last saved cloud case? Export first if you need to preserve local changes.")) return;
@@ -47,8 +59,9 @@ export function CaseComparisonWorkbench() {
       }
       if (!response.ok) throw new Error(`Cloud load failed (${response.status})`);
       const result = await response.json() as { revision: number; project: CaseProject };
-      if (!result.project || result.project.id !== project.id || !Number.isInteger(result.revision)) throw new Error("Unexpected case response");
+      if (!validCaseDocument(result.project) || result.project.id !== project.id || !Number.isSafeInteger(result.revision) || result.revision < 1) throw new Error("Unexpected case response");
       serverRevision.current = result.revision;
+      storageSafe.current = true;
       setProject(result.project);
       setCloudState(`Cloud case loaded · revision ${result.revision}`);
     } catch (error) {
@@ -74,7 +87,7 @@ export function CaseComparisonWorkbench() {
         throw new Error(failure.error || `Cloud save failed (${response.status})`);
       }
       const result = await response.json() as { revision: number; project: CaseProject };
-      if (!result.project || result.project.id !== snapshot.id || !Number.isInteger(result.revision)) throw new Error("Unexpected save response");
+      if (!validCaseDocument(result.project) || result.project.id !== snapshot.id || !Number.isSafeInteger(result.revision) || result.revision < 1) throw new Error("Unexpected save response");
       serverRevision.current = result.revision;
       // Do not overwrite edits made while the request was in flight. Never display a
       // client-side acceptance that the server intentionally refused to persist.
@@ -108,7 +121,27 @@ export function CaseComparisonWorkbench() {
     download(`${project.id}-conditional-report.html`, `<!doctype html><meta charset="utf-8"><title>${escapeHtml(project.name)}</title><style>body{font:14px system-ui;max-width:900px;margin:50px auto;color:#172033}h1,h2{font-family:Georgia,serif}aside{padding:15px;background:#fff4d7;border-left:5px solid #b7791f}table{width:100%;border-collapse:collapse}td,th{padding:9px;border-bottom:1px solid #ddd;text-align:left}</style><h1>${escapeHtml(project.name)}</h1><p>${escapeHtml(project.id)} · revision ${project.revision} · ${escapeHtml(fingerprint)}</p><aside><strong>Status: ${gate.label}</strong><p>Conditional coordination report only. Not structural, code, access, circulation, permitting, construction, or design acceptance.</p></aside><h2>Tradeoff summary</h2><p>${escapeHtml(tradeoffSummary(project))}</p><h2>Evidence</h2><table><tr><th>Gate</th><th>Status</th><th>Source</th></tr>${evidenceRows}</table>`, "text/html");
   }
   function importPackage(file: File) {
-    const reader = new FileReader(); reader.onload = () => { try { const payload = JSON.parse(String(reader.result)); if (!String(payload.schema || "").startsWith("horizon.lotscope.")) throw new Error("unsupported package schema"); const incoming = payload.project ?? payload; setProject({ ...incoming, id: project.id, revision: project.revision + 1, updatedAt: new Date().toISOString(), acceptedAt: null }); setMessage("Imported without copy/paste. Evidence and acceptance remain fail closed."); setCloudState("Imported draft not synced to cloud"); } catch (error) { setMessage(`Import blocked: ${error instanceof Error ? error.message : "invalid file"}`); } }; reader.readAsText(file);
+    if (file.size > 1024 * 1024) { setMessage("Import blocked: case package exceeds 1 MB."); return; }
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const payload: unknown = JSON.parse(String(reader.result));
+        if (!payload || typeof payload !== "object" || Array.isArray(payload)) throw new Error("invalid package");
+        const packageRecord = payload as { schema?: unknown; project?: unknown };
+        if (packageRecord.schema !== "horizon.lotscope.case-package.v1") throw new Error("unsupported package schema");
+        if (!validCaseDocument(packageRecord.project)) throw new Error("invalid case document or missing required evidence");
+        const incoming = packageRecord.project;
+        setProject(current => ({ ...incoming, id: current.id, revision: current.revision + 1, updatedAt: new Date().toISOString(), acceptedAt: null }));
+        storageSafe.current = true;
+        serverRevision.current = 0;
+        setMessage("Imported case draft. Verify source evidence before cloud saving; acceptance is not transferred.");
+        setCloudState("Imported draft not synced to cloud · check for an existing cloud case before saving");
+      } catch (error) {
+        setMessage(`Import blocked: ${error instanceof Error ? error.message : "invalid file"}`);
+      }
+    };
+    reader.onerror = () => setMessage("Import blocked: file could not be read.");
+    reader.readAsText(file);
   }
 
   return <main className="shell workbench-shell cc-shell">
@@ -146,7 +179,7 @@ function FindingList({ title, items, update }: { title: string; items: { id: str
 
 function Validate({ project, update }: { project: CaseProject; update: (mutator: (next: CaseProject) => void, note?: string) => void }) {
   const gate = caseGate(project); const verified = project.evidence.filter(item => item.status === "verified").length;
-  return <div className="cc-grid"><section className="wb-panel"><div className="cc-section-head"><div><p className="eyebrow">FAIL-CLOSED REGISTER</p><h2>Evidence</h2></div><span>{verified}/{project.evidence.length} verified</span></div><div className="cc-evidence">{project.evidence.map(item => <article key={item.id}><div><strong>{item.label}</strong><span className={`cc-status cc-${item.status}`}>{item.status}</span></div><select aria-label={`${item.label} evidence status`} value={item.status} onChange={event => update(next => { const target = next.evidence.find(entry => entry.id === item.id); if (target) { target.status = event.target.value as FindingStatus; target.source = target.status === "unknown" ? "" : target.source; } next.acceptedAt = null; })}><option>unknown</option><option>tentative</option><option>verified</option><option>rejected</option></select><input aria-label={`${item.label} evidence source`} value={item.source} placeholder="Source, document ID or reviewer" onChange={event => update(next => { const target = next.evidence.find(entry => entry.id === item.id); if (target) target.source = event.target.value; })}/></article>)}</div></section><div className="cc-stack"><section className={`cc-gate cc-${gate.state}`}><p className="eyebrow">ACCEPTANCE GATE</p><h2>{gate.label}</h2><p>{gate.missingEvidence.length} required evidence records remain unverified. {gate.openRisks.length} risks remain open.</p><div><span style={{width:`${verified / project.evidence.length * 100}%`}}/></div><button type="button" disabled={gate.state !== "evidence-ready"} onClick={() => update(next => { next.acceptedAt = new Date().toISOString(); }, "Local draft acknowledgement only. Cloud saves do not persist design acceptance; authorized sign-off is still required.")}>Record explicit design acceptance</button></section><section className="wb-panel"><p className="eyebrow">BOUNDED CHECKS</p><h2>Missing information & risk</h2><div className="cc-risks">{project.risks.map(risk => <article key={risk.id}><div><strong>{risk.text}</strong><small>{risk.nextCheck}</small></div><select aria-label={`${risk.text} status`} value={risk.status} onChange={event => update(next => { const target = next.risks.find(entry => entry.id === risk.id); if (target) target.status = event.target.value as "open" | "closed"; next.acceptedAt = null; })}><option>open</option><option>closed</option></select></article>)}</div></section></div></div>;
+  return <div className="cc-grid"><section className="wb-panel"><div className="cc-section-head"><div><p className="eyebrow">FAIL-CLOSED REGISTER</p><h2>Evidence</h2></div><span>{verified}/{project.evidence.length} verified</span></div><div className="cc-evidence">{project.evidence.map(item => <article key={item.id}><div><strong>{item.label}</strong><span className={`cc-status cc-${item.status}`}>{item.status}</span></div><select aria-label={`${item.label} evidence status`} value={item.status} onChange={event => update(next => { const target = next.evidence.find(entry => entry.id === item.id); if (target) { target.status = event.target.value as FindingStatus; target.source = target.status === "unknown" ? "" : target.source; } next.acceptedAt = null; })}><option>unknown</option><option>tentative</option><option>verified</option><option>rejected</option></select><input aria-label={`${item.label} evidence source`} value={item.source} placeholder="Source, document ID or reviewer" onChange={event => update(next => { const target = next.evidence.find(entry => entry.id === item.id); if (target) target.source = event.target.value; })}/></article>)}</div></section><div className="cc-stack"><section className={`cc-gate cc-${gate.state}`}><p className="eyebrow">ACCEPTANCE GATE</p><h2>{gate.label}</h2><p>{gate.missingEvidence.length} required evidence records remain unverified. {gate.openRisks.length} risks remain open.</p><div><span style={{width:`${verified / project.evidence.length * 100}%`}}/></div><button type="button" disabled title="Server-side authorized sign-off is not yet implemented">Acceptance unavailable · authorized review required</button></section><section className="wb-panel"><p className="eyebrow">BOUNDED CHECKS</p><h2>Missing information & risk</h2><div className="cc-risks">{project.risks.map(risk => <article key={risk.id}><div><strong>{risk.text}</strong><small>{risk.nextCheck}</small></div><select aria-label={`${risk.text} status`} value={risk.status} onChange={event => update(next => { const target = next.risks.find(entry => entry.id === risk.id); if (target) target.status = event.target.value as "open" | "closed"; next.acceptedAt = null; })}><option>open</option><option>closed</option></select></article>)}</div></section></div></div>;
 }
 
 function Drawings({ project }: { project: CaseProject }) { return project.savedLayout ? <section className="wb-panel"><div className="cc-section-head"><div><p className="eyebrow">COORDINATION DRAWING</p><h2>{project.name}</h2></div><span>{project.savedLayout.fingerprint}</span></div><div className="cc-drawing"><CaseDiagram alternative={project.savedLayout} large/><strong>CONDITIONAL COORDINATION STUDY · NOT FOR CONSTRUCTION</strong></div></section> : <Empty title="No drawing source" copy="Save an alternative in Compare before producing a coordination drawing."/>; }
