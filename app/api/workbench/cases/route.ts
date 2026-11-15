@@ -80,7 +80,8 @@ export async function PUT(request: Request) {
   if (!sql) return respond({ error: "Case store not configured." }, 503);
   try {
     const rows = await sql`INSERT INTO lotscope_case (owner_identity_id, case_id, revision, document)
-      VALUES (${session.identity.identityId}, ${sanitized.id}, ${sanitized.revision}, ${JSON.stringify(sanitized)}::jsonb)
+      SELECT ${session.identity.identityId}, ${sanitized.id}, ${sanitized.revision}, ${JSON.stringify(sanitized)}::jsonb
+      WHERE ${expected} = 0
       ON CONFLICT (owner_identity_id, case_id) DO UPDATE
       SET revision = EXCLUDED.revision, document = EXCLUDED.document, updated_at = now()
       WHERE lotscope_case.revision = ${expected}
