@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { neon } from "@neondatabase/serverless";
 import { getWorkbenchAccess } from "@/lib/aerovista/session";
 import { caseGate, type CaseProject } from "@/lib/case-comparison";
+import { validCaseDocument } from "@/lib/case-document-validation";
 
 export const dynamic = "force-dynamic";
 const headers = { "cache-control": "no-store" };
@@ -14,23 +15,6 @@ function database() {
 }
 function validId(value: unknown): value is string {
   return typeof value === "string" && /^[a-zA-Z0-9_-]{1,80}$/.test(value);
-}
-function validProject(value: unknown): value is CaseProject {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
-  const p = value as Partial<CaseProject>;
-  return validId(p.id) && typeof p.name === "string" && p.name.length <= 200
-    && p.lot !== null && typeof p.lot === "object"
-    && p.program !== null && typeof p.program === "object"
-    && Array.isArray(p.program?.rooms) && Array.isArray(p.evidence)
-    && Array.isArray(p.risks) && Array.isArray(p.constraints)
-    && Array.isArray(p.assumptions) && Array.isArray(p.alternatives)
-    && p.evidence.length >= 6 && p.evidence.length <= 100
-    && p.risks.length <= 100 && p.alternatives.length <= 100
-    && ["survey", "zoning", "access", "structure", "circulation", "approval"].every(
-      id => p.evidence?.some(item => item?.id === id && item.required === true
-        && ["unknown", "tentative", "verified", "rejected"].includes(item.status)
-        && typeof item.source === "string")
-    );
 }
 
 export async function GET(request: Request) {
@@ -63,7 +47,7 @@ export async function PUT(request: Request) {
   } catch {
     return respond({ error: "Invalid JSON." }, 400);
   }
-  if (!validProject(input?.project) || !Number.isSafeInteger(input.expectedRevision)
+  if (!validCaseDocument(input?.project) || !Number.isSafeInteger(input.expectedRevision)
       || Number(input.expectedRevision) < 0) {
     return respond({ error: "Invalid case document or expected revision." }, 400);
   }
