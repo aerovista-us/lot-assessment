@@ -51,3 +51,14 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f db/migrations/001_case_comparison.sql
       - name: Test revisions, stale-write isolation and cross-owner keys
         run: psql -v ON_ERROR_STOP=1 -f db/tests/case_comparison_contract.sql
+      - name: Prove disposable database backup and restore
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -c "INSERT INTO lotscope_case(owner_identity_id,case_id,revision,document) VALUES ('restore-test','RESTORE-001',1,'{\"id\":\"RESTORE-001\"}'::jsonb)"
+          pg_dump --format=custom --no-owner --no-privileges -f "$RUNNER_TEMP/lotscope-restore-proof.dump"
+          createdb lotscope_restore_test
+          pg_restore --dbname=lotscope_restore_test --no-owner --no-privileges "$RUNNER_TEMP/lotscope-restore-proof.dump"
+          test "$(psql --dbname=lotscope_restore_test -Atc "SELECT count(*) FROM lotscope_case WHERE owner_identity_id='restore-test' AND case_id='RESTORE-001'")" = "1"
+          test "$(psql --dbname=lotscope_restore_test -Atc "SELECT count(*) FROM lotscope_case_revision WHERE owner_identity_id='restore-test' AND case_id='RESTORE-001'")" = "1"
+          rm -f "$RUNNER_TEMP/lotscope-restore-proof.dump"
